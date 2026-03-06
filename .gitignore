@@ -1,0 +1,6 @@
+node_modules
+target
+.env
+.angular
+dist
+__pycache__

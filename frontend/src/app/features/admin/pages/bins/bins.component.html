@@ -1,0 +1,129 @@
+<section class="it-bins">
+
+  <!-- En-tête -->
+  <div class="it-binsHeader">
+    <div>
+      <h1 class="it-binsTitle">Bacs intelligents</h1>
+      <p class="it-binsSub">Surveiller et gérer tous les bacs intelligents à travers la ville</p>
+    </div>
+
+    <button class="it-exportBtn" (click)="exportCsv()">
+      <span class="it-icon it-icon--dl"></span>
+      Exporter
+    </button>
+  </div>
+
+  <!-- KPI -->
+  <div class="it-binsKpi">
+    <div class="it-statCard">
+      <div class="it-statLabel">Nombre total de bacs</div>
+      <div class="it-statValue">{{ stats.total | number }}</div>
+    </div>
+    <div class="it-statCard">
+      <div class="it-statLabel">Bacs pleins</div>
+      <div class="it-statValue">{{ stats.full }}</div>
+    </div>
+    <div class="it-statCard">
+      <div class="it-statLabel">Partiels</div>
+      <div class="it-statValue">{{ stats.partial }}</div>
+    </div>
+    <div class="it-statCard">
+      <div class="it-statLabel">Vides</div>
+      <div class="it-statValue">{{ stats.empty }}</div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="it-filterBar">
+    <div class="it-search">
+      <span class="it-icon it-icon--search"></span>
+      <input [(ngModel)]="query" placeholder="Rechercher par ID ou localisation..." />
+    </div>
+
+    <div class="it-select">
+      <span class="it-icon it-icon--filter"></span>
+      <select [(ngModel)]="statusFilter">
+        <option value="All">Tous les états</option>
+        <option value="Plein">Plein</option>
+        <option value="Partiel">Partiel</option>
+        <option value="Vide">Vide</option>
+        <option value="Maintenance">Maintenance</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+
+    <div class="it-select">
+      <select [(ngModel)]="sortBy">
+        <option value="fill_desc">Trier par niveau de remplissage</option>
+        <option value="fill_asc">Niveau de remplissage (Bas → Élevé)</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+  </div>
+
+  <!-- Tableau -->
+  <div class="it-tableWrap">
+    <table class="it-table">
+      <thead>
+        <tr>
+          <th>ID du bac</th>
+          <th>Localisation</th>
+          <th>Niveau de remplissage</th>
+          <th>État</th>
+          <th>Batterie</th>
+          <th>Dernière collecte</th>
+          <th>Temp.</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of filteredRows">
+          <td class="it-id">{{ r.id }}</td>
+
+          <td>
+            <div class="it-loc">
+              <span class="it-icon it-icon--pin"></span>
+              <span>{{ r.location }}</span>
+            </div>
+          </td>
+
+          <td>
+            <div class="it-fill">
+              <div class="it-fillPct">{{ r.fill }}%</div>
+              <div class="it-bar">
+                <div class="it-bar__in"
+                     [style.width.%]="r.fill"
+                     [ngClass]="fillClass(r.fill, r.status)">
+                </div>
+              </div>
+            </div>
+          </td>
+
+          <td>
+            <span class="it-badge"
+                  [ngClass]="{
+                    'is-full': r.status==='Plein',
+                    'is-partial': r.status==='Partiel',
+                    'is-empty': r.status==='Vide',
+                    'is-maint': r.status==='Maintenance'
+                  }">
+              {{ r.status }}
+            </span>
+          </td>
+
+          <td>
+            <div class="it-battery">
+              <span class="it-battIcon"
+                    [ngClass]="{ 'is-low': r.battery < 20 }"></span>
+              <span>{{ r.battery }}%</span>
+            </div>
+          </td>
+
+          <td class="it-muted">{{ r.lastCollection }}</td>
+          <td>{{ r.temp }}°C</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</section>

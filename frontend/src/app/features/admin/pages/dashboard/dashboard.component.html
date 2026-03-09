@@ -1,0 +1,329 @@
+<section class="it-ov">
+
+  <!-- ================= KPI ROW ================= -->
+  <div class="it-kpiRow">
+    <article class="it-kpiCard" *ngFor="let k of kpis">
+      <div class="it-kpiCard__top">
+
+        <div class="it-kpiIcon" [attr.data-icon]="k.icon">
+          <span class="material-icons it-mi">
+            {{
+              k.icon === 'trash' ? 'delete' :
+              k.icon === 'alert' ? 'report' :
+              k.icon === 'truck' ? 'local_shipping' :
+              'eco'
+            }}
+          </span>
+        </div>
+
+        <div class="it-delta"
+             [class.isUp]="k.deltaType==='up'"
+             [class.isDown]="k.deltaType==='down'">
+          <span class="material-icons it-deltaIcon">
+            {{ k.deltaType === 'up' ? 'trending_up' : 'trending_down' }}
+          </span>
+          <span>{{ k.delta }}</span>
+        </div>
+
+      </div>
+
+      <div class="it-kpiCard__label">{{ k.label }}</div>
+      <div class="it-kpiCard__value">{{ k.value }}</div>
+    </article>
+  </div>
+
+  <div *ngIf="dashboardLoading" class="it-muted" style="margin-bottom: 12px;">
+    Chargement des KPI...
+  </div>
+
+  <div *ngIf="dashboardError" class="it-error" style="margin-bottom: 12px;">
+    {{ dashboardError }}
+  </div>
+
+  <!-- ================= MAP + ALERTS ================= -->
+  <div class="it-midRow">
+
+    <!-- ========= MAP ========= -->
+    <section class="it-panel it-panel--map">
+      <app-fleet-map
+        [showTrucks]="false"
+        [allowAddBins]="true"
+        title="Carte de l’état des bacs en temps réel"
+        subtitle="Surveillance en temps réel à travers la ville">
+      </app-fleet-map>
+    </section>
+
+    <!-- ========= ALERTS ========= -->
+    <section class="it-panel it-panel--alerts">
+
+      <div class="it-panelHead">
+        <div>
+          <div class="it-panelTitle">Alertes récentes</div>
+          <div class="it-panelSub">Bacs nécessitant une intervention</div>
+        </div>
+
+        <button class="it-refreshBtn" (click)="loadAlerts()">↻</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="it-alertFilters">
+
+        <select [(ngModel)]="filterResolved" (change)="loadAlerts()">
+          <option value="false">Open</option>
+          <option value="true">Resolved</option>
+          <option value="">All</option>
+        </select>
+
+        <select [(ngModel)]="filterSeverity" (change)="loadAlerts()">
+          <option value="">Severity: All</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+
+        <select [(ngModel)]="filterType" (change)="loadAlerts()">
+          <option value="">Type: All</option>
+          <option value="MAINTENANCE">MAINTENANCE</option>
+          <option value="THRESHOLD">THRESHOLD</option>
+          <option value="ANOMALY">ANOMALY</option>
+          <option value="SYSTEM">SYSTEM</option>
+        </select>
+
+        <input [(ngModel)]="searchText"
+               (keyup.enter)="loadAlerts()"
+               placeholder="Search: BIN-001 / title..." />
+
+        <button (click)="loadAlerts()">Search</button>
+        <button (click)="resetFilters()">Reset</button>
+
+      </div>
+
+      <!-- Loading -->
+      <div *ngIf="loadingAlerts" class="it-muted">
+        Chargement...
+      </div>
+
+      <!-- Error -->
+      <div *ngIf="!loadingAlerts && alertsError" class="it-error">
+        {{ alertsError }}
+      </div>
+
+      <!-- List -->
+      <div *ngIf="!loadingAlerts && !alertsError">
+
+        <div *ngIf="alerts.length === 0" class="it-muted">
+          Aucune alerte ✅
+        </div>
+
+        <article class="it-alertCard" *ngFor="let a of alerts">
+
+          <div class="it-alertCard__top">
+            <div class="it-alertId">
+              <span class="it-alertDot"
+                    [ngClass]="{
+                      'dot-high': a.severity==='HIGH',
+                      'dot-med': a.severity==='MEDIUM',
+                      'dot-low': a.severity==='LOW'
+                    }"></span>
+              <span>{{ a.id }}</span>
+            </div>
+            <div class="it-alertTime">{{ a.timeAgo }}</div>
+          </div>
+
+          <div class="it-alertLoc">
+            {{ a.location }}
+          </div>
+
+          <div class="it-badge"
+               [class.isFull]="a.status==='Plein'"
+               [class.isMaint]="a.status==='Maintenance'">
+            {{ a.status }}
+          </div>
+
+          <div class="it-alertActions">
+            <button (click)="openDetails(a)">Details</button>
+
+            <button (click)="resolve(a)"
+                    [disabled]="resolvingId === a.alertId">
+              {{ resolvingId === a.alertId ? 'Resolving...' : 'Resolve' }}
+            </button>
+          </div>
+
+        </article>
+      </div>
+
+      <!-- ===== Details Modal ===== -->
+      <div *ngIf="showDetails" class="it-modalOverlay" (click)="closeDetails()">
+        <div class="it-modal" (click)="$event.stopPropagation()">
+
+          <div class="it-modalHeader">
+            <h3>Alert Details</h3>
+            <button (click)="closeDetails()">✕</button>
+          </div>
+
+          <div *ngIf="detailsLoading">Chargement...</div>
+          <div *ngIf="detailsError" class="it-error">{{ detailsError }}</div>
+
+          <div *ngIf="selectedDetails">
+
+            <p><b>Bin:</b> {{ selectedDetails.binCode }}</p>
+            <p><b>Type:</b> {{ selectedDetails.alertType }}</p>
+            <p><b>Severity:</b> {{ selectedDetails.severity }}</p>
+            <p><b>Title:</b> {{ selectedDetails.title }}</p>
+            <p><b>Message:</b> {{ selectedDetails.message }}</p>
+
+            <hr>
+
+            <p><b>Zone:</b> {{ selectedDetails.zoneName || '—' }}</p>
+            <p><b>Coords:</b> {{ selectedDetails.binLat }}, {{ selectedDetails.binLng }}</p>
+
+            <p><b>Fill:</b> {{ selectedDetails.fillLevel }}%</p>
+            <p><b>Battery:</b> {{ selectedDetails.batteryLevel }}%</p>
+            <p><b>Telemetry Time:</b> {{ selectedDetails.telemetryTimestamp }}</p>
+
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- ================= CHARTS ROW ================= -->
+  <div class="it-chartsRow">
+
+  <section class="it-panel it-panel--chart">
+    <div class="it-panelTitle">Niveau moyen de remplissage</div>
+
+    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+    <div *ngIf="!chartsLoading && !chartsError && fillTrend.length === 0" class="it-muted">
+      Aucune donnée disponible
+    </div>
+
+    <div class="it-chart" *ngIf="!chartsLoading && !chartsError && fillTrend.length > 0">
+      <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
+        <g opacity="0.15">
+          <line x1="30" y1="40" x2="500" y2="40" />
+          <line x1="30" y1="80" x2="500" y2="80" />
+          <line x1="30" y1="120" x2="500" y2="120" />
+          <line x1="30" y1="160" x2="500" y2="160" />
+          <line x1="30" y1="200" x2="500" y2="200" />
+        </g>
+
+        <path
+          d="M30 170 C 90 160, 120 120, 170 130 S 260 170, 320 120 S 410 80, 500 95 L 500 200 L 30 200 Z"
+          fill="currentColor" opacity="0.12">
+        </path>
+
+        <path
+          d="M30 170 C 90 160, 120 120, 170 130 S 260 170, 320 120 S 410 80, 500 95"
+          fill="none" stroke="currentColor" stroke-width="3"
+          stroke-linecap="round" stroke-linejoin="round">
+        </path>
+
+        <g fill="currentColor">
+          <circle cx="30" cy="170" r="4"></circle>
+          <circle cx="170" cy="130" r="4"></circle>
+          <circle cx="320" cy="120" r="4"></circle>
+          <circle cx="500" cy="95" r="4"></circle>
+        </g>
+
+        <g font-size="12" opacity="0.65">
+          <text *ngFor="let p of fillTrend; let i = index"
+                [attr.x]="30 + (i * 78)"
+                y="214">
+            {{ p.label }}
+          </text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section class="it-panel it-panel--chart">
+    <div class="it-panelTitle">Collectes cette semaine</div>
+
+    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+    <div *ngIf="!chartsLoading && !chartsError && weeklyCollections.length === 0" class="it-muted">
+      Aucune donnée disponible
+    </div>
+
+    <div class="it-chart" *ngIf="!chartsLoading && !chartsError && weeklyCollections.length > 0">
+      <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
+        <line x1="30" y1="200" x2="500" y2="200" opacity="0.2"></line>
+
+        <g fill="currentColor" opacity="0.85">
+          <rect *ngFor="let p of weeklyCollections; let i = index"
+                [attr.x]="55 + (i * 70)"
+                [attr.y]="200 - (p.value * 6)"
+                width="45"
+                [attr.height]="p.value * 6"
+                rx="10">
+          </rect>
+        </g>
+
+        <g font-size="12" opacity="0.65">
+          <text *ngFor="let p of weeklyCollections; let i = index"
+                [attr.x]="60 + (i * 70)"
+                y="214">
+            {{ p.label }}
+          </text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section class="it-panel it-panel--chart">
+    <div class="it-panelTitle">Répartition de l’état des bacs</div>
+
+    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+
+    <div class="it-chart it-chart--donut" style="display:flex; gap:18px; align-items:center;" *ngIf="!chartsLoading && !chartsError">
+      <svg viewBox="0 0 220 220" width="220" height="220">
+        <circle cx="110" cy="110" r="78" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="18"></circle>
+
+        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
+                [attr.stroke-dasharray]="donutStrokeEmpty"
+                stroke-dashoffset="0"
+                stroke-linecap="round"></circle>
+
+        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
+                opacity="0.55"
+                [attr.stroke-dasharray]="donutStrokePartial"
+                stroke-dashoffset="-170"
+                stroke-linecap="round"></circle>
+
+        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
+                opacity="0.25"
+                [attr.stroke-dasharray]="donutStrokeFull"
+                stroke-dashoffset="-300"
+                stroke-linecap="round"></circle>
+
+        <text x="110" y="105" text-anchor="middle" font-size="20" font-weight="700">
+          {{ distribution.totalBins }}
+        </text>
+        <text x="110" y="128" text-anchor="middle" font-size="12" opacity="0.7">bacs</text>
+      </svg>
+
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.9; display:inline-block;"></span>
+          <span>Vide ({{ distribution.emptyBins }})</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.55; display:inline-block;"></span>
+          <span>Partiel ({{ distribution.partialBins }})</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.25; display:inline-block;"></span>
+          <span>Plein ({{ distribution.fullBins }})</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</section>

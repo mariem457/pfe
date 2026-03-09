@@ -1,0 +1,204 @@
+.it-pr{ display:grid; gap:25px;margin-top: 35px; }
+
+.it-prTitle{ margin:0; font-size:44px; font-weight:900; }
+.it-prSub{ margin:8px 0 0; color:#6b7280; font-weight:600; }
+
+.it-mi{ font-size:22px; line-height:1; color:#10b981; }
+.it-mi-amber{ color:#f59e0b; }
+
+.it-prKpi{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:16px;
+}
+.it-prKpiCard{
+  background:#fff;
+  border:1px solid #eef0f3;
+  border-radius:22px;
+  padding:18px;
+  box-shadow:0 10px 26px rgba(16,24,40,.06);
+  min-height:170px;
+}
+.it-prKpiTop{ display:flex; gap:12px; align-items:center; }
+.it-prIcon{
+  width:50px; height:50px;
+  border-radius:999px;
+  background:#e9fbf2;
+  display:grid;
+  place-items:center;
+}
+.it-prIcon--amber{ background:#fff7ed; }
+
+.it-prKpiLabel{ color:#6b7280; font-weight:700; }
+.it-prKpiValue{ margin-top:24px; font-size:44px; font-weight:900; }
+
+.it-prFilter{
+  background:#fff;
+  border:1px solid #eef0f3;
+  border-radius:22px;
+  padding:16px;
+  display:grid;
+  grid-template-columns: 1.6fr .6fr;
+  gap:14px;
+  box-shadow:0 10px 26px rgba(16,24,40,.06);
+}
+
+.it-prSearch{
+  display:flex; align-items:center; gap:12px;
+  background:#f3f4f6;
+  border:1px solid #eef0f3;
+  border-radius:16px;
+  padding:12px 14px;
+}
+.it-prSIcon{ color:#6b7280; }
+.it-prSearch input{
+  width:100%;
+  border:0; outline:0;
+  background:transparent;
+  font-weight:700;
+}
+
+.it-prSelect{
+  position:relative;
+  display:flex;
+  align-items:center;
+  background:#f3f4f6;
+  border:1px solid #eef0f3;
+  border-radius:16px;
+  padding:12px 14px;
+}
+.it-prSelect select{
+  width:100%;
+  border:0; outline:0;
+  background:transparent;
+  font-weight:900;
+  appearance:none;
+}
+.it-caret{
+  width:10px; height:10px;
+  border-right:2px solid #6b7280;
+  border-bottom:2px solid #6b7280;
+  transform: rotate(45deg);
+  margin-left:auto;
+}
+
+.it-prList{ display:flex; flex-direction:column; gap:16px; }
+
+.it-prCard{
+  background:#fff;
+  border:1px solid #eef0f3;
+  border-radius:22px;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns: 240px 1fr;
+  box-shadow:0 10px 26px rgba(16,24,40,.06);
+}
+
+.it-prImg{
+  background:linear-gradient(180deg,#e5e7eb,#d1d5db);
+  min-height:220px;
+  display:grid;
+  place-items:center;
+}
+.it-prImgIcon{ font-size:54px; color:#6b7280; opacity:.9; }
+
+.it-prBody{ padding:18px; }
+
+.it-prTopRow{
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  gap:12px;
+  align-items:center;
+}
+.it-prCode{ font-weight:900; font-size:22px; letter-spacing:.3px; }
+
+.it-prBadges{ display:flex; gap:10px; flex-wrap:wrap; }
+
+.it-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:13px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+}
+.it-bIcon{ font-size:18px; color:#111827; }
+
+.it-badge.is-pending{ background:#111827; color:#fff; border-color:#111827; }
+.it-badge.is-pending .it-bIcon{ color:#fff; }
+
+.it-badge.is-assigned{ background:#10b981; color:#fff; border-color:#10b981; }
+.it-badge.is-assigned .it-bIcon{ color:#fff; }
+
+.it-badge.is-resolved{ background:#fff; color:#111827; border-color:#e5e7eb; }
+
+.it-badge2{
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:13px;
+}
+.it-badge2.is-high{ background:#ef4444; color:#fff; }
+.it-badge2.is-med{ background:#111827; color:#fff; }
+.it-badge2.is-low{ background:#fff; border:1px solid #e5e7eb; color:#111827; }
+
+.it-prTime{ color:#6b7280; font-weight:700; justify-self:end; }
+
+.it-prLoc{
+  margin-top:12px;
+  display:flex; align-items:center; gap:10px;
+}
+.it-pin{ color:#10b981; }
+.it-prDesc{ margin:14px 0 0; color:#6b7280; font-weight:600; }
+
+.it-prChips{
+  margin-top:14px;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.it-chip{
+  background:#f3f4f6;
+  border:1px solid #eef0f3;
+  border-radius:999px;
+  padding:10px 14px;
+  font-weight:700;
+  color:#374151;
+}
+.it-chip--mint{ background:#e9fbf2; border-color:#d7efe5; }
+.it-green{ color:#10b981; }
+
+.it-prActions{
+  margin-top:14px;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.it-btn{
+  border-radius:999px;
+  padding:12px 16px;
+  font-weight:900;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  cursor:pointer;
+}
+.it-btn--green{
+  background:#10b981;
+  border-color:#10b981;
+  color:#fff;
+}
+.it-btn--ghost{
+  background:#fff;
+}
+
+@media (max-width: 1100px){
+  .it-prKpi{ grid-template-columns: repeat(2, 1fr); }
+  .it-prFilter{ grid-template-columns: 1fr; }
+  .it-prCard{ grid-template-columns: 1fr; }
+  .it-prImg{ min-height:180px; }
+  .it-prTopRow{ grid-template-columns: 1fr; }
+  .it-prTime{ justify-self:start; }
+}

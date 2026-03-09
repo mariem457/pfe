@@ -1,0 +1,177 @@
+<section class="it-ai">
+
+  <!-- En-tête -->
+  <div class="it-aiHead">
+    <div>
+      <h1 class="it-aiTitle">Optimisation par IA</h1>
+      <p class="it-aiSub">Analyses prédictives et optimisation des itinéraires basées sur le machine learning</p>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="it-aiKpi">
+    <article class="it-aiKpiCard" *ngFor="let k of kpis">
+      <div class="it-aiKpiTop">
+        <div class="it-aiIcon" [attr.data-ico]="k.icon">
+          <span class="material-icons it-mi">
+            {{
+              k.icon==='map' ? 'map' :
+              k.icon==='trend' ? 'trending_up' :
+              k.icon==='bolt' ? 'bolt' :
+              'auto_awesome'
+            }}
+          </span>
+        </div>
+        <span class="it-aiDelta">{{ k.delta }}</span>
+      </div>
+
+      <div class="it-aiLabel">{{ k.label }}</div>
+      <div class="it-aiValue">{{ k.value }}</div>
+    </article>
+  </div>
+
+  <!-- Carte génération -->
+  <section class="it-gen">
+    <div class="it-genLeft">
+      <div class="it-genBrain">
+        <span class="material-icons it-genBrainIcon">psychology</span>
+      </div>
+
+      <div>
+        <div class="it-genTitle">Générer un itinéraire optimisé</div>
+        <div class="it-genSub">
+          L’IA analysera les niveaux actuels des bacs et créera l’itinéraire de collecte le plus efficace
+        </div>
+      </div>
+    </div>
+
+    <button class="it-genBtn" (click)="generateRoute()">
+      <span class="material-icons it-genBtnIcon">play_arrow</span>
+      Générer l’itinéraire
+    </button>
+  </section>
+
+  <!-- Ligne + Radar -->
+  <div class="it-aiRow2">
+
+    <!-- Graphique ligne -->
+    <section class="it-card">
+      <div class="it-cardHead">
+        <div>
+          <div class="it-cardTitle">Prévisions de production des déchets</div>
+          <div class="it-cardSub">Prévisions de l’IA vs collectes réelles</div>
+        </div>
+        <span class="it-pillDark">
+          <span class="material-icons it-mi it-pillIcon">hub</span>
+          Modèle IA
+        </span>
+      </div>
+
+      <div class="it-chart">
+        <svg viewBox="0 0 520 260" class="it-svg">
+          <!-- grille -->
+          <g class="it-grid">
+            <line x1="60" y1="40" x2="60" y2="230"></line>
+            <line x1="60" y1="230" x2="500" y2="230"></line>
+
+            <line x1="60" y1="190" x2="500" y2="190"></line>
+            <line x1="60" y1="150" x2="500" y2="150"></line>
+            <line x1="60" y1="110" x2="500" y2="110"></line>
+            <line x1="60" y1="70"  x2="500" y2="70"></line>
+          </g>
+
+          <!-- prévu (plein) -->
+          <polyline class="it-line"
+                    [attr.points]="toPoints(predicted)">
+          </polyline>
+
+          <!-- réel (pointillé) -->
+          <polyline class="it-line it-line--dash"
+                    [attr.points]="toPoints(actual)">
+          </polyline>
+
+          <!-- points prévu -->
+          <g class="it-dots">
+            <circle *ngFor="let d of predicted; let i = index"
+                    [attr.cx]="(24 + i*((520-48)/(predicted.length-1)))"
+                    [attr.cy]="(24 + (260-48)*(1-(d/180)))"
+                    r="6"></circle>
+          </g>
+        </svg>
+      </div>
+
+      <div class="it-legend">
+        <div class="it-legItem"><span class="it-dotLeg"></span> Prévu</div>
+        <div class="it-legItem"><span class="it-dotLeg it-dotLeg--light"></span> Réel</div>
+      </div>
+    </section>
+
+    <!-- Radar -->
+    <section class="it-card">
+      <div class="it-cardHead">
+        <div>
+          <div class="it-cardTitle">Score d’efficacité du système</div>
+          <div class="it-cardSub">Indicateurs de performance multidimensionnels</div>
+        </div>
+      </div>
+
+      <div class="it-chart it-chart--radar">
+        <svg viewBox="0 0 320 260" class="it-svg">
+          <polygon class="it-rGrid" [attr.points]="radarGrid(100)"></polygon>
+          <polygon class="it-rGrid" [attr.points]="radarGrid(75)"></polygon>
+          <polygon class="it-rGrid" [attr.points]="radarGrid(50)"></polygon>
+          <polygon class="it-rGrid" [attr.points]="radarGrid(25)"></polygon>
+
+          <polygon class="it-rFill" [attr.points]="radarPoints(radar.values)"></polygon>
+        </svg>
+      </div>
+
+      <div class="it-scorePill">
+        <span class="material-icons it-mi">trending_up</span>
+        <b>Score global : {{ radar.score }}/100</b>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Heatmap -->
+  <section class="it-card">
+    <div class="it-cardHead">
+      <div>
+        <div class="it-cardTitle">Carte thermique de production des déchets</div>
+        <div class="it-cardSub">Périodes de forte production par zone</div>
+      </div>
+
+      <button class="it-exportBtn" (click)="exportHeatmap()">
+        <span class="material-icons">download</span>
+        Exporter les données
+      </button>
+    </div>
+
+    <div class="it-heat">
+      <div class="it-heatHead">
+        <div class="it-hCol">Zone</div>
+        <div class="it-hCol it-hCenter">Matin</div>
+        <div class="it-hCol it-hCenter">Après-midi</div>
+        <div class="it-hCol it-hCenter">Soir</div>
+        <div class="it-hCol it-hCenter">Nuit</div>
+      </div>
+
+      <div class="it-heatRow" *ngFor="let r of heatmap">
+        <div class="it-zone">{{ r.zone }}</div>
+
+        <div class="it-cell" [ngClass]="cellClass(r.morning)">{{ r.morning }}%</div>
+        <div class="it-cell" [ngClass]="cellClass(r.afternoon)">{{ r.afternoon }}%</div>
+        <div class="it-cell" [ngClass]="cellClass(r.evening)">{{ r.evening }}%</div>
+        <div class="it-cell" [ngClass]="cellClass(r.night)">{{ r.night }}%</div>
+      </div>
+
+      <div class="it-heatLegend">
+        <div class="it-leg"><span class="it-sq is-low"></span> Faible (0–59 %)</div>
+        <div class="it-leg"><span class="it-sq is-med"></span> Moyen (60–79 %)</div>
+        <div class="it-leg"><span class="it-sq is-high"></span> Élevé (80–100 %)</div>
+      </div>
+    </div>
+  </section>
+
+</section>

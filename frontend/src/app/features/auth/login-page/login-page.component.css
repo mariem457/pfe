@@ -1,0 +1,144 @@
+/* Background */
+.login-page {
+  font-family: 'Inter', sans-serif;
+  min-height: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg,#dcfce7 0%,#ecfdf5 40%,#ffffff 100%);
+  padding: 20px;
+}
+
+/* Card */
+.login-card {
+  background: #ffffff;
+  padding: 50px 40px;
+  border-radius: 25px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.15);
+}
+
+/* Logo */
+.logo-circle {
+  background: #10b981;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  font-size: 30px;
+  color: white;
+  margin-bottom: 15px;
+}
+
+.brand {
+  color: #10b981;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.subtitle {
+  color: #6b7280;
+  margin-bottom: 25px;
+  font-size: 14px;
+  
+}
+
+.login-card h1 {
+  margin-bottom: 5px;
+}
+
+.desc {
+  color: #6b7280;
+  margin-bottom: 30px;
+}
+
+/* Inputs */
+form {
+  text-align: left;
+}
+
+label {
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+  margin-top: 15px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 25px;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border: 2px solid transparent;
+}
+
+.input-group input {
+  border: none;
+  background: transparent;
+  outline: none;
+  flex: 1;
+  padding: 8px;
+}
+
+.input-group span {
+  margin-right: 8px;
+}
+
+.input-group .eye {
+  cursor: pointer;
+}
+
+/* Active border */
+.input-group.active {
+  border: 2px solid #10b981;
+}
+
+/* Options */
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px 0 25px;
+  font-size: 14px;
+}
+
+.options a {
+  color: #10b981;
+  text-decoration: none;
+}
+
+/* Button */
+.btn-login {
+  width: 100%;
+  padding: 14px;
+  border-radius: 25px;
+  border: none;
+  background: #10b981;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s;
+  margin-bottom: 30px;
+}
+
+.btn-login:hover {
+  background: #059669;
+}
+.back-link{
+    color: #080808;
+    text-decoration: none;
+    margin-left: 140px;
+   
+    
+}
+.material-icons {
+  font-size: 18px;
+  vertical-align: middle;
+}

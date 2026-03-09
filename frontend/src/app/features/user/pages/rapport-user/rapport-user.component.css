@@ -1,0 +1,164 @@
+.report-page {
+  min-height: 100vh;
+  background: #f5f7fa;
+  padding: 30px;
+  font-family: Arial, sans-serif;
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  background-color: white;
+  height:60px;
+  border-radius: 20px;
+}
+
+.back {
+  color: #444;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  right:50px;
+  position: relative;
+}
+
+.logo-icon {
+  background: #18b17b;
+  color: white;
+  width: 35px;
+  height: 35px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.header p {
+  color: #6c757d;
+  max-width: 600px;
+  margin: auto;
+}
+
+/* Card */
+.card {
+  max-width: 700px;
+  margin: auto;
+  background: white;
+  padding: 30px;
+  border-radius: 18px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Upload */
+.upload-box {
+  border: 2px dashed #18b17b;
+  border-radius: 15px;
+  padding: 40px;
+  text-align: center;
+  background: #f9fffc;
+  cursor: pointer;
+}
+
+.upload-icon {
+  font-size: 30px;
+  color: #18b17b;
+  margin-bottom: 10px;
+}
+
+.photo-btn {
+  margin-top: 15px;
+  padding: 8px 15px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+}
+
+/* Buttons */
+.location-btn {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #f7f7f7;
+  cursor: pointer;
+  text-align: left;
+}
+
+.submit-btn {
+  margin-top: 10px;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(to right, #7ed6b2, #18b17b);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Inputs */
+input,
+textarea {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  outline: none;
+  width: 675px;
+  font-size: 14px;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #18b17b;
+}
+
+/* Small Text */
+.or {
+  text-align: center;
+  font-size: 13px;
+  color: #777;
+}
+
+.terms {
+  font-size: 12px;
+  text-align: center;
+  color: #888;
+}
+.upload-icon{
+    background-color: #18b17b3f;
+    border: none;
+    border-radius: 10px;
+}
+.local-icon{
+    font-size: 15px;
+    top:2px;
+    color:#18b17b;
+    position: relative;
+}
+.back {
+  position: relative;
+  left:20px;
+}

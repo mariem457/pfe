@@ -1,0 +1,69 @@
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Paramètres</h1>
+      <p>Gérez vos préférences</p>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="title">Notifications</div>
+        <div class="subtitle">Recevoir alertes nouvelles poubelles</div>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" [(ngModel)]="settings.notifications">
+        <span></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Mode sombre -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="title">Mode sombre</div>
+        <div class="subtitle">Activer thème sombre</div>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" [(ngModel)]="settings.darkMode">
+        <span></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Langue -->
+  <div class="card">
+    <div class="title">Langue</div>
+    <select [(ngModel)]="settings.language" class="select">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+      <option value="ar">العربية</option>
+    </select>
+  </div>
+
+  <!-- Auto start -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="title">Démarrage automatique</div>
+        <div class="subtitle">Démarrer tournée automatiquement</div>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" [(ngModel)]="settings.autoStartTour">
+        <span></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" (click)="save()">Enregistrer</button>
+  </div>
+
+</div>

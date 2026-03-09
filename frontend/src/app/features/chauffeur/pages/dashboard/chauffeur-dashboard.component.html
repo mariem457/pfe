@@ -1,0 +1,127 @@
+<div class="page">
+
+  <!-- HEADER CARD -->
+  <section class="hero">
+    <div class="hero-top">
+      <div>
+        <h1>Tournée du Jour</h1>
+        <div class="sub">{{ nowDate }}</div>
+      </div>
+
+      <div class="clock">{{ nowTime }}</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-icon green">📍</div>
+        <div>
+          <div class="stat-title">{{ zoneName }}</div>
+          <div class="stat-sub">Zone assignée</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon green">☰</div>
+        <div>
+          <div class="stat-title">{{ binsProgressLabel }}</div>
+          <div class="stat-sub">Poubelles</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon blue">🕒</div>
+        <div>
+          <div class="stat-title">{{ estimatedTime }}</div>
+          <div class="stat-sub">Temps estimé</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon green">⛽</div>
+        <div>
+          <div class="stat-title">{{ fuelSavingPercent }}%</div>
+          <div class="stat-sub">Économie carburant</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-block">
+      <div class="progress-head">
+        <div class="progress-title">Progression</div>
+        <div class="progress-value">{{ progressPercent }}%</div>
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="progressPercent"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- START CARD -->
+  <section class="start-card">
+    <div class="start-left">
+      <div class="start-icon">✈️</div>
+      <div>
+        <div class="start-title">Prêt à démarrer ?</div>
+        <div class="start-sub">Commencez votre tournée optimisée par IA</div>
+      </div>
+    </div>
+
+    <button class="btn-primary" (click)="startTour()">
+      {{ tourStarted ? 'En cours...' : 'Démarrer' }}
+    </button>
+  </section>
+
+  <!-- MAP -->
+  <section class="block">
+    <h2>Carte Interactive</h2>
+
+    <div class="map">
+      <div class="map-center">
+        <div class="map-pin">📍</div>
+        <div class="map-title">Carte GPS interactive</div>
+        <div class="map-sub">Affiche l'itinéraire optimisé et la position en temps réel</div>
+      </div>
+
+      <!-- Fake markers -->
+      <div class="marker marker-1">1</div>
+      <div class="marker marker-2">2</div>
+      <div class="marker marker-3">3</div>
+      <div class="marker marker-4">4</div>
+      <div class="marker marker-5">5</div>
+    </div>
+  </section>
+
+  <!-- LIST -->
+  <section class="block">
+    <h2>Liste des Poubelles ({{ totalBins }})</h2>
+
+    <div class="bins">
+      <div *ngFor="let bin of bins" [class]="cardOutlineClass(bin.priority)">
+        <div class="left">
+          <div [class]="badgeClass(bin.priority)">{{ bin.priority }}</div>
+
+          <div class="meta">
+            <div class="bin-id">{{ bin.id }}</div>
+            <div class="bin-addr">{{ bin.address }}</div>
+
+            <div class="bin-info">
+              <span>{{ bin.fillPercent }}% remplie</span>
+              <span class="dot">•</span>
+              <span>{{ bin.distanceKm }} km</span>
+              <span class="dot">•</span>
+              <span>{{ bin.etaMin }} min</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-ghost"
+                [disabled]="bin.collected || !tourStarted"
+                (click)="collect(bin)">
+          {{ bin.collected ? 'Collectée' : 'Collecter' }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+</div>

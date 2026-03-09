@@ -1,0 +1,61 @@
+<section class="login-page">
+  <div class="login-card">
+
+    <div class="logo-circle">🗑</div>
+    <h2 class="brand">WiseTrash</h2>
+    <p class="subtitle">Gestion Intelligente des Déchets</p>
+
+    <h1>Bon Retour</h1>
+    <p class="desc">Connectez-vous pour accéder à votre tableau de bord</p>
+
+    <form (ngSubmit)="login()">
+
+      <label>Email ou Username</label>
+      <div class="input-group">
+        <span class="material-icons">person</span>
+        <input
+          type="text"
+          name="usernameOrEmail"
+          [(ngModel)]="usernameOrEmail"
+          placeholder="admin@ville.gov ou admin"
+          required
+        />
+      </div>
+
+      <label>Mot de passe</label>
+      <div class="input-group active">
+        <span class="material-icons">lock</span>
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="password"
+          placeholder="•••••••"
+          required
+        />
+        <span class="material-icons">visibility</span>
+      </div>
+
+      <div class="options">
+        <label class="remember">
+          <input type="checkbox" name="rememberMe" [(ngModel)]="rememberMe">
+          Se souvenir de moi
+        </label>
+        <a href="#" (click)="$event.preventDefault()">Mot de passe oublié ?</a>
+      </div>
+
+      <button type="submit" class="btn-login">
+        Se connecter →
+      </button>
+
+      <p *ngIf="errorMessage" style="color:#ff4d4f; margin-top:10px;">
+        {{ errorMessage }}
+      </p>
+
+      <a routerLink="/" class="back-link">
+        ← Retour à l'accueil
+      </a>
+
+    </form>
+
+  </div>
+</section>

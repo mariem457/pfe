@@ -1,0 +1,23 @@
+<div class="fleet-wrapper">
+  <div class="map-header" *ngIf="showHeader">
+    <div>
+      <h2 class="map-title">{{ title }}</h2>
+      <p class="map-subtitle">{{ subtitle }}</p>
+    </div>
+
+    <div class="map-actions">
+      <button
+        *ngIf="allowAddBins"
+        type="button"
+        class="add-btn"
+        (click)="toggleAddBinMode()"
+      >
+        {{ addBinMode ? 'Annuler ajout' : 'Ajouter des poubelles' }}
+      </button>
+
+      <span class="live-badge" *ngIf="showTrucks">En direct</span>
+    </div>
+  </div>
+
+  <div id="fleetMap"></div>
+</div>

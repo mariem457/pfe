@@ -1,0 +1,134 @@
+<section class="it-pr">
+
+  <!-- En-tête -->
+  <div class="it-prHead">
+    <div>
+      <h1 class="it-prTitle">Signalements publics</h1>
+      <p class="it-prSub">Problèmes de collecte des déchets signalés par les citoyens</p>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="it-prKpi">
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon">
+          <span class="material-icons it-mi">chat_bubble_outline</span>
+        </div>
+        <div class="it-prKpiLabel">Total des signalements</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.total }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon it-prIcon--amber">
+          <span class="material-icons it-mi it-mi-amber">schedule</span>
+        </div>
+        <div class="it-prKpiLabel">En attente</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.pending }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon">
+          <span class="material-icons it-mi">check_circle</span>
+        </div>
+        <div class="it-prKpiLabel">Affectés</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.assigned }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon">
+          <span class="material-icons it-mi">check_circle</span>
+        </div>
+        <div class="it-prKpiLabel">Résolus</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.resolved }}</div>
+    </article>
+  </div>
+
+  <!-- Filtres -->
+  <div class="it-prFilter">
+    <div class="it-prSearch">
+      <span class="material-icons it-prSIcon">search</span>
+      <input [(ngModel)]="query" placeholder="Rechercher des signalements..." />
+    </div>
+
+    <div class="it-prSelect">
+      <select [(ngModel)]="statusFilter">
+        <option value="All">Tous les statuts</option>
+        <option value="Pending">En attente</option>
+        <option value="Assigned">Affecté</option>
+        <option value="Resolved">Résolu</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+  </div>
+
+  <!-- Cartes -->
+  <div class="it-prList">
+    <article class="it-prCard" *ngFor="let r of filteredReports">
+
+      <div class="it-prImg">
+        <span class="material-icons it-prImgIcon">image</span>
+      </div>
+
+      <div class="it-prBody">
+        <div class="it-prTopRow">
+          <div class="it-prCode">{{ r.code }}</div>
+
+          <div class="it-prBadges">
+            <span class="it-badge" [ngClass]="statusClass(r.status)">
+              <span class="material-icons it-bIcon">
+                {{ r.status==='Pending' ? 'schedule' : 'check_circle' }}
+              </span>
+              {{ statusLabel(r.status) }}
+            </span>
+
+            <span class="it-badge2" [ngClass]="priorityClass(r.priority)">
+              Priorité {{ priorityLabel(r.priority) }}
+            </span>
+          </div>
+
+          <div class="it-prTime">{{ r.timeAgo }}</div>
+        </div>
+
+        <div class="it-prLoc">
+          <span class="material-icons it-pin">place</span>
+          <b>{{ r.location }}</b>
+        </div>
+
+        <p class="it-prDesc">{{ r.description }}</p>
+
+        <div class="it-prChips">
+          <span class="it-chip">
+            Coordonnées : <b>{{ r.lat.toFixed(4) }}, {{ r.lng.toFixed(4) }}</b>
+          </span>
+
+          <span class="it-chip it-chip--mint" *ngIf="r.status==='Assigned'">
+            Affecté à : <b class="it-green">{{ r.assignedTo }}</b>
+          </span>
+
+          <span class="it-chip it-chip--mint" *ngIf="r.status==='Resolved'">
+            Résolu : <b>{{ r.resolvedAgo }}</b>
+          </span>
+        </div>
+
+        <div class="it-prActions" *ngIf="r.status !== 'Resolved'">
+          <button class="it-btn it-btn--green" (click)="assignToTruck(r)">
+            Affecter à un camion
+          </button>
+          <button class="it-btn it-btn--ghost" (click)="viewOnMap(r)">
+            Voir sur la carte
+          </button>
+        </div>
+      </div>
+
+    </article>
+  </div>
+
+</section>

@@ -1,0 +1,212 @@
+<div class="reports-page">
+
+  <!-- Top title row -->
+  <div class="page-head">
+    <div>
+      <h1>Analyses & Rapports</h1>
+      <p>Analyses complètes et rapports téléchargeables</p>
+    </div>
+
+    <div class="page-actions">
+      <button class="btn btn-ghost" type="button">
+        <mat-icon>calendar_month</mat-icon>
+        Plage de dates personnalisée
+      </button>
+
+      <button class="btn btn-primary" type="button">
+        <mat-icon>download</mat-icon>
+        Tout exporter
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-title">Total des Collectes</span>
+        <span class="badge green">
+          <mat-icon>trending_up</mat-icon> +12%
+        </span>
+      </div>
+      <div class="kpi-value">28,900</div>
+    </div>
+
+    <div class="kpi-card active">
+      <div class="kpi-top">
+        <span class="kpi-title">Efficacité Carburant</span>
+        <span class="badge green">
+          <mat-icon>trending_up</mat-icon> +3%
+        </span>
+      </div>
+      <div class="kpi-value">18% <span class="arrow">↑</span></div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-title">Réduction de CO2</span>
+        <span class="badge green">
+          <mat-icon>trending_up</mat-icon> +24%
+        </span>
+      </div>
+      <div class="kpi-value">1.4T</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-title">Économies Réalisées</span>
+        <span class="badge green">
+          <mat-icon>trending_up</mat-icon> +15%
+        </span>
+      </div>
+      <div class="kpi-value">12.4K$</div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="charts-grid">
+    <!-- Chart 1 -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Tendances des Collectes</h3>
+          <p>Collectes mensuelles et poids des déchets</p>
+        </div>
+        <button class="icon-btn" type="button" title="Télécharger">
+          <mat-icon>download</mat-icon>
+        </button>
+      </div>
+
+      <div class="chart-box">
+        <canvas id="collectionChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 2 -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Consommation & Coûts de Carburant</h3>
+          <p>Tendances mensuelles de consommation</p>
+        </div>
+        <button class="icon-btn" type="button" title="Télécharger">
+          <mat-icon>download</mat-icon>
+        </button>
+      </div>
+
+      <div class="chart-box">
+        <canvas id="fuelChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart 3 -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Réduction des Émissions de CO2</h3>
+        <p>Impact environnemental au fil du temps (kg CO2)</p>
+      </div>
+      <button class="icon-btn" type="button" title="Télécharger">
+        <mat-icon>download</mat-icon>
+      </button>
+    </div>
+
+    <div class="chart-box tall">
+      <canvas id="co2Chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Generate reports -->
+  <div class="panel">
+    <div class="panel-head no-right">
+      <div>
+        <h3>Générer des Rapports</h3>
+        <p>Téléchargez des rapports complets au format PDF ou CSV</p>
+      </div>
+    </div>
+
+    <div class="report-cards">
+      <div class="report-card">
+        <div class="report-left">
+          <div class="doc-ico">
+            <mat-icon>description</mat-icon>
+          </div>
+          <div>
+            <h4>Rapport Mensuel des Opérations</h4>
+            <p>Vue d’ensemble des collectes, consommation de carburant et indicateurs de performance</p>
+            <span class="tag dark">30 derniers jours</span>
+          </div>
+        </div>
+
+        <div class="report-actions">
+          <button class="pill" type="button">CSV</button>
+          <button class="pill pill-green" type="button">
+            <mat-icon>download</mat-icon> PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-left">
+          <div class="doc-ico">
+            <mat-icon>description</mat-icon>
+          </div>
+          <div>
+            <h4>Rapport d’Impact Environnemental</h4>
+            <p>Analyse de la réduction du CO2, économies de carburant et impact environnemental</p>
+            <span class="tag dark">Dernier trimestre</span>
+          </div>
+        </div>
+
+        <div class="report-actions">
+          <button class="pill" type="button">CSV</button>
+          <button class="pill pill-green" type="button">
+            <mat-icon>download</mat-icon> PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-left">
+          <div class="doc-ico">
+            <mat-icon>description</mat-icon>
+          </div>
+          <div>
+            <h4>Rapport d’Efficacité des Itinéraires</h4>
+            <p>Performance de l’optimisation IA et efficacité des trajets</p>
+            <span class="tag dark">90 derniers jours</span>
+          </div>
+        </div>
+
+        <div class="report-actions">
+          <button class="pill" type="button">CSV</button>
+          <button class="pill pill-green" type="button">
+            <mat-icon>download</mat-icon> PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-left">
+          <div class="doc-ico">
+            <mat-icon>description</mat-icon>
+          </div>
+          <div>
+            <h4>Rapport de Performance de la Flotte</h4>
+            <p>Utilisation des camions, maintenance et efficacité opérationnelle</p>
+            <span class="tag dark">6 derniers mois</span>
+          </div>
+        </div>
+
+        <div class="report-actions">
+          <button class="pill" type="button">CSV</button>
+          <button class="pill pill-green" type="button">
+            <mat-icon>download</mat-icon> PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

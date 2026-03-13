@@ -1,8 +1,7 @@
 <div class="report-page">
 
-  <!-- Top Bar -->
   <div class="topbar">
-    <span class="back">← Retour</span>
+    <button type="button" class="back" (click)="goBack()">← Retour</button>
 
     <div class="brand">
       <div class="logo-icon">♻</div>
@@ -10,7 +9,6 @@
     </div>
   </div>
 
-  <!-- Header -->
   <div class="header">
     <h1>Signaler un Déchet</h1>
     <p>
@@ -19,43 +17,91 @@
     </p>
   </div>
 
-  <!-- Form Card -->
   <div class="card">
 
-    <!-- Photo Upload -->
-    <label>Photo du Déchet</label>
+    <label class="section-label">Photo du Déchet</label>
 
-    <div class="upload-box">
-      <button class="upload-icon">
-        <span class="material-icons">upload</span>
-      </button>
-      <p><strong>Glissez-déposez</strong> ou cliquez pour télécharger</p>
-      <small>PNG, JPG ou HEIC jusqu'à 10 Mo</small>
+    <div
+      class="upload-box"
+      [class.dragging]="dragging"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      <input
+        #fileInput
+        type="file"
+        accept=".png,.jpg,.jpeg,.heic,.heif"
+        hidden
+        (change)="onFileSelected($event)"
+      />
+
+      <ng-container *ngIf="!photoPreview; else previewBlock">
+        <button type="button" class="upload-icon" (click)="fileInput.click()">
+          <mat-icon>upload</mat-icon>
+        </button>
+        <p><strong>Glissez-déposez</strong> ou cliquez pour télécharger</p>
+        <small>PNG, JPG ou HEIC jusqu'à 10 Mo</small>
+      </ng-container>
+
+      <ng-template #previewBlock>
+        <div class="preview-wrapper">
+          <img [src]="photoPreview" alt="Aperçu photo" class="preview-image" />
+          <div class="preview-actions">
+            <span class="file-name">{{ photoFile?.name }}</span>
+            <button type="button" class="remove-btn" (click)="removePhoto()">Supprimer</button>
+          </div>
+        </div>
+      </ng-template>
     </div>
 
-    <!-- Location -->
-    <label>Localisation</label>
+    <label class="section-label">Type de signalement</label>
+    <select [(ngModel)]="reportType" name="reportType">
+      <option value="BIN_FULL">Poubelle pleine</option>
+      <option value="OVERFLOW">Débordement</option>
+      <option value="ILLEGAL_DUMP">Dépôt sauvage</option>
+      <option value="BIN_DAMAGED">Bac endommagé</option>
+      <option value="MISSED_COLLECTION">Collecte non effectuée</option>
+      <option value="OTHER">Autre</option>
+    </select>
 
-    <button type="button" class="location-btn">
-      <span class="material-icons local-icon">location_on</span>&nbsp;&nbsp;
-      Détecter ma position
+    <label class="section-label">Localisation</label>
+
+    <div class="map-help">
+      Cliquez sur la carte pour choisir l’emplacement exact du signalement dans Mahdia.
+    </div>
+
+    <div id="reportUserMap" class="report-map"></div>
+
+    <button type="button" class="location-btn" (click)="detectLocation()" [disabled]="locating">
+      <mat-icon class="local-icon">location_on</mat-icon>
+      <span>{{ locating ? 'Localisation...' : 'Détecter ma position' }}</span>
     </button>
+
+    <div class="coords-box" *ngIf="coords">
+      Coordonnées détectées : {{ coords.lat }}, {{ coords.lng }}
+    </div>
 
     <p class="or">ou entrer l'adresse manuellement</p>
 
-    <input type="text" placeholder="Entrez l'adresse de la rue" />
+    <input
+      type="text"
+      placeholder="Entrez l'adresse de la rue"
+      [(ngModel)]="address"
+      name="address"
+    />
 
-    <!-- Description -->
-    <label>Description (Optionnelle)</label>
+    <label class="section-label">Description (Optionnelle)</label>
 
     <textarea
       rows="4"
       placeholder="Fournissez des détails supplémentaires sur le déchet..."
+      [(ngModel)]="description"
+      name="description"
     ></textarea>
 
-    <!-- Submit -->
-    <button type="submit" class="submit-btn">
-      Envoyer le signalement
+    <button type="button" class="submit-btn" (click)="submitReport()" [disabled]="submitting">
+      {{ submitting ? 'Envoi en cours...' : 'Envoyer le signalement' }}
     </button>
 
     <p class="terms">
@@ -63,5 +109,4 @@
     </p>
 
   </div>
-
 </div>

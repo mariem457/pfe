@@ -64,6 +64,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/public-reports").permitAll()
+                        .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/uploads/**").permitAll()
 
 
                         // MISSIONS

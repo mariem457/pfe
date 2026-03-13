@@ -1,7 +1,6 @@
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
-    # إذا DB_URL موجودة في ENV تستعملها، وإلا تستعمل ال default هذا
     url: ${DB_URL:jdbc:postgresql://ep-dry-art-aldkcxqo.c-3.eu-central-1.aws.neon.tech:5432/neondb?sslmode=require}
     username: ${DB_USERNAME:neondb_owner}
     password: ${DB_PASSWORD:npg_PKXo1Bgs6lyA}
@@ -19,6 +18,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
     validate-on-migrate: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 server:
   port: ${SERVER_PORT:8081}
@@ -46,10 +50,12 @@ app:
     secret: ${JWT_SECRET:mariemhamdiTAKWABENHADJslimeNgenielogicielhahakopolhsbxsvsvdyvzsgm}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
+  file:
+    upload-dir: uploads
+
 twilio:
   sid: ${TWILIO_SID:}
   token: ${TWILIO_TOKEN:}
-  # نحّيت الspace قبل +
   phone: ${TWILIO_PHONE:}
 
 mqtt:

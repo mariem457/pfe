@@ -16,7 +16,31 @@ export class BinService {
     return this.http.get<any[]>(`${this.baseUrl}/status`);
   }
 
-  createBin(data: any): Observable<any> {
+  getAllBins(): Observable<any[]> {
+    return this.http.get<any[]>(this.baseUrl);
+  }
+
+  createBin(data: {
+    binCode?: string;
+    type: string;
+    lat: number;
+    lng: number;
+    installationDate?: string;
+    isActive?: boolean;
+    notes?: string | null;
+  }): Observable<any> {
     return this.http.post(this.baseUrl, data);
+  }
+
+  updateBin(id: number, data: {
+    binCode?: string;
+    type?: string;
+    lat?: number;
+    lng?: number;
+    installationDate?: string;
+    isActive?: boolean;
+    notes?: string | null;
+  }): Observable<any> {
+    return this.http.put(`${this.baseUrl}/${id}`, data);
   }
 }

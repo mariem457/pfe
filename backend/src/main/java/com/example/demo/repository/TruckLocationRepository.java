@@ -4,6 +4,7 @@ import com.example.demo.entity.TruckLocation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TruckLocationRepository extends JpaRepository<TruckLocation, Long> {
@@ -21,4 +22,17 @@ public interface TruckLocationRepository extends JpaRepository<TruckLocation, Lo
         WHERE t.last_time >= NOW() - INTERVAL '10 minutes'
     """, nativeQuery = true)
     long countActiveTrucks();
+
+    @Query("""
+        select tl
+        from TruckLocation tl
+        join fetch tl.driver d
+        where tl.timestamp = (
+            select max(t2.timestamp)
+            from TruckLocation t2
+            where t2.driver.id = tl.driver.id
+        )
+        order by tl.timestamp desc
+    """)
+    List<TruckLocation> findLatestLocationsForAllDrivers();
 }

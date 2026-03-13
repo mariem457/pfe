@@ -1,0 +1,203 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>Sécurité</h1>
+      <p>Gestion de la sécurité et des accès</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondaire">Exporter les logs</button>
+      <button class="btn btn-primaire">Rapport de sécurité</button>
+    </div>
+  </div>
+
+  <div class="alerte-securite">
+    <div class="alerte-icone">⚠</div>
+    <div class="alerte-texte">
+      <h3>Alerte de sécurité</h3>
+      <p>3 tentatives de connexion échouées détectées depuis l'adresse IP 45.142.212.61 au cours des dernières 24 heures.</p>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Sessions actives</p>
+        <h2>{{ sessionsActives }}</h2>
+      </div>
+      <div class="stat-icone bleu">◉</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Tentatives échouées (24h)</p>
+        <h2>{{ tentativesEchouees }}</h2>
+      </div>
+      <div class="stat-icone rouge">⚠</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Accès API (24h)</p>
+        <h2>{{ accesApi24h }}</h2>
+      </div>
+      <div class="stat-icone violet">⌘</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Authentification à deux facteurs active</p>
+        <h2>{{ authentificationDeuxFacteurs }}%</h2>
+      </div>
+      <div class="stat-icone vert">🛡</div>
+    </div>
+  </div>
+
+  <div class="contenu-principal">
+
+    <div class="colonne-gauche">
+      <div class="bloc">
+        <div class="bloc-entete bloc-entete-flex">
+          <div>
+            <h2>Surveillance de sécurité</h2>
+            <p>Logs d'activité et sessions actives</p>
+          </div>
+
+          <div class="onglets">
+            <button
+              [class.active]="ongletSelectionne === 'Logs'"
+              (click)="selectionnerOnglet('Logs')">
+              Logs
+            </button>
+
+            <button
+              [class.active]="ongletSelectionne === 'Sessions'"
+              (click)="selectionnerOnglet('Sessions')">
+              Sessions
+            </button>
+          </div>
+        </div>
+
+        <div class="evenement-card" *ngFor="let evenement of evenements">
+          <div class="evenement-icone" [ngClass]="obtenirClasseIcone(evenement.type)">
+            {{ obtenirSymboleIcone(evenement.type) }}
+          </div>
+
+          <div class="evenement-contenu">
+            <div class="evenement-titre">
+              <h3>{{ evenement.titre }}</h3>
+              <span class="badge-statut" [ngClass]="obtenirClasseStatut(evenement.statut)">
+                {{ evenement.statut }}
+              </span>
+            </div>
+
+            <div class="evenement-details">
+              <p>{{ evenement.utilisateur }} • {{ evenement.appareil }}</p>
+              <p>{{ evenement.adresseIp }} • {{ evenement.localisation }}</p>
+              <p>{{ evenement.dateHeure }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="colonne-droite">
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Paramètres de sécurité</h2>
+          <p>Configuration des protections</p>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Authentification à deux facteurs</h4>
+            <p>Double authentification obligatoire</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="doubleAuthentification">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Notifications de connexion</h4>
+            <p>Alertes par courriel</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="notificationsConnexion">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Limitation API</h4>
+            <p>Limitation du rythme des requêtes activée</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="limitationApi">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Détection d'activité suspecte</h4>
+            <p>Alertes automatiques</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="detectionActiviteSuspecte">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Clés API</h2>
+          <p>Gestion des accès API</p>
+        </div>
+
+        <div class="champ-cle">
+          <label>Clé API principale</label>
+          <div class="ligne-cle">
+            <div class="valeur-cle">{{ obtenirTexteClePrincipale() }}</div>
+            <button class="btn-oeil" (click)="basculerVisibiliteClePrincipale()">
+              👁
+            </button>
+          </div>
+        </div>
+
+        <div class="champ-cle">
+          <label>Clé API de test</label>
+          <div class="ligne-cle">
+            <div class="valeur-cle">{{ obtenirTexteCleTest() }}</div>
+            <button class="btn-oeil" (click)="basculerVisibiliteCleTest()">
+              👁
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-grand">Générer une nouvelle clé</button>
+      </div>
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Actions rapides</h2>
+        </div>
+
+        <div class="actions-rapides">
+          <button class="btn-grand">Réinitialiser tous les mots de passe</button>
+          <button class="btn-grand">Audit de sécurité complet</button>
+          <button class="btn-grand btn-danger-secondaire">Terminer toutes les sessions</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>

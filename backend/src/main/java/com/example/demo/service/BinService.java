@@ -8,7 +8,6 @@ import com.example.demo.entity.BinTelemetry;
 import com.example.demo.entity.Zone;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
-import com.example.demo.repository.ZoneRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,28 +15,31 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class BinService {
 
     private final BinRepository binRepository;
-    private final ZoneRepository zoneRepo;
     private final BinTelemetryRepository binTelemetryRepository;
+    private final ZoneService zoneService;
 
     public BinService(
-            BinRepository binRepo,
-            ZoneRepository zoneRepo,
-            BinTelemetryRepository binTelemetryRepository
+            BinRepository binRepository,
+            BinTelemetryRepository binTelemetryRepository,
+            ZoneService zoneService
     ) {
-        this.binRepository = binRepo;
-        this.zoneRepo = zoneRepo;
+        this.binRepository = binRepository;
         this.binTelemetryRepository = binTelemetryRepository;
+        this.zoneService = zoneService;
     }
 
+    @Transactional(readOnly = true)
     public List<BinResponse> findAll() {
         return binRepository.findAll().stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     public BinResponse findById(Long id) {
         return toResponse(getOrThrow(id));
     }
@@ -78,15 +80,11 @@ public class BinService {
         }
 
         if (isCreate || req.type != null) {
-            b.setType(Bin.BinType.valueOf(req.type));
-        }
-
-        if (req.zoneId == null) {
-            b.setZone(null);
-        } else {
-            Zone z = zoneRepo.findById(req.zoneId)
-                    .orElseThrow(() -> new IllegalArgumentException("zone not found"));
-            b.setZone(z);
+            try {
+                b.setType(Bin.BinType.valueOf(req.type.toUpperCase()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("invalid bin type, expected REAL or SIM");
+            }
         }
 
         if (isCreate || req.lat != null) {
@@ -112,6 +110,18 @@ public class BinService {
         if (req.notes != null) {
             b.setNotes(req.notes);
         }
+
+        if (b.getLat() == null || b.getLng() == null) {
+            throw new IllegalArgumentException("lat and lng are required");
+        }
+
+        Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(b.getLat(), b.getLng());
+
+        Zone zone = zoneOpt.orElseThrow(() ->
+                new IllegalArgumentException("Aucune zone trouvée pour cette position")
+        );
+
+        b.setZone(zone);
     }
 
     private String generateNextBinCode() {
@@ -150,6 +160,7 @@ public class BinService {
         r.binCode = b.getBinCode();
         r.type = b.getType().name();
         r.zoneId = (b.getZone() != null) ? b.getZone().getId() : null;
+        r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
         r.lat = b.getLat();
         r.lng = b.getLng();
         r.installationDate = b.getInstallationDate();
@@ -183,15 +194,6 @@ public class BinService {
             src = "MQTT_SIM";
         }
         telemetry.setSource(src);
-
-        System.out.println("🧾 Telemetry prepared: "
-                + "ts=" + telemetry.getTimestamp()
-                + ", fill=" + telemetry.getFillLevel()
-                + ", weight=" + telemetry.getWeightKg()
-                + ", battery=" + telemetry.getBatteryLevel()
-                + ", rssi=" + telemetry.getRssi()
-                + ", status=" + telemetry.getStatus()
-                + ", source=" + telemetry.getSource());
 
         BinTelemetry saved = binTelemetryRepository.save(telemetry);
 

@@ -56,7 +56,7 @@ public class SecurityConfig {
                         // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                    
-                        .requestMatchers("/api/telemetry/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/telemetry/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")

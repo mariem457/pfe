@@ -48,11 +48,9 @@ public class TelemetryService {
                                            String status,
                                            String source) {
 
-        // 1) نجيب bin
         Bin bin = binRepository.findByBinCode(binCode)
                 .orElseThrow(() -> new RuntimeException("Bin not found: " + binCode));
 
-        // 2) نعمل telemetry entity
         BinTelemetry telemetry = new BinTelemetry();
         telemetry.setBin(bin);
         telemetry.setTimestamp(Instant.now());
@@ -69,68 +67,11 @@ public class TelemetryService {
         telemetry.setStatus(status);
         telemetry.setSource(source);
 
-        // 3) save في DB
         BinTelemetry saved = telemetryRepository.save(telemetry);
 
-        // 4) anomalies
         anomalyDetectionService.evaluateAndPersist(bin, saved);
-
-        // 5) alerts
         alertRuleService.evaluateAndCreateAlerts(bin, saved);
 
-        // 6) prediction
-        double hour = saved.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getHour();
-
-        double day = saved.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getDayOfWeek()
-                .getValue() % 7;
-
-        double currentFillLevel = saved.getFillLevel();
-
-        double currentBatteryLevel = saved.getBatteryLevel();
-
-        double currentWeightKg = saved.getWeightKg() != null
-                ? saved.getWeightKg().doubleValue()
-                : 0.0;
-
-        double currentRssi = saved.getRssi();
-
-        double fillRate = 0.0;
-
-        Optional<BinTelemetry> previousOpt =
-                telemetryRepository.findTopByBinIdAndIdNotOrderByTimestampDesc(
-                        bin.getId(),
-                        saved.getId()
-                );
-
-        if (previousOpt.isPresent()) {
-            double previousFillLevel = previousOpt.get().getFillLevel();
-            fillRate = Math.max(0.0, currentFillLevel - previousFillLevel);
-        }
-
-        PredictionResult predictionResult = pythonPredictionService.runPrediction(
-                hour,
-                day,
-                currentFillLevel,
-                fillRate,
-                currentBatteryLevel,
-                currentWeightKg,
-                currentRssi
-        );
-
-        BinPrediction prediction = new BinPrediction();
-        prediction.setBinId(bin.getId());
-        prediction.setTelemetryId(saved.getId());
-        prediction.setPredictedFillNext(BigDecimal.valueOf(predictionResult.getPredictedFillNext()));
-        prediction.setAlertStatus(predictionResult.getAlertStatus());
-        prediction.setCreatedAt(OffsetDateTime.now());
-
-        predictionRepository.save(prediction);
-
-        // 7) build response
         TelemetryResponse res = new TelemetryResponse();
         res.id = saved.getId();
         res.binCode = bin.getBinCode();
@@ -142,7 +83,7 @@ public class TelemetryService {
 
         if (bin.getZone() != null) {
             res.zoneId = bin.getZone().getId();
-            res.zoneName = bin.getZone().getName();
+            res.zoneName = bin.getZone().getShapeName();
         }
 
         return res;

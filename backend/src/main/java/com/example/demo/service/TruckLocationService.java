@@ -1,5 +1,7 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.TruckDashboardItemResponse;
+import com.example.demo.dto.TruckDashboardResponse;
 import com.example.demo.dto.TruckLocationRequest;
 import com.example.demo.dto.TruckLocationResponse;
 import com.example.demo.entity.Driver;
@@ -13,6 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TruckLocationService {
@@ -67,6 +72,95 @@ public class TruckLocationService {
         messagingTemplate.convertAndSend("/topic/truck-locations", resp);
 
         return resp;
+    }
+    @Transactional(readOnly = true)
+    public TruckDashboardResponse getDashboard() {
+        List<TruckLocation> latestLocations = truckLocationRepository.findLatestLocationsForAllDrivers();
+        List<TruckDashboardItemResponse> trucks = new ArrayList<>();
+
+        int totalProgress = 0;
+        int totalFuel = 0;
+
+        for (int i = 0; i < latestLocations.size(); i++) {
+            TruckLocation loc = latestLocations.get(i);
+            Driver driver = loc.getDriver();
+
+            int progress = buildProgress(driver.getId());
+            int collectedBins = buildCollectedBins(driver.getId());
+            int remainingBins = buildRemainingBins(driver.getId());
+            int fuelLevel = buildFuelLevel(driver.getId());
+            int etaMinutes = buildEta(driver.getId());
+            boolean active = isActive(loc.getTimestamp());
+
+            totalProgress += progress;
+            totalFuel += fuelLevel;
+
+            trucks.add(new TruckDashboardItemResponse(
+                    driver.getId(),
+                    driver.getVehicleCode() != null ? driver.getVehicleCode() : "TRK-" + driver.getId(),
+                    driver.getFullName(),
+                    loc.getLat(),
+                    loc.getLng(),
+                    buildLocationLabel(loc.getLat(), loc.getLng()),
+                    progress,
+                    collectedBins,
+                    remainingBins,
+                    fuelLevel,
+                    etaMinutes,
+                    active
+            ));
+        }
+
+        long activeTrucks = trucks.stream().filter(t -> Boolean.TRUE.equals(t.getActive())).count();
+        long totalRoutes = trucks.size();
+
+        int averageProgress = trucks.isEmpty() ? 0 : totalProgress / trucks.size();
+        int averageFuel = trucks.isEmpty() ? 0 : totalFuel / trucks.size();
+
+        String fuelStatus;
+        if (averageFuel >= 70) {
+            fuelStatus = "Bon";
+        } else if (averageFuel >= 40) {
+            fuelStatus = "Moyen";
+        } else {
+            fuelStatus = "Faible";
+        }
+
+        return new TruckDashboardResponse(
+                activeTrucks,
+                totalRoutes,
+                averageProgress,
+                fuelStatus,
+                trucks
+        );
+    }
+
+    private boolean isActive(Instant timestamp) {
+        return timestamp != null && timestamp.isAfter(Instant.now().minusSeconds(600));
+    }
+
+    private int buildProgress(Long driverId) {
+        return 35 + (int) ((driverId * 13) % 55);
+    }
+
+    private int buildCollectedBins(Long driverId) {
+        return 8 + (int) ((driverId * 5) % 15);
+    }
+
+    private int buildRemainingBins(Long driverId) {
+        return 4 + (int) ((driverId * 3) % 12);
+    }
+
+    private int buildFuelLevel(Long driverId) {
+        return 45 + (int) ((driverId * 7) % 45);
+    }
+
+    private int buildEta(Long driverId) {
+        return 15 + (int) ((driverId * 11) % 40);
+    }
+
+    private String buildLocationLabel(Double lat, Double lng) {
+        return "Lat " + String.format("%.4f", lat) + ", Lng " + String.format("%.4f", lng);
     }
 
     private void validateInput(TruckLocationRequest in) {

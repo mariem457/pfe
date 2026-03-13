@@ -1,0 +1,205 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>Contrôle du système</h1>
+      <p>Gérez et surveillez l'infrastructure système</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondaire">Logs système</button>
+      <button class="btn btn-danger">Redémarrer</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Utilisation du processeur</p>
+        <h2>{{ utilisationProcesseur }}%</h2>
+      </div>
+      <div class="stat-icone bleu">⚙</div>
+      <div class="barre">
+        <div class="barre-valeur" [style.width.%]="utilisationProcesseur"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Mémoire</p>
+        <h2>{{ memoireUtilisee }} / {{ memoireTotale }} Go</h2>
+      </div>
+      <div class="stat-icone violet">◫</div>
+      <div class="barre">
+        <div class="barre-valeur" [style.width.%]="classeMemoire"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Services actifs</p>
+        <h2>{{ servicesActifs }} / {{ servicesTotal }}</h2>
+      </div>
+      <div class="stat-icone vert">▤</div>
+      <div class="barre">
+        <div class="barre-valeur" [style.width.%]="classeServiceActif"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Temps de fonctionnement</p>
+        <h2>{{ tempsFonctionnement }}</h2>
+      </div>
+      <div class="stat-icone orange">◔</div>
+      <div class="barre">
+        <div class="barre-valeur" style="width: 100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="contenu-principal">
+    <div class="colonne-gauche">
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Services système</h2>
+          <p>Statut et contrôle des services en cours d'exécution</p>
+        </div>
+
+        <div class="service-card" *ngFor="let service of services">
+          <div class="service-haut">
+            <div class="service-infos">
+              <div class="service-titre">
+                <h3>{{ service.nom }}</h3>
+                <span class="badge-statut" [ngClass]="obtenirClasseStatut(service.statut)">
+                  {{ service.statut }}
+                </span>
+              </div>
+              <p>{{ service.description }}</p>
+            </div>
+
+            <div class="service-actions">
+              <button class="btn-action" [class.desactive]="service.statut === 'En cours'">
+                Démarrer
+              </button>
+              <button class="btn-action" [class.desactive]="service.statut === 'Arrêté'">
+                Redémarrer
+              </button>
+            </div>
+          </div>
+
+          <div class="service-bas">
+            <div class="indicateur-mini">
+              <span class="libelle">Durée</span>
+              <strong>{{ service.dureeFonctionnement }}</strong>
+            </div>
+
+            <div class="indicateur-mini">
+              <span class="libelle">Processeur</span>
+              <strong>{{ service.processeur }}%</strong>
+            </div>
+
+            <div class="indicateur-mini">
+              <span class="libelle">Mémoire</span>
+              <strong>{{ service.memoire }}%</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>État de la base de données</h2>
+          <p>Statistiques et performance de la base de données PostgreSQL</p>
+        </div>
+
+        <div class="grille-bdd">
+          <div class="carte-bdd">
+            <p>Connexions actives</p>
+            <h3>42 / 100</h3>
+          </div>
+
+          <div class="carte-bdd">
+            <p>Taille de la base</p>
+            <h3>8.4 Go</h3>
+          </div>
+
+          <div class="carte-bdd">
+            <p>Requêtes / sec</p>
+            <h3>1,247</h3>
+          </div>
+
+          <div class="carte-bdd">
+            <p>Dernière sauvegarde</p>
+            <h3>Il y a 2 heures</h3>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="colonne-droite">
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Contrôles système</h2>
+          <p>Configuration et paramètres</p>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Mode maintenance</h4>
+            <p>Désactiver l'accès externe</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="modeMaintenance">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Sauvegarde automatique</h4>
+            <p>Sauvegarde quotidienne à 3h</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="sauvegardeAutomatique">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="controle-ligne">
+          <div>
+            <h4>Surveillance en temps réel</h4>
+            <p>Surveillance continue</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" [(ngModel)]="surveillanceTempsReel">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <div class="bloc-entete">
+          <h2>Notifications système</h2>
+          <p>Événements récents et alertes</p>
+        </div>
+
+        <div class="notification-item" *ngFor="let notification of notifications">
+          <div class="notification-icone" [ngClass]="obtenirClasseNotification(notification.type)">
+            ●
+          </div>
+
+          <div class="notification-texte">
+            <h4>{{ notification.titre }}</h4>
+            <p>{{ notification.moment }}</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>

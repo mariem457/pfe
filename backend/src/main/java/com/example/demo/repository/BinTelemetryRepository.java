@@ -6,11 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long> {
 
     List<BinTelemetry> findByBinIdOrderByTimestampDesc(Long binId, Pageable pageable);
-
+    Optional<BinTelemetry> findTopByBinIdAndIdNotOrderByTimestampDesc(Long binId, Long id);
     @Query(value = """
         SELECT DISTINCT ON (bt.bin_id) bt.*
         FROM bin_telemetry bt

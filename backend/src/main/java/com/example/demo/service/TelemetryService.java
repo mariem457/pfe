@@ -2,7 +2,9 @@ package com.example.demo.service;
 
 import com.example.demo.dto.TelemetryResponse;
 import com.example.demo.entity.Bin;
+import com.example.demo.entity.BinPrediction;
 import com.example.demo.entity.BinTelemetry;
+import com.example.demo.repository.BinPredictionRepository;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
 import jakarta.transaction.Transactional;
@@ -10,32 +12,41 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.Optional;
 
 @Service
 public class TelemetryService {
 
     private final BinRepository binRepository;
     private final BinTelemetryRepository telemetryRepository;
+    private final BinPredictionRepository predictionRepository;
+    private final PythonPredictionService pythonPredictionService;
     private final AnomalyDetectionService anomalyDetectionService;
-    private final AlertRuleService alertRuleService; // ✅ جديد
+    private final AlertRuleService alertRuleService;
 
     public TelemetryService(BinRepository binRepository,
                             BinTelemetryRepository telemetryRepository,
+                            BinPredictionRepository predictionRepository,
+                            PythonPredictionService pythonPredictionService,
                             AnomalyDetectionService anomalyDetectionService,
-                            AlertRuleService alertRuleService) { // ✅ جديد
+                            AlertRuleService alertRuleService) {
         this.binRepository = binRepository;
         this.telemetryRepository = telemetryRepository;
+        this.predictionRepository = predictionRepository;
+        this.pythonPredictionService = pythonPredictionService;
         this.anomalyDetectionService = anomalyDetectionService;
-        this.alertRuleService = alertRuleService; // ✅ جديد
+        this.alertRuleService = alertRuleService;
     }
 
     @Transactional
     public TelemetryResponse saveTelemetry(String binCode,
-                                          short fillLevel,
-                                          Short batteryLevel,
-                                          BigDecimal weightKg,
-                                          String status,
-                                          String source) {
+                                           short fillLevel,
+                                           Short batteryLevel,
+                                           BigDecimal weightKg,
+                                           String status,
+                                           String source) {
 
         // 1) نجيب bin
         Bin bin = binRepository.findByBinCode(binCode)
@@ -47,8 +58,13 @@ public class TelemetryService {
         telemetry.setTimestamp(Instant.now());
         telemetry.setFillLevel(fillLevel);
 
-        if (batteryLevel != null) telemetry.setBatteryLevel(batteryLevel);
-        if (weightKg != null) telemetry.setWeightKg(weightKg);
+        if (batteryLevel != null) {
+            telemetry.setBatteryLevel(batteryLevel);
+        }
+
+        if (weightKg != null) {
+            telemetry.setWeightKg(weightKg);
+        }
 
         telemetry.setStatus(status);
         telemetry.setSource(source);
@@ -59,10 +75,62 @@ public class TelemetryService {
         // 4) anomalies
         anomalyDetectionService.evaluateAndPersist(bin, saved);
 
-        // ✅ 5) alerts (AUTO)
+        // 5) alerts
         alertRuleService.evaluateAndCreateAlerts(bin, saved);
 
-        // ✅ 6) build response داخل transaction (حل Lazy)
+        // 6) prediction
+        double hour = saved.getTimestamp()
+                .atZone(ZoneId.systemDefault())
+                .getHour();
+
+        double day = saved.getTimestamp()
+                .atZone(ZoneId.systemDefault())
+                .getDayOfWeek()
+                .getValue() % 7;
+
+        double currentFillLevel = saved.getFillLevel();
+
+        double currentBatteryLevel = saved.getBatteryLevel();
+
+        double currentWeightKg = saved.getWeightKg() != null
+                ? saved.getWeightKg().doubleValue()
+                : 0.0;
+
+        double currentRssi = saved.getRssi();
+
+        double fillRate = 0.0;
+
+        Optional<BinTelemetry> previousOpt =
+                telemetryRepository.findTopByBinIdAndIdNotOrderByTimestampDesc(
+                        bin.getId(),
+                        saved.getId()
+                );
+
+        if (previousOpt.isPresent()) {
+            double previousFillLevel = previousOpt.get().getFillLevel();
+            fillRate = Math.max(0.0, currentFillLevel - previousFillLevel);
+        }
+
+        PredictionResult predictionResult = pythonPredictionService.runPrediction(
+                hour,
+                day,
+                currentFillLevel,
+                fillRate,
+                currentBatteryLevel,
+                currentWeightKg,
+                currentRssi
+        );
+
+        BinPrediction prediction = new BinPrediction();
+        prediction.setBinId(bin.getId());
+        prediction.setTelemetryId(saved.getId());
+        prediction.setPredictedFillNext(BigDecimal.valueOf(predictionResult.getPredictedFillNext()));
+        prediction.setAlertStatus(predictionResult.getAlertStatus());
+        prediction.setCreatedAt(OffsetDateTime.now());
+
+        predictionRepository.save(prediction);
+
+        // 7) build response
         TelemetryResponse res = new TelemetryResponse();
         res.id = saved.getId();
         res.binCode = bin.getBinCode();

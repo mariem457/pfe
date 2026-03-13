@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.TruckDashboardResponse;
 import com.example.demo.dto.TruckLocationRequest;
 import com.example.demo.dto.TruckLocationResponse;
 import com.example.demo.service.TruckLocationService;
@@ -18,5 +19,10 @@ public class TruckLocationController {
     @PostMapping
     public TruckLocationResponse save(@RequestBody TruckLocationRequest request) {
         return truckLocationService.save(request);
+    }
+
+    @GetMapping("/dashboard")
+    public TruckDashboardResponse getDashboard() {
+        return truckLocationService.getDashboard();
     }
 }

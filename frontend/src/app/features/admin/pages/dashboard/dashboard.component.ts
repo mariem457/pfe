@@ -10,6 +10,10 @@ import {
   BinDistributionDto
 } from '../../../../services/dashboard.service';
 import { FleetMapComponent } from '../trucks/fleet-map/fleet-map.component';
+import {
+  PublicReportService,
+  PublicReportDto
+} from '../../../../services/public-report.service';
 
 type DeltaType = 'up' | 'down';
 
@@ -34,20 +38,31 @@ interface AlertItem {
   createdAt?: string;
 }
 
+export interface MapReportItem {
+  id: number;
+  code: string;
+  status: 'Pending' | 'Validated' | 'Assigned';
+  priority: 'High' | 'Medium' | 'Low';
+  description: string;
+  location: string;
+  lat: number;
+  lng: number;
+  assignedTo?: string;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [NgFor, NgClass, NgIf, FormsModule, FleetMapComponent],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-
   kpis: KpiCard[] = [
     { icon: 'trash', label: 'Nombre total de bacs', value: '0', delta: '+0', deltaType: 'up' },
     { icon: 'alert', label: 'Bacs pleins', value: '0', delta: '+0', deltaType: 'up' },
     { icon: 'truck', label: 'Camions actifs', value: '0', delta: '+0', deltaType: 'up' },
-    { icon: 'leaf', label: 'Taux moyen de remplissage', value: '0 %', delta: '+0 %', deltaType: 'up' },
+    { icon: 'leaf', label: 'Taux moyen de remplissage', value: '0 %', delta: '+0 %', deltaType: 'up' }
   ];
 
   dashboardLoading = false;
@@ -69,12 +84,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   alertsError = '';
   alerts: AlertItem[] = [];
 
+  reportsLoading = false;
+  reportsError = '';
+  mapReports: MapReportItem[] = [];
+
   filterResolved: '' | 'false' | 'true' = 'false';
   filterSeverity: '' | 'LOW' | 'MEDIUM' | 'HIGH' = '';
   filterType: '' | 'THRESHOLD' | 'ANOMALY' | 'MAINTENANCE' | 'SYSTEM' = '';
   searchText = '';
 
-  resolvedByUserId = 1;
   resolvingId: number | null = null;
 
   showDetails = false;
@@ -85,16 +103,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private kpiInterval: any;
   private alertsInterval: any;
   private chartsInterval: any;
+  private reportsInterval: any;
 
   constructor(
     private alertService: AlertService,
-    private dashboardService: DashboardService
+    private dashboardService: DashboardService,
+    private publicReportService: PublicReportService
   ) {}
 
   ngOnInit(): void {
     this.loadKpis();
     this.loadCharts();
     this.loadAlerts();
+    this.loadReportsForMap();
 
     this.kpiInterval = setInterval(() => {
       this.loadKpis();
@@ -107,12 +128,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.alertsInterval = setInterval(() => {
       this.loadAlerts();
     }, 15000);
+
+    this.reportsInterval = setInterval(() => {
+      this.loadReportsForMap();
+    }, 15000);
   }
 
   ngOnDestroy(): void {
     if (this.kpiInterval) clearInterval(this.kpiInterval);
     if (this.chartsInterval) clearInterval(this.chartsInterval);
     if (this.alertsInterval) clearInterval(this.alertsInterval);
+    if (this.reportsInterval) clearInterval(this.reportsInterval);
   }
 
   loadKpis(): void {
@@ -198,7 +224,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       resolved: resolvedParam,
       severity: this.filterSeverity || null,
       alertType: this.filterType || null,
-      q: this.searchText?.trim() ? this.searchText.trim() : null,
+      q: this.searchText?.trim() ? this.searchText.trim() : null
     }).subscribe({
       next: (data: AlertDto[]) => {
         const arr = data || [];
@@ -209,6 +235,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
         console.error('GET /api/alerts failed', err);
         this.alertsError = 'Impossible de charger les alertes.';
         this.loadingAlerts = false;
+      }
+    });
+  }
+
+  loadReportsForMap(): void {
+    this.reportsLoading = true;
+    this.reportsError = '';
+
+    this.publicReportService.getAllReports().subscribe({
+      next: (data: PublicReportDto[]) => {
+        const visibleStatuses = ['EN_ATTENTE', 'VALIDE', 'AFFECTE'];
+
+        this.mapReports = (data || [])
+          .filter(r => visibleStatuses.includes(r.status))
+          .map((r): MapReportItem => ({
+            id: r.id,
+            code: r.reportCode,
+            status:
+              r.status === 'AFFECTE' ? 'Assigned' :
+              r.status === 'VALIDE' ? 'Validated' :
+              'Pending',
+            priority:
+              r.priority === 'HIGH' ? 'High' :
+              r.priority === 'MEDIUM' ? 'Medium' :
+              'Low',
+            description: r.description || 'Aucune description',
+            location: r.address || 'Adresse non disponible',
+            lat: Number(r.latitude),
+            lng: Number(r.longitude),
+            assignedTo: r.assignedDriverName || undefined
+          }))
+          .filter(r => !Number.isNaN(r.lat) && !Number.isNaN(r.lng));
+
+        this.reportsLoading = false;
+      },
+      error: (err) => {
+        console.error('GET /municipality/public-reports failed', err);
+        this.reportsError = 'Impossible de charger les signalements sur la carte.';
+        this.reportsLoading = false;
       }
     });
   }

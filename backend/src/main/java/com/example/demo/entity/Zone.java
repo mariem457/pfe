@@ -1,8 +1,9 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
-import java.time.OffsetDateTime;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 @Entity
 @Table(name = "zones")
 public class Zone {
@@ -11,40 +12,83 @@ public class Zone {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 80)
-    private String name;
+    @Column(name = "shape_name", nullable = false)
+    private String shapeName;
 
-    @Column(columnDefinition = "text")
-    private String description;
+    @Column(name = "shape_id", nullable = false, unique = true)
+    private String shapeId;
 
-    @Column(name = "center_lat")
-    private Double centerLat;
+    @Column(name = "shape_type")
+    private String shapeType;
 
-    @Column(name = "center_lng")
-    private Double centerLng;
+    @Column(name = "shape_group")
+    private String shapeGroup;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    @Column(name = "geometry_json", nullable = false, columnDefinition = "jsonb")
+    private String geometryJson;
 
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) createdAt = OffsetDateTime.now();
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
+
+    public Zone() {
     }
 
-    // getters/setters
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public String getShapeName() {
+        return shapeName;
+    }
 
-    public Double getCenterLat() { return centerLat; }
-    public void setCenterLat(Double centerLat) { this.centerLat = centerLat; }
+    public void setShapeName(String shapeName) {
+        this.shapeName = shapeName;
+    }
 
-    public Double getCenterLng() { return centerLng; }
-    public void setCenterLng(Double centerLng) { this.centerLng = centerLng; }
+    public String getShapeId() {
+        return shapeId;
+    }
 
-    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setShapeId(String shapeId) {
+        this.shapeId = shapeId;
+    }
+
+    public String getShapeType() {
+        return shapeType;
+    }
+
+    public void setShapeType(String shapeType) {
+        this.shapeType = shapeType;
+    }
+
+    public String getShapeGroup() {
+        return shapeGroup;
+    }
+
+    public void setShapeGroup(String shapeGroup) {
+        this.shapeGroup = shapeGroup;
+    }
+
+    public String getGeometryJson() {
+        return geometryJson;
+    }
+
+    public void setGeometryJson(String geometryJson) {
+        this.geometryJson = geometryJson;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }

@@ -17,31 +17,29 @@ public class TelemetryService {
     private final BinRepository binRepository;
     private final BinTelemetryRepository telemetryRepository;
     private final AnomalyDetectionService anomalyDetectionService;
-    private final AlertRuleService alertRuleService; // ✅ جديد
+    private final AlertRuleService alertRuleService;
 
     public TelemetryService(BinRepository binRepository,
                             BinTelemetryRepository telemetryRepository,
                             AnomalyDetectionService anomalyDetectionService,
-                            AlertRuleService alertRuleService) { // ✅ جديد
+                            AlertRuleService alertRuleService) {
         this.binRepository = binRepository;
         this.telemetryRepository = telemetryRepository;
         this.anomalyDetectionService = anomalyDetectionService;
-        this.alertRuleService = alertRuleService; // ✅ جديد
+        this.alertRuleService = alertRuleService;
     }
 
     @Transactional
     public TelemetryResponse saveTelemetry(String binCode,
-                                          short fillLevel,
-                                          Short batteryLevel,
-                                          BigDecimal weightKg,
-                                          String status,
-                                          String source) {
+                                           short fillLevel,
+                                           Short batteryLevel,
+                                           BigDecimal weightKg,
+                                           String status,
+                                           String source) {
 
-        // 1) نجيب bin
         Bin bin = binRepository.findByBinCode(binCode)
                 .orElseThrow(() -> new RuntimeException("Bin not found: " + binCode));
 
-        // 2) نعمل telemetry entity
         BinTelemetry telemetry = new BinTelemetry();
         telemetry.setBin(bin);
         telemetry.setTimestamp(Instant.now());
@@ -53,16 +51,11 @@ public class TelemetryService {
         telemetry.setStatus(status);
         telemetry.setSource(source);
 
-        // 3) save في DB
         BinTelemetry saved = telemetryRepository.save(telemetry);
 
-        // 4) anomalies
         anomalyDetectionService.evaluateAndPersist(bin, saved);
-
-        // ✅ 5) alerts (AUTO)
         alertRuleService.evaluateAndCreateAlerts(bin, saved);
 
-        // ✅ 6) build response داخل transaction (حل Lazy)
         TelemetryResponse res = new TelemetryResponse();
         res.id = saved.getId();
         res.binCode = bin.getBinCode();
@@ -74,7 +67,7 @@ public class TelemetryService {
 
         if (bin.getZone() != null) {
             res.zoneId = bin.getZone().getId();
-            res.zoneName = bin.getZone().getName();
+            res.zoneName = bin.getZone().getShapeName();
         }
 
         return res;

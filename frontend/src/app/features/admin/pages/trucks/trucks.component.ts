@@ -1,18 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FleetMapComponent } from './fleet-map/fleet-map.component';
+import { TruckDashboardService, TruckDashboardResponse, TruckItem } from '../../../../services/truck-dashboard.service';
 
-type TruckStatus = 'Actif' | 'Inactif' | 'Hors ligne';
+type TruckStatus = 'Actif' | 'Inactif';
 
 interface TruckCard {
   id: string;
   driver: string;
   location: string;
   status: TruckStatus;
-  progress: number;      // 0..100
+  progress: number;
   collected: number;
   remaining: number;
-  fuel: number;          // 0..100
+  fuel: number;
   etaMins: number;
 }
 
@@ -23,48 +24,72 @@ interface TruckCard {
   templateUrl: './trucks.component.html',
   styleUrls: ['./trucks.component.css']
 })
-export class TrucksComponent {
+export class TrucksComponent implements OnInit {
+
+  constructor(private dashboardService: TruckDashboardService) {}
 
   kpis = [
-    { icon: 'show_chart',        label: 'Camions actifs',         value: '24' },
-    { icon: 'place',            label: 'Total des itinéraires',   value: '32' },
-    { icon: 'schedule',         label: 'Progression moyenne',     value: '67 %' },
-    { icon: 'local_gas_station',label: 'État du carburant',       value: 'Bon' },
+    { icon: 'show_chart', label: 'Camions actifs', value: '0' },
+    { icon: 'place', label: 'Total des itinéraires', value: '0' },
+    { icon: 'schedule', label: 'Progression moyenne', value: '0 %' },
+    { icon: 'local_gas_station', label: 'État du carburant', value: '—' },
   ];
 
-  trucks: TruckCard[] = [
-    {
-      id: 'TRK-001',
-      driver: 'John Smith',
-      location: 'Rue Principale & 5e Avenue',
-      status: 'Actif',
-      progress: 65,
-      collected: 18,
-      remaining: 9,
-      fuel: 78,
-      etaMins: 45
-    },
-    {
-      id: 'TRK-002',
-      driver: 'Sarah Johnson',
-      location: 'Parc Central',
-      status: 'Actif',
-      progress: 42,
-      collected: 11,
-      remaining: 16,
-      fuel: 64,
-      etaMins: 60
-    },
-    {
-      id: 'TRK-003',
-      driver: 'Ahmed Ali',
-      location: 'Place de l’Hôtel de Ville',
-      status: 'Actif',
-      progress: 83,
-      collected: 24,
-      remaining: 5,
-      fuel: 52,
-      etaMins: 25
-    },
-  ];
+  trucks: TruckCard[] = [];
+
+  ngOnInit(): void {
+    this.loadDashboard();
+  }
+
+  loadDashboard() {
+
+    this.dashboardService.getDashboard().subscribe({
+
+      next: (data: TruckDashboardResponse) => {
+
+        this.kpis = [
+          {
+            icon: 'show_chart',
+            label: 'Camions actifs',
+            value: data.activeTrucks.toString()
+          },
+          {
+            icon: 'place',
+            label: 'Total des itinéraires',
+            value: data.totalRoutes.toString()
+          },
+          {
+            icon: 'schedule',
+            label: 'Progression moyenne',
+            value: data.averageProgress + ' %'
+          },
+          {
+            icon: 'local_gas_station',
+            label: 'État du carburant',
+            value: data.fuelStatus
+          }
+        ];
+
+        this.trucks = data.trucks.map((t: TruckItem) => ({
+          id: t.truckCode,
+          driver: t.driverName,
+          location: t.locationLabel,
+          status: t.active ? 'Actif' : 'Inactif',
+          progress: t.progress ?? 0,
+          collected: t.collectedBins ?? 0,
+          remaining: t.remainingBins ?? 0,
+          fuel: t.fuelLevel ?? 0,
+          etaMins: t.etaMinutes ?? 0
+        }));
+
+      },
+
+      error: (err) => {
+        console.error('Dashboard trucks error', err);
+      }
+
+    });
+
+  }
+
 }

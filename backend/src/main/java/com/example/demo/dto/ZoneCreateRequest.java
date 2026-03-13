@@ -1,14 +1,11 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import java.util.List;
 
 public class ZoneCreateRequest {
-    @NotBlank
-    @Size(max = 80)
     public String name;
-
     public String description;
     public Double centerLat;
     public Double centerLng;
+    public List<LatLngPoint> polygon;
 }

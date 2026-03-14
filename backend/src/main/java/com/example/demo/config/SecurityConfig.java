@@ -40,23 +40,20 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
-                        // allow error dispatch
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // PUBLIC endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/users/municipality").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
-                        // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                   
+
                         .requestMatchers("/api/telemetry/**").permitAll()
+                        .requestMatchers("/api/prediction/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")
@@ -68,18 +65,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/uploads/**").permitAll()
 
-
-                        // MISSIONS
                         .requestMatchers("/api/missions/**")
                         .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        
+
                         .requestMatchers("/api/truck-locations").permitAll()
-                        
-                        
-                        
                         .requestMatchers("/ws/**").permitAll()
 
-                        // DRIVERS
                         .requestMatchers("/api/drivers/**")
                         .hasAnyRole("ADMIN", "MUNICIPALITY")
 
@@ -90,16 +81,12 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ CORS FIXED FOR ANGULAR
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allow any localhost port (4200, 5173, etc.)
         config.setAllowedOriginPatterns(List.of("http://localhost:*"));
-
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-
         config.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
@@ -107,10 +94,7 @@ public class SecurityConfig {
                 "Origin",
                 "X-Requested-With"
         ));
-
         config.setExposedHeaders(List.of("Authorization"));
-
-        // JWT ما يحتاجش cookies
         config.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

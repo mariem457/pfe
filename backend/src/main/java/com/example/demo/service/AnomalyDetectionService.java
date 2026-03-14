@@ -33,7 +33,7 @@ public class AnomalyDetectionService {
         Long binId = bin.getId();
 
         List<BinTelemetry> last = telemetryRepository
-                .findByBinIdOrderByTimestampDesc(binId, PageRequest.of(0, 6));
+                .findByBin_IdOrderByTimestampDesc(binId, PageRequest.of(0, 6));
 
         // OUTLIER
         if (isOutlier(current)) {

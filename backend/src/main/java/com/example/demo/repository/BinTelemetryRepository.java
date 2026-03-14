@@ -10,8 +10,12 @@ import java.util.Optional;
 
 public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long> {
 
-    List<BinTelemetry> findByBinIdOrderByTimestampDesc(Long binId, Pageable pageable);
-    Optional<BinTelemetry> findTopByBinIdAndIdNotOrderByTimestampDesc(Long binId, Long id);
+    List<BinTelemetry> findByBin_IdOrderByTimestampDesc(Long binId, Pageable pageable);
+
+    Optional<BinTelemetry> findTopByBin_IdOrderByTimestampDesc(Long binId);
+
+    Optional<BinTelemetry> findTopByBin_IdAndIdNotOrderByTimestampDesc(Long binId, Long id);
+
     @Query(value = """
         SELECT DISTINCT ON (bt.bin_id) bt.*
         FROM bin_telemetry bt
@@ -45,36 +49,32 @@ public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long
         ) latest ON true
     """, nativeQuery = true)
     Double getAverageFillLevel();
-    
-    
-    
-    
-    
-    @Query(value = """
-    	    SELECT COUNT(*)
-    	    FROM bins b
-    	    JOIN LATERAL (
-    	        SELECT bt.fill_level
-    	        FROM bin_telemetry bt
-    	        WHERE bt.bin_id = b.id
-    	        ORDER BY bt.timestamp DESC
-    	        LIMIT 1
-    	    ) latest ON true
-    	    WHERE latest.fill_level < 40
-    	""", nativeQuery = true)
-    	long countEmptyBins();
 
-    	@Query(value = """
-    	    SELECT COUNT(*)
-    	    FROM bins b
-    	    JOIN LATERAL (
-    	        SELECT bt.fill_level
-    	        FROM bin_telemetry bt
-    	        WHERE bt.bin_id = b.id
-    	        ORDER BY bt.timestamp DESC
-    	        LIMIT 1
-    	    ) latest ON true
-    	    WHERE latest.fill_level >= 40 AND latest.fill_level < 90
-    	""", nativeQuery = true)
-    	long countPartialBins();
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM bins b
+        JOIN LATERAL (
+            SELECT bt.fill_level
+            FROM bin_telemetry bt
+            WHERE bt.bin_id = b.id
+            ORDER BY bt.timestamp DESC
+            LIMIT 1
+        ) latest ON true
+        WHERE latest.fill_level < 40
+    """, nativeQuery = true)
+    long countEmptyBins();
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM bins b
+        JOIN LATERAL (
+            SELECT bt.fill_level
+            FROM bin_telemetry bt
+            WHERE bt.bin_id = b.id
+            ORDER BY bt.timestamp DESC
+            LIMIT 1
+        ) latest ON true
+        WHERE latest.fill_level >= 40 AND latest.fill_level < 90
+    """, nativeQuery = true)
+    long countPartialBins();
 }

@@ -23,15 +23,18 @@ public class BinService {
     private final BinRepository binRepository;
     private final BinTelemetryRepository binTelemetryRepository;
     private final ZoneService zoneService;
+    private final PythonPredictionService pythonPredictionService;
 
     public BinService(
             BinRepository binRepository,
             BinTelemetryRepository binTelemetryRepository,
-            ZoneService zoneService
+            ZoneService zoneService,
+            PythonPredictionService pythonPredictionService
     ) {
         this.binRepository = binRepository;
         this.binTelemetryRepository = binTelemetryRepository;
         this.zoneService = zoneService;
+        this.pythonPredictionService = pythonPredictionService;
     }
 
     @Transactional(readOnly = true)
@@ -173,12 +176,12 @@ public class BinService {
 
     @Transactional
     public void processTelemetry(BinTelemetryDTO dto) {
-        System.out.println("📥 processTelemetry() called for binCode=" + dto.getBinCode());
+        System.out.println("processTelemetry() called for binCode=" + dto.getBinCode());
 
         Bin bin = binRepository.findByBinCode(dto.getBinCode())
-                .orElseThrow(() -> new RuntimeException("❌ Bin not found: " + dto.getBinCode()));
+                .orElseThrow(() -> new RuntimeException("Bin not found: " + dto.getBinCode()));
 
-        System.out.println("✅ Bin found id=" + bin.getId());
+        System.out.println("Bin found id=" + bin.getId());
 
         BinTelemetry telemetry = new BinTelemetry();
         telemetry.setBin(bin);
@@ -197,7 +200,17 @@ public class BinService {
 
         BinTelemetry saved = binTelemetryRepository.save(telemetry);
 
-        System.out.println("💾 Telemetry saved in DB"
+        System.out.println("Telemetry saved in DB"
                 + (saved.getId() != null ? (" id=" + saved.getId()) : ""));
+
+        try {
+            PredictionResult predictionResult = pythonPredictionService.runPredictionForBin(bin.getId());
+            System.out.println("Prediction saved in DB for bin id=" + bin.getId()
+                    + " predictedFillNext=" + predictionResult.getPredictedFillNext()
+                    + " alertStatus=" + predictionResult.getAlertStatus());
+        } catch (Exception e) {
+            System.out.println("Prediction failed for bin id=" + bin.getId());
+            e.printStackTrace();
+        }
     }
 }

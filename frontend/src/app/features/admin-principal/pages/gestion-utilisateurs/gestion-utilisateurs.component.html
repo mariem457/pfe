@@ -68,10 +68,22 @@
     </div>
   </div>
 
-  <div class="bloc-utilisateurs">
+  <div *ngIf="loading" class="message-info">
+    Chargement des utilisateurs...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!loading && !errorMessage" class="bloc-utilisateurs">
     <div class="entete-bloc">
       <h2>Utilisateurs ({{ utilisateursFiltres.length }})</h2>
       <p>Liste complète des utilisateurs avec leurs informations et permissions</p>
+    </div>
+
+    <div *ngIf="utilisateursFiltres.length === 0" class="message-info">
+      Aucun utilisateur trouvé.
     </div>
 
     <div class="carte-utilisateur" *ngFor="let utilisateur of utilisateursFiltres">

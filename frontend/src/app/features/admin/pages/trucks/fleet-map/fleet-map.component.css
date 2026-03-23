@@ -266,3 +266,29 @@
   opacity: 0.7;
   cursor: not-allowed;
 }
+.legend-mission-pending {
+  background: #f59e0b;
+}
+
+.legend-mission-collected {
+  background: #16a34a;
+}
+
+:host ::ng-deep .mission-order-icon {
+  background: transparent;
+  border: none;
+}
+
+:host ::ng-deep .mission-order-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}

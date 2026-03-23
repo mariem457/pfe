@@ -1,0 +1,277 @@
+<div class="missions-page">
+  <div class="page-header">
+    <div>
+      <h1>Missions</h1>
+      <p>Suivi et gestion des tournées de collecte</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="loadMissions()">Actualiser</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 6h13"></path>
+            <path d="M8 12h13"></path>
+            <path d="M8 18h13"></path>
+            <path d="M3 6h.01"></path>
+            <path d="M3 12h.01"></path>
+            <path d="M3 18h.01"></path>
+          </svg>
+        </div>
+        <span class="kpi-label">Total missions</span>
+      </div>
+      <strong>{{ totalMissions() }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+        </div>
+        <span class="kpi-label">Créées</span>
+      </div>
+      <strong>{{ createdMissions() }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h4l3 8 4-16 3 8h4"></path>
+          </svg>
+        </div>
+        <span class="kpi-label">En cours</span>
+      </div>
+      <strong>{{ inProgressMissions() }}</strong>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon teal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+        </div>
+        <span class="kpi-label">Terminées</span>
+      </div>
+      <strong>{{ completedMissions() }}</strong>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <input
+        type="text"
+        placeholder="Rechercher par code, chauffeur, zone..."
+        [(ngModel)]="searchTerm"
+      />
+    </div>
+
+    <div class="filter-box">
+      <select [(ngModel)]="selectedStatus">
+        <option value="ALL">Tous les statuts</option>
+        <option value="CREATED">Créée</option>
+        <option value="IN_PROGRESS">En cours</option>
+        <option value="COMPLETED">Terminée</option>
+        <option value="CANCELLED">Annulée</option>
+      </select>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage()" class="error-box">
+    {{ errorMessage() }}
+  </div>
+
+  <div class="content-grid">
+    <div class="missions-list card">
+      <div class="card-header">
+        <h2>Liste des missions</h2>
+        <span>{{ filteredMissions().length }} résultat(s)</span>
+      </div>
+
+      <div *ngIf="loading()" class="empty-state">Chargement des missions...</div>
+
+      <div *ngIf="!loading() && !filteredMissions().length" class="empty-state">
+        Aucune mission trouvée.
+      </div>
+
+      <div class="mission-items" *ngIf="!loading() && filteredMissions().length">
+        <button
+          class="mission-item"
+          *ngFor="let mission of filteredMissions()"
+          [class.active]="selectedMission()?.id === mission.id"
+          (click)="selectMission(mission)"
+        >
+          <div class="mission-top">
+            <strong>{{ mission.missionCode }}</strong>
+            <span [class]="statusClass(mission.status)">
+              {{ getStatusLabel(mission.status) }}
+            </span>
+          </div>
+
+          <div class="mission-meta">
+            <span>Chauffeur: {{ mission.driverName || '—' }}</span>
+            <span>Priorité: {{ getPriorityLabel(mission.priority) }}</span>
+          </div>
+
+          <div class="mission-date">
+            Prévue: {{ mission.plannedDate || '—' }}
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="mission-details card" *ngIf="selectedMission() as mission">
+      <div class="card-header">
+        <div>
+          <h2>Détails de la mission</h2>
+          <p>{{ mission.missionCode }}</p>
+        </div>
+
+        <div class="detail-actions">
+          <button class="btn btn-outline" (click)="refreshSelectedMission()" [disabled]="actionLoading()">
+            Refresh
+          </button>
+
+          <button
+            class="btn btn-primary"
+            (click)="startMission()"
+            [disabled]="actionLoading() || mission.status !== 'CREATED'"
+          >
+            Démarrer
+          </button>
+
+          <button
+            class="btn btn-success"
+            (click)="completeMission()"
+            [disabled]="actionLoading() || mission.status === 'COMPLETED'"
+          >
+            Terminer
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-card">
+          <span>Statut</span>
+          <strong [class]="statusClass(mission.status)">
+            {{ getStatusLabel(mission.status) }}
+          </strong>
+        </div>
+
+        <div class="detail-card">
+          <span>Chauffeur</span>
+          <strong>{{ mission.driverName || '—' }}</strong>
+        </div>
+
+        <div class="detail-card">
+          <span>Priorité</span>
+          <strong>{{ getPriorityLabel(mission.priority) }}</strong>
+        </div>
+
+        <div class="detail-card">
+          <span>Date prévue</span>
+          <strong>{{ mission.plannedDate || '—' }}</strong>
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-header">
+          <span>Progression</span>
+          <strong>{{ progressPercent() }}%</strong>
+        </div>
+
+        <div class="progress-bar">
+          <div class="progress-value" [style.width.%]="progressPercent()"></div>
+        </div>
+
+        <div class="progress-meta">
+          <span>{{ collectedBins() }} collecté(s)</span>
+          <span>{{ totalBins() }} total</span>
+        </div>
+      </div>
+
+      <div class="timestamps">
+        <div><span>Créée:</span> {{ formatDate(mission.createdAt) }}</div>
+        <div><span>Démarrée:</span> {{ formatDate(mission.startedAt) }}</div>
+        <div><span>Terminée:</span> {{ formatDate(mission.completedAt) }}</div>
+      </div>
+
+      <div class="mission-map-section">
+        <div *ngIf="loadingRoute()" class="empty-state">
+          Chargement de l’itinéraire...
+        </div>
+
+        <app-fleet-map
+          *ngIf="!loadingRoute()"
+          [showHeader]="true"
+          [title]="'Carte de la mission'"
+          [subtitle]="'Visualisation des bacs affectés et des camions en direct'"
+          [showTrucks]="true"
+          [showBins]="true"
+          [showReports]="false"
+          [allowAddBins]="false"
+          [missionBins]="missionMapBins()"
+          [missionRouteCoordinates]="missionRouteCoordinates()"
+          [missionRouteStops]="missionMapRouteStops()"
+          [snappedWaypoints]="snappedWaypoints()"
+        />
+      </div>
+
+      <div class="bins-section">
+        <div class="section-title">
+          <h3>Bacs de la mission</h3>
+          <span>{{ missionBins().length }} bac(s)</span>
+        </div>
+
+        <div *ngIf="loadingBins()" class="empty-state">Chargement des bacs...</div>
+
+        <div *ngIf="!loadingBins() && !missionBins().length" class="empty-state">
+          Aucun bac affecté à cette mission.
+        </div>
+
+        <div class="bins-table" *ngIf="!loadingBins() && missionBins().length">
+          <div class="bins-row bins-head">
+            <span>Ordre</span>
+            <span>Bac</span>
+            <span>Seuil</span>
+            <span>Statut</span>
+            <span>Action</span>
+          </div>
+
+          <div class="bins-row" *ngFor="let bin of missionBins()">
+            <span>#{{ bin.visitOrder }}</span>
+            <span>{{ bin.binCode || ('BIN-' + bin.binId) }}</span>
+            <span>{{ bin.targetFillThreshold ?? '—' }}%</span>
+            <span [class]="binStatusClass(bin)">
+              {{ bin.collected ? 'Collecté' : 'À collecter' }}
+            </span>
+            <span>
+              <button
+                class="btn btn-small btn-outline"
+                (click)="collectBin(bin)"
+                [disabled]="bin.collected || actionLoading() || mission.status === 'COMPLETED'"
+              >
+                Collecter
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mission-details card" *ngIf="!selectedMission()">
+      <div class="empty-state large">
+        Sélectionnez une mission pour afficher les détails.
+      </div>
+    </div>
+  </div>
+</div>

@@ -11,6 +11,8 @@ public class BinResponse {
     public String zoneName;
     public Double lat;
     public Double lng;
+    public Double accessLat;
+    public Double accessLng;
     public LocalDate installationDate;
     public Boolean isActive;
     public String notes;

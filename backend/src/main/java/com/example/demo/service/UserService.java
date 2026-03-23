@@ -4,7 +4,10 @@ import com.example.demo.dto.ChangePasswordRequest;
 import com.example.demo.dto.SettingsProfileResponse;
 import com.example.demo.dto.UpdateSettingsProfileRequest;
 import com.example.demo.dto.UpdateUserRequest;
+import com.example.demo.dto.UpdateUserStatusRequest;
+import com.example.demo.dto.UserAdminListResponse;
 import com.example.demo.dto.UserResponse;
+import com.example.demo.dto.UserStatsResponse;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +29,28 @@ public class UserService {
 
     public List<UserResponse> findAll() {
         return repo.findAll().stream().map(this::toResponse).toList();
+    }
+
+    public List<UserAdminListResponse> findAllForAdmin() {
+        return repo.findAll().stream().map(this::toAdminListResponse).toList();
+    }
+
+    public UserStatsResponse getStats() {
+        List<User> users = repo.findAll();
+
+        UserStatsResponse stats = new UserStatsResponse();
+        stats.totalUsers = users.size();
+        stats.activeUsers = users.stream()
+                .filter(u -> Boolean.TRUE.equals(u.getIsEnabled()))
+                .count();
+        stats.inactiveUsers = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsEnabled()))
+                .count();
+        stats.drivers = users.stream()
+                .filter(u -> "DRIVER".equalsIgnoreCase(u.getRole()))
+                .count();
+
+        return stats;
     }
 
     public UserResponse findById(Long id) {
@@ -63,6 +88,19 @@ public class UserService {
         }
 
         return toResponse(repo.save(u));
+    }
+
+    @Transactional
+    public UserAdminListResponse updateStatus(Long id, Boolean isEnabled) {
+        User u = getOrThrow(id);
+
+        if (isEnabled == null) {
+            throw new IllegalArgumentException("isEnabled is required");
+        }
+
+        u.setIsEnabled(isEnabled);
+
+        return toAdminListResponse(repo.save(u));
     }
 
     public SettingsProfileResponse getSettingsProfileByUsername(String username) {
@@ -148,7 +186,8 @@ public class UserService {
     }
 
     private User getOrThrow(Long id) {
-        return repo.findById(id).orElseThrow(() -> new IllegalArgumentException("user not found"));
+        return repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("user not found"));
     }
 
     private UserResponse toResponse(User u) {
@@ -162,5 +201,31 @@ public class UserService {
         r.createdAt = u.getCreatedAt();
         r.updatedAt = u.getUpdatedAt();
         return r;
+    }
+
+    private UserAdminListResponse toAdminListResponse(User u) {
+        UserAdminListResponse r = new UserAdminListResponse();
+        r.id = u.getId();
+        r.username = u.getUsername();
+        r.fullName = buildFullName(u);
+        r.email = u.getEmail();
+        r.phone = "--";
+        r.role = u.getRole();
+        r.isEnabled = u.getIsEnabled();
+        r.lastLoginAt = u.getLastLoginAt();
+        return r;
+    }
+
+    private String buildFullName(User u) {
+        String firstName = u.getFirstName() != null ? u.getFirstName().trim() : "";
+        String lastName = u.getLastName() != null ? u.getLastName().trim() : "";
+
+        String fullName = (firstName + " " + lastName).trim();
+
+        if (!fullName.isEmpty()) {
+            return fullName;
+        }
+
+        return u.getUsername();
     }
 }

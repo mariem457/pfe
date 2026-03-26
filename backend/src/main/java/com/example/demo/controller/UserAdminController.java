@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.CreateMaintenanceUserRequest;
 import com.example.demo.dto.CreateMunicipalityUserRequest;
 import com.example.demo.dto.CreateUserResponse;
 import com.example.demo.service.UserAdminService;
@@ -22,5 +23,12 @@ public class UserAdminController {
     @ResponseStatus(HttpStatus.CREATED)
     public CreateUserResponse createMunicipality(@Valid @RequestBody CreateMunicipalityUserRequest req) {
         return userAdminService.createMunicipalityUser(req);
+    }
+
+    // ADMIN creates maintenance agents
+    @PostMapping("/maintenance")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CreateUserResponse createMaintenance(@Valid @RequestBody CreateMaintenanceUserRequest req) {
+        return userAdminService.createMaintenanceUser(req);
     }
 }

@@ -51,23 +51,24 @@ public class SecurityConfig {
 
                         // ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/users/municipality").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/users/maintenance").permitAll()
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
                         // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                    
                         .requestMatchers("/api/telemetry/**").permitAll()
-                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/public-reports").permitAll()
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/uploads/**").permitAll()
-
+                        .requestMatchers(HttpMethod.POST, "/api/users/maintenance").permitAll()
 
                         // MISSIONS
                         .requestMatchers("/api/missions/**")

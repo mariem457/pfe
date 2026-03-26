@@ -1,0 +1,152 @@
+<div class="maintenance-page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">Dashboard</div>
+      <h1 class="page-title">Dashboard Maintenance</h1>
+      <p class="page-subtitle">
+        Vue d'ensemble du système de maintenance et des équipements
+      </p>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" *ngFor="let stat of stats">
+      <div class="stat-top">
+        <div class="stat-icon" [ngClass]="stat.iconClass">
+          {{ stat.icon }}
+        </div>
+        <span class="stat-badge" [ngClass]="stat.badgeClass">
+          {{ stat.badge }}
+        </span>
+      </div>
+
+      <h2>{{ stat.value }}</h2>
+      <p>{{ stat.label }}</p>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="dashboard-card">
+      <h3>Interventions (7 derniers jours)</h3>
+
+      <div class="fake-chart bars">
+        <div
+          class="bar"
+          *ngFor="let height of interventionBars"
+          [style.height.%]="height"
+        ></div>
+      </div>
+
+      <div class="chart-labels">
+        <span *ngFor="let day of interventionLabels">{{ day }}</span>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <h3>Statut des Incidents</h3>
+
+      <div class="circle-wrap">
+        <div class="donut donut-incidents"></div>
+      </div>
+
+      <div class="legend">
+        <div>
+          <span><span class="dot red"></span>Ouvert</span>
+          <strong>12</strong>
+        </div>
+        <div>
+          <span><span class="dot orange"></span>En cours</span>
+          <strong>8</strong>
+        </div>
+        <div>
+          <span><span class="dot green"></span>Résolu</span>
+          <strong>34</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <h3>État Batteries Capteurs</h3>
+
+      <div class="circle-wrap">
+        <div class="donut donut-battery"></div>
+      </div>
+
+      <div class="legend">
+        <div>
+          <span><span class="dot green"></span>Normal (&gt;60%)</span>
+          <strong>1087</strong>
+        </div>
+        <div>
+          <span><span class="dot orange"></span>Faible (20-60%)</span>
+          <strong>23</strong>
+        </div>
+        <div>
+          <span><span class="dot red"></span>Critique (&lt;20%)</span>
+          <strong>7</strong>
+        </div>
+        <div>
+          <span><span class="dot gray"></span>Hors service</span>
+          <strong>4</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="dashboard-card">
+      <div class="card-head">
+        <h3>Alertes Récentes</h3>
+        <a href="javascript:void(0)">Voir tout</a>
+      </div>
+
+      <div class="alert-list">
+        <div class="alert-item" *ngFor="let alert of recentAlerts">
+          <div class="alert-item-top">
+            <span class="alert-chip" [ngClass]="alert.chipClass">
+              {{ alert.type }}
+            </span>
+
+            <span [ngClass]="alert.rightClass">
+              {{ alert.rightLabel }}
+            </span>
+          </div>
+
+          <h4>{{ alert.title }}</h4>
+          <p>{{ alert.location }}</p>
+          <small>{{ alert.time }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <div class="card-head">
+        <h3>Équipements à Traiter en Priorité</h3>
+        <span class="circle-counter">4</span>
+      </div>
+
+      <div class="priority-list">
+        <div class="priority-item" *ngFor="let item of priorityItems">
+          <div class="priority-content">
+            <div class="priority-top">
+              <h4>{{ item.title }}</h4>
+              <span class="status-chip" [ngClass]="item.badgeClass">
+                {{ item.badge }}
+              </span>
+            </div>
+
+            <p>{{ item.subtitle }}</p>
+            <small>{{ item.location }}</small>
+
+            <div class="problem-line">
+              <span>Problème</span>
+              <strong>{{ item.problem }}</strong>
+            </div>
+          </div>
+
+          <button type="button" class="treat-btn">Traiter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,170 @@
+<div class="alerts-page">
+  <div class="page-top">
+    <div>
+      <h1>Alertes Techniques</h1>
+      <p>Surveillance et gestion des alertes système en temps réel</p>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" *ngFor="let stat of stats">
+      <div class="stat-head">
+        <div class="stat-icon" [ngClass]="stat.iconClass">
+          <mat-icon>{{ stat.icon }}</mat-icon>
+        </div>
+
+        <span class="stat-badge" *ngIf="stat.badge">{{ stat.badge }}</span>
+      </div>
+
+      <div class="stat-value">{{ stat.value }}</div>
+      <div class="stat-label">{{ stat.label }}</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>Tendance des Alertes (7 jours)</h3>
+
+      <div class="line-chart">
+        <div class="grid-line" *ngFor="let i of [1,2,3,4]"></div>
+
+        <svg viewBox="0 0 600 220" preserveAspectRatio="none" class="chart-svg">
+          <polyline
+            points="0,90 100,45 200,105 300,60 400,18 500,135 600,165"
+            fill="none"
+            stroke="#ef4444"
+            stroke-width="4"
+            stroke-linecap="round"
+            stroke-linejoin="round">
+          </polyline>
+
+          <circle cx="0" cy="90" r="5" fill="#ef4444"></circle>
+          <circle cx="100" cy="45" r="5" fill="#ef4444"></circle>
+          <circle cx="200" cy="105" r="5" fill="#ef4444"></circle>
+          <circle cx="300" cy="60" r="5" fill="#ef4444"></circle>
+          <circle cx="400" cy="18" r="5" fill="#ef4444"></circle>
+          <circle cx="500" cy="135" r="5" fill="#ef4444"></circle>
+          <circle cx="600" cy="165" r="5" fill="#ef4444"></circle>
+        </svg>
+      </div>
+
+      <div class="chart-labels">
+        <span *ngFor="let day of trendLabels">{{ day }}</span>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Distribution par Type</h3>
+
+      <div class="distribution-list">
+        <div class="dist-row" *ngFor="let item of distribution">
+          <div class="dist-label">{{ item.label }}</div>
+
+          <div class="dist-bar-wrap">
+            <div class="dist-bar" [style.width.%]="item.value * 6"></div>
+          </div>
+
+          <div class="dist-value">{{ item.value }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar-card">
+    <div class="search-box">
+      <mat-icon>search</mat-icon>
+      <input
+        type="text"
+        placeholder="Rechercher par ID, équipement, message ou localisation..."
+      />
+    </div>
+
+    <div class="filters-row">
+      <div class="filter-group">
+        <span class="filter-label">Statut:</span>
+
+        <button [class.active]="activeStatus === 'Actives'" (click)="setStatusFilter('Actives')">Actives</button>
+        <button [class.active]="activeStatus === 'Non Acquittées'" (click)="setStatusFilter('Non Acquittées')">Non Acquittées</button>
+        <button [class.active]="activeStatus === 'Acquittées'" (click)="setStatusFilter('Acquittées')">Acquittées</button>
+        <button [class.active]="activeStatus === 'Résolues'" (click)="setStatusFilter('Résolues')">Résolues</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Gravité:</span>
+
+        <button [class.active]="activeSeverity === 'Toutes'" (click)="setSeverityFilter('Toutes')">Toutes</button>
+        <button [class.active]="activeSeverity === 'Critique'" (click)="setSeverityFilter('Critique')">Critiques</button>
+        <button [class.active]="activeSeverity === 'Haute'" (click)="setSeverityFilter('Haute')">Hautes</button>
+        <button [class.active]="activeSeverity === 'Moyenne'" (click)="setSeverityFilter('Moyenne')">Moyennes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="alerts-list">
+    <div
+      class="alert-card"
+      *ngFor="let alert of filteredAlerts"
+      [class.highlighted]="alert.highlighted"
+    >
+      <div class="alert-left">
+        <div class="alert-icon" [ngClass]="alert.iconClass">
+          <mat-icon>{{ alert.icon }}</mat-icon>
+        </div>
+
+        <div class="alert-content">
+          <div class="alert-top">
+            <h3>{{ alert.code }}</h3>
+
+            <span class="severity-chip" [ngClass]="getSeverityClass(alert.severity)">
+              {{ alert.severity }}
+            </span>
+
+            <span class="type-chip">
+              {{ alert.type }}
+            </span>
+
+            <span
+              *ngIf="alert.status === 'Non Acquittées'"
+              class="alert-status-chip"
+              [ngClass]="getStatusChipClass(alert.status)"
+            >
+              Non Acquittée
+            </span>
+          </div>
+
+          <p class="alert-message">{{ alert.message }}</p>
+
+          <div class="alert-meta">
+            <div class="meta-item">
+              <mat-icon>warning_amber</mat-icon>
+              <span>Équipement:</span>
+              <strong>{{ alert.equipment }}</strong>
+            </div>
+
+            <div class="meta-item">
+              <mat-icon>location_on</mat-icon>
+              <span>Localisation:</span>
+              <strong>{{ alert.location }}</strong>
+            </div>
+
+            <div class="meta-item">
+              <mat-icon>calendar_today</mat-icon>
+              <span>Horodatage:</span>
+              <strong>{{ alert.timestamp }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert-actions">
+        <button class="ack-btn" *ngIf="showAcknowledge(alert)">
+          <mat-icon>notifications_active</mat-icon>
+          Acquitter
+        </button>
+
+        <button class="details-btn">Détails</button>
+        <button class="resolve-btn">Résoudre</button>
+      </div>
+    </div>
+  </div>
+</div>

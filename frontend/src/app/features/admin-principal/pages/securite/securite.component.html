@@ -12,11 +12,19 @@
     </div>
   </div>
 
-  <div class="alerte-securite">
+  <div *ngIf="loading" class="message-info">
+    Chargement des données de sécurité...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
+  <div class="alerte-securite" *ngIf="!loading && !errorMessage">
     <div class="alerte-icone">⚠</div>
     <div class="alerte-texte">
       <h3>Alerte de sécurité</h3>
-      <p>3 tentatives de connexion échouées détectées depuis l'adresse IP 45.142.212.61 au cours des dernières 24 heures.</p>
+      <p>{{ alerteMessage }}</p>
     </div>
   </div>
 
@@ -79,6 +87,10 @@
           </div>
         </div>
 
+        <div *ngIf="evenements.length === 0" class="message-info">
+          Aucun événement de sécurité disponible.
+        </div>
+
         <div class="evenement-card" *ngFor="let evenement of evenements">
           <div class="evenement-icone" [ngClass]="obtenirClasseIcone(evenement.type)">
             {{ obtenirSymboleIcone(evenement.type) }}
@@ -116,7 +128,10 @@
             <p>Double authentification obligatoire</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="doubleAuthentification">
+            <input
+              type="checkbox"
+              [(ngModel)]="doubleAuthentification"
+              (change)="onDoubleAuthentificationChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -127,7 +142,10 @@
             <p>Alertes par courriel</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="notificationsConnexion">
+            <input
+              type="checkbox"
+              [(ngModel)]="notificationsConnexion"
+              (change)="onNotificationsConnexionChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -138,7 +156,10 @@
             <p>Limitation du rythme des requêtes activée</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="limitationApi">
+            <input
+              type="checkbox"
+              [(ngModel)]="limitationApi"
+              (change)="onLimitationApiChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -149,7 +170,10 @@
             <p>Alertes automatiques</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="detectionActiviteSuspecte">
+            <input
+              type="checkbox"
+              [(ngModel)]="detectionActiviteSuspecte"
+              (change)="onDetectionActiviteSuspecteChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -181,7 +205,9 @@
           </div>
         </div>
 
-        <button class="btn-grand">Générer une nouvelle clé</button>
+        <button class="btn-grand" (click)="genererNouvelleCle(false)">
+          Générer une nouvelle clé
+        </button>
       </div>
 
       <div class="bloc">

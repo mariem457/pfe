@@ -1,4 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import {
+  SystemComponentResponse,
+  SystemControlService,
+  SystemDatabaseStatusResponse,
+  SystemNotificationResponse,
+  SystemOverviewResponse,
+  SystemSettingsResponse
+} from '../../../../services/system-control.service';
 
 type StatutService = 'En cours' | 'Arrêté';
 
@@ -6,9 +14,12 @@ interface ServiceSysteme {
   nom: string;
   description: string;
   statut: StatutService;
-  dureeFonctionnement: string;
-  processeur: number;
-  memoire: number;
+  metric1Label: string;
+  metric1Value: string;
+  metric2Label: string;
+  metric2Value: string;
+  metric3Label: string;
+  metric3Value: string;
 }
 
 interface NotificationSysteme {
@@ -22,84 +33,135 @@ interface NotificationSysteme {
   templateUrl: './controle-systeme.component.html',
   styleUrls: ['./controle-systeme.component.css']
 })
-export class ControleSystemeComponent {
-  utilisationProcesseur = 34;
-  memoireUtilisee = 6.2;
-  memoireTotale = 16;
-  servicesActifs = 5;
-  servicesTotal = 6;
-  tempsFonctionnement = '15 j 3 h';
+export class ControleSystemeComponent implements OnInit {
+  utilisationProcesseur = 0;
+  memoireUtilisee = 0;
+  memoireTotale = 0;
+  servicesActifs = 0;
+  servicesTotal = 0;
+  tempsFonctionnement = '--';
 
   modeMaintenance = false;
-  sauvegardeAutomatique = true;
-  surveillanceTempsReel = true;
+  sauvegardeAutomatique = false;
+  surveillanceTempsReel = false;
 
-  services: ServiceSysteme[] = [
-    {
-      nom: 'Passerelle API',
-      description: 'Service principal de routage des requêtes API',
-      statut: 'En cours',
-      dureeFonctionnement: '15 j 3 h 24 min',
-      processeur: 12,
-      memoire: 45
-    },
-    {
-      nom: 'Traitement des données IoT',
-      description: 'Traitement des données des capteurs IoT en temps réel',
-      statut: 'En cours',
-      dureeFonctionnement: '15 j 3 h 24 min',
-      processeur: 18,
-      memoire: 38
-    },
-    {
-      nom: 'Service de notifications',
-      description: 'Gestion des notifications et alertes',
-      statut: 'En cours',
-      dureeFonctionnement: '15 j 3 h 24 min',
-      processeur: 8,
-      memoire: 23
-    },
-    {
-      nom: 'Moteur d’analyse',
-      description: 'Traitement et analyse des données historiques',
-      statut: 'En cours',
-      dureeFonctionnement: '12 j 8 h 15 min',
-      processeur: 28,
-      memoire: 52
-    },
-    {
-      nom: 'Service de sauvegarde',
-      description: 'Service de sauvegarde automatique',
-      statut: 'Arrêté',
-      dureeFonctionnement: '0 j 0 h 0 min',
-      processeur: 0,
-      memoire: 0
-    }
-  ];
+  loading = false;
+  errorMessage = '';
 
-  notifications: NotificationSysteme[] = [
-    {
-      type: 'succes',
-      titre: 'Sauvegarde automatique terminée',
-      moment: 'Il y a 1 h'
-    },
-    {
-      type: 'information',
-      titre: 'Mise à jour système installée',
-      moment: 'Il y a 3 h'
-    },
-    {
-      type: 'alerte',
-      titre: 'Alerte : utilisation élevée du processeur',
-      moment: 'Il y a 5 h'
-    }
-  ];
+  services: ServiceSysteme[] = [];
+  notifications: NotificationSysteme[] = [];
+
+  databaseStatus: SystemDatabaseStatusResponse = {
+    activeConnections: '--',
+    databaseSize: '--',
+    queriesPerSecond: '--',
+    lastBackup: '--'
+  };
+
+  constructor(private systemControlService: SystemControlService) {}
+
+  ngOnInit(): void {
+    this.chargerToutesLesDonnees();
+  }
+
+  chargerToutesLesDonnees(): void {
+    this.loading = true;
+    this.errorMessage = '';
+
+    this.systemControlService.getOverview().subscribe({
+      next: (data: SystemOverviewResponse) => {
+        this.utilisationProcesseur = data.cpuUsage;
+        this.memoireUtilisee = data.memoryUsedGb;
+        this.memoireTotale = data.memoryTotalGb;
+        this.servicesActifs = data.activeServices;
+        this.servicesTotal = data.totalServices;
+        this.tempsFonctionnement = data.uptime;
+        this.loading = false;
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.errorMessage = 'Impossible de charger les données système';
+        this.loading = false;
+      }
+    });
+
+    this.systemControlService.getServices().subscribe({
+      next: (data: SystemComponentResponse[]) => {
+        this.services = data.map(item => ({
+          nom: item.name,
+          description: item.description,
+          statut: item.status === 'RUNNING' ? 'En cours' : 'Arrêté',
+          metric1Label: item.metric1Label,
+          metric1Value: item.metric1Value,
+          metric2Label: item.metric2Label,
+          metric2Value: item.metric2Value,
+          metric3Label: item.metric3Label,
+          metric3Value: item.metric3Value
+        }));
+      },
+      error: (err: any) => console.error(err)
+    });
+
+    this.systemControlService.getNotifications().subscribe({
+      next: (data: SystemNotificationResponse[]) => {
+        this.notifications = data.map(item => ({
+          type: this.mapNotificationType(item.type),
+          titre: item.title,
+          moment: item.moment
+        }));
+      },
+      error: (err: any) => console.error(err)
+    });
+
+    this.systemControlService.getDatabaseStatus().subscribe({
+      next: (data: SystemDatabaseStatusResponse) => {
+        this.databaseStatus = data;
+      },
+      error: (err: any) => console.error(err)
+    });
+
+    this.systemControlService.getSettings().subscribe({
+      next: (data: SystemSettingsResponse) => {
+        this.modeMaintenance = data.maintenanceMode;
+        this.sauvegardeAutomatique = data.automaticBackup;
+        this.surveillanceTempsReel = data.realtimeMonitoring;
+      },
+      error: (err: any) => console.error(err)
+    });
+  }
+
+  onMaintenanceModeChange(): void {
+    this.systemControlService.updateSettings({
+      maintenanceMode: this.modeMaintenance
+    }).subscribe();
+  }
+
+  onAutomaticBackupChange(): void {
+    this.systemControlService.updateSettings({
+      automaticBackup: this.sauvegardeAutomatique
+    }).subscribe();
+  }
+
+  onRealtimeMonitoringChange(): void {
+    this.systemControlService.updateSettings({
+      realtimeMonitoring: this.surveillanceTempsReel
+    }).subscribe();
+  }
+
+  private mapNotificationType(type: string): 'information' | 'succes' | 'alerte' {
+    const value = (type || '').toUpperCase();
+    if (value === 'SUCCESS') return 'succes';
+    if (value === 'ALERT') return 'alerte';
+    return 'information';
+  }
 
   get classeMemoire(): number {
+    if (!this.memoireTotale) return 0;
     return (this.memoireUtilisee / this.memoireTotale) * 100;
   }
 
   get classeServiceActif(): number {
+    if (!this.servicesTotal) return 0;
     return (this.servicesActifs / this.servicesTotal) * 100;
   }
 

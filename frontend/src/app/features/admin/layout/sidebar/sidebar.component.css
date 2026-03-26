@@ -193,3 +193,14 @@
 .logout:hover {
   background: #fff1f2;
 }
+.nav-link-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

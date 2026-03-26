@@ -12,17 +12,23 @@ export const routes: Routes = [
   { path: 'rapport-user', component: RapportUserComponent },
 
   {
+    path: 'maintenance',
+    loadChildren: () =>
+      import('./features/maintenance/maintenance.module').then(m => m.MaintenanceModule),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['MAINTENANCE'] }
+  },
+
+  {
     path: 'admin',
     loadChildren: () =>
-      import('./features/admin-principal/admin-principal.module')
-        .then(m => m.AdminPrincipalModule),
+      import('./features/admin-principal/admin-principal.module').then(m => m.AdminPrincipalModule),
   },
 
   {
     path: 'municipality',
     loadChildren: () =>
-      import('./features/admin/admin.module')
-        .then(m => m.AdminModule),
+      import('./features/admin/admin.module').then(m => m.AdminModule),
   },
 
   {
@@ -30,8 +36,7 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard],
     data: { roles: ['DRIVER'] },
     loadChildren: () =>
-      import('./features/chauffeur/chauffeur.module')
-        .then(m => m.ChauffeurModule),
+      import('./features/chauffeur/chauffeur.module').then(m => m.ChauffeurModule),
   },
 
   { path: '**', redirectTo: '' },

@@ -18,7 +18,7 @@ export class LoginPageComponent {
   rememberMe = true;
   errorMessage = '';
 
-  private API = 'http://localhost:8081/api';
+  private API = 'http://localhost:8083/api';
 
   constructor(private router: Router, private http: HttpClient) {}
 
@@ -38,12 +38,17 @@ export class LoginPageComponent {
 
         if (res.role === 'DRIVER') {
           this.router.navigate(['/chauffeur']);
-        } else if (res.role === 'ADMIN') {
-          this.router.navigate(['/admin']); // admin-principal
-        } else if (res.role === 'MUNICIPALITY') {
-          this.router.navigate(['/municipality']); // القديمة
-        } else {
-          // fallback
+        } 
+        else if (res.role === 'ADMIN') {
+          this.router.navigate(['/admin']);
+        } 
+        else if (res.role === 'MUNICIPALITY') {
+          this.router.navigate(['/municipality']);
+        } 
+        else if (res.role === 'MAINTENANCE') {
+          this.router.navigate(['/maintenance']);
+        } 
+        else {
           this.router.navigate(['/']);
         }
       },

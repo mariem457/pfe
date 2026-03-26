@@ -4,14 +4,14 @@ import { tap } from 'rxjs/operators';
 
 export interface LoginResponse {
   token: string;
-  role: 'ADMIN' | 'MUNICIPALITY' | 'DRIVER';
+  role: 'ADMIN' | 'MUNICIPALITY' | 'DRIVER' | 'MAINTENANCE';
   userId: number;
   username: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private API = 'http://localhost:8080/api'; // بدّلها حسب back
+  private API = 'http://localhost:8083/api'; // بدّلها حسب back
 
   constructor(private http: HttpClient) {}
 

@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.CreateMaintenanceUserRequest;
 import com.example.demo.dto.CreateMunicipalityUserRequest;
 import com.example.demo.dto.CreateUserResponse;
 import com.example.demo.entity.User;
@@ -37,6 +38,35 @@ public class UserAdminService {
         user.setUsername(req.getUsername());
         user.setEmail(req.getEmail());
         user.setRole("MUNICIPALITY");
+        user.setIsEnabled(true);
+        user.setPasswordHash(passwordEncoder.encode(tempPassword));
+
+        user = userRepo.save(user);
+
+        return new CreateUserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                tempPassword
+        );
+    }
+
+    @Transactional
+    public CreateUserResponse createMaintenanceUser(CreateMaintenanceUserRequest req) {
+
+        if (userRepo.findByUsername(req.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepo.findByEmail(req.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        String tempPassword = generateTempPassword(10);
+
+        User user = new User();
+        user.setUsername(req.getUsername());
+        user.setEmail(req.getEmail());
+        user.setRole("MAINTENANCE");
         user.setIsEnabled(true);
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
 

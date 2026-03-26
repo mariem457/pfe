@@ -16,6 +16,9 @@ public class BinRequest {
     @NotNull(message = "lng is required")
     public Double lng;
 
+    public Double accessLat;
+    public Double accessLng;
+
     public LocalDate installationDate;
     public Boolean isActive;
     public String notes;

@@ -1,5 +1,4 @@
 <div class="page">
-
   <div class="page-header">
     <div>
       <h1>Gestion des Poubelles</h1>
@@ -67,7 +66,19 @@
     </div>
   </div>
 
-  <div class="grille-poubelles">
+  <div *ngIf="loading" class="message-info">
+    Chargement des poubelles...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!loading && !errorMessage && poubellesFiltrees.length === 0" class="message-info">
+    Aucune poubelle trouvée.
+  </div>
+
+  <div class="grille-poubelles" *ngIf="!loading && !errorMessage && poubellesFiltrees.length > 0">
     <div class="carte-poubelle" *ngFor="let poubelle of poubellesFiltrees">
 
       <div class="ligne-entete">
@@ -101,10 +112,6 @@
       </div>
 
       <div class="ligne-type">
-        <span class="badge-type" [ngClass]="getClasseType(poubelle.type)">
-          {{ getLibelleType(poubelle.type) }}
-        </span>
-
         <span class="capacite">{{ poubelle.capacite }}</span>
       </div>
 
@@ -139,5 +146,4 @@
 
     </div>
   </div>
-
 </div>

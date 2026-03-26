@@ -12,6 +12,14 @@
     </div>
   </div>
 
+  <div *ngIf="loading" class="message-info">
+    Chargement des données système...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
   <div class="stats">
     <div class="stat-card">
       <div class="stat-texte">
@@ -64,7 +72,7 @@
       <div class="bloc">
         <div class="bloc-entete">
           <h2>Services système</h2>
-          <p>Statut et contrôle des services en cours d'exécution</p>
+          <p>Statut et contrôle des composants surveillés</p>
         </div>
 
         <div class="service-card" *ngFor="let service of services">
@@ -91,18 +99,18 @@
 
           <div class="service-bas">
             <div class="indicateur-mini">
-              <span class="libelle">Durée</span>
-              <strong>{{ service.dureeFonctionnement }}</strong>
+              <span class="libelle">{{ service.metric1Label }}</span>
+              <strong>{{ service.metric1Value }}</strong>
             </div>
 
             <div class="indicateur-mini">
-              <span class="libelle">Processeur</span>
-              <strong>{{ service.processeur }}%</strong>
+              <span class="libelle">{{ service.metric2Label }}</span>
+              <strong>{{ service.metric2Value }}</strong>
             </div>
 
             <div class="indicateur-mini">
-              <span class="libelle">Mémoire</span>
-              <strong>{{ service.memoire }}%</strong>
+              <span class="libelle">{{ service.metric3Label }}</span>
+              <strong>{{ service.metric3Value }}</strong>
             </div>
           </div>
         </div>
@@ -117,22 +125,22 @@
         <div class="grille-bdd">
           <div class="carte-bdd">
             <p>Connexions actives</p>
-            <h3>42 / 100</h3>
+            <h3>{{ databaseStatus.activeConnections }}</h3>
           </div>
 
           <div class="carte-bdd">
             <p>Taille de la base</p>
-            <h3>8.4 Go</h3>
+            <h3>{{ databaseStatus.databaseSize }}</h3>
           </div>
 
           <div class="carte-bdd">
             <p>Requêtes / sec</p>
-            <h3>1,247</h3>
+            <h3>{{ databaseStatus.queriesPerSecond }}</h3>
           </div>
 
           <div class="carte-bdd">
             <p>Dernière sauvegarde</p>
-            <h3>Il y a 2 heures</h3>
+            <h3>{{ databaseStatus.lastBackup }}</h3>
           </div>
         </div>
       </div>
@@ -153,7 +161,7 @@
             <p>Désactiver l'accès externe</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="modeMaintenance">
+            <input type="checkbox" [(ngModel)]="modeMaintenance" (change)="onMaintenanceModeChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -164,7 +172,7 @@
             <p>Sauvegarde quotidienne à 3h</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="sauvegardeAutomatique">
+            <input type="checkbox" [(ngModel)]="sauvegardeAutomatique" (change)="onAutomaticBackupChange()">
             <span class="slider"></span>
           </label>
         </div>
@@ -175,7 +183,7 @@
             <p>Surveillance continue</p>
           </div>
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="surveillanceTempsReel">
+            <input type="checkbox" [(ngModel)]="surveillanceTempsReel" (change)="onRealtimeMonitoringChange()">
             <span class="slider"></span>
           </label>
         </div>

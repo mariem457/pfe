@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -61,3 +62,5 @@ twilio:
 mqtt:
   broker: ${MQTT_BROKER:tcp://localhost:1883}
   client-id: ${MQTT_CLIENT_ID:backend-wisetrash}
+=======
+>>>>>>> origin/modele_optimisation2

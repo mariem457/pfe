@@ -28,6 +28,30 @@ export interface FleetMapReportItem {
   assignedTo?: string;
 }
 
+export interface FleetMapMissionBinItem {
+  id: number;
+  binId: number;
+  binCode?: string | null;
+  lat: number;
+  lng: number;
+  visitOrder: number;
+  collected: boolean;
+  targetFillThreshold?: number | null;
+}
+
+export interface FleetMapRouteCoordinate {
+  lat: number;
+  lng: number;
+}
+
+export interface FleetMapRouteStop {
+  stopOrder: number;
+  stopType: string | null;
+  binId: number | null;
+  lat: number;
+  lng: number;
+}
+
 @Component({
   selector: 'app-fleet-map',
   standalone: true,
@@ -44,7 +68,12 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() title = 'Carte de la flotte en direct';
   @Input() subtitle = 'Localisation et itinéraires des camions en temps réel';
   @Input() reports: FleetMapReportItem[] = [];
-
+  @Input() missionBins: FleetMapMissionBinItem[] = [];
+  @Input() missionRouteCoordinates: FleetMapRouteCoordinate[] = [];
+  @Input() missionRouteStops: FleetMapRouteStop[] = [];
+  @Input() snappedWaypoints: FleetMapRouteCoordinate[] = [];
+  @Input() matrixSource: string | null = null;
+  @Input() geometrySource: string | null = 'OSRM';
   private map?: L.Map;
   private trucksSub?: Subscription;
   private binsSub?: Subscription;
@@ -55,6 +84,13 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private truckMarkers = new Map<string, L.Marker>();
   private binMarkers = new Map<number, L.Layer>();
   private reportMarkers = new Map<number, L.Marker>();
+
+  private missionMarkers = new Map<number, L.Layer>();
+  private missionPolyline?: L.Polyline;
+  private missionRealRoutePolyline?: L.Polyline;
+  private missionRouteStopMarkers = new Map<number, L.Layer>();
+  private snappedWaypointMarkers = new Map<number, L.Layer>();
+  private snappedConnectorLines = new Map<number, L.Polyline>();
 
   addBinMode = false;
 
@@ -107,6 +143,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           this.enableAddBinClick();
         }
 
+        this.renderMissionBins();
+
         setTimeout(() => {
           this.applyPendingFocus();
         }, 300);
@@ -120,6 +158,17 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       setTimeout(() => {
         this.applyPendingFocus();
       }, 100);
+    }
+
+    if (
+      (
+        changes['missionBins'] ||
+        changes['missionRouteCoordinates'] ||
+        changes['missionRouteStops'] ||
+        changes['snappedWaypoints']
+      ) && this.map
+    ) {
+      this.renderMissionBins();
     }
   }
 
@@ -338,7 +387,6 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         if (!this.map) return;
 
         const map = this.map;
-
         this.clearBinMarkers();
 
         bins.forEach((bin) => {
@@ -366,6 +414,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
           this.binMarkers.set(bin.binId ?? bin.id, marker);
         });
+
+        this.renderMissionBins();
       },
       error: (err) => {
         console.error('Error bins', err);
@@ -373,11 +423,183 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
   }
 
+  private renderMissionBins(): void {
+    if (!this.map) return;
+
+    this.clearMissionMarkers();
+
+    const bins = (this.missionBins || [])
+      .filter(b => b.lat != null && b.lng != null)
+      .sort((a, b) => a.visitOrder - b.visitOrder);
+
+    const routeCoords = (this.missionRouteCoordinates || [])
+      .filter(p => p.lat != null && p.lng != null);
+
+    const routeStops = (this.missionRouteStops || [])
+      .filter(s => s.lat != null && s.lng != null);
+
+    const snapped = (this.snappedWaypoints || [])
+      .filter(p => p.lat != null && p.lng != null);
+
+    if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length) return;
+
+    const boundsPoints: L.LatLngExpression[] = [];
+
+    bins.forEach((bin) => {
+      const color = bin.collected ? '#16a34a' : '#f59e0b';
+
+      const marker = L.circleMarker([bin.lat, bin.lng], {
+        radius: 10,
+        color,
+        fillColor: color,
+        fillOpacity: 0.95,
+        weight: 3
+      });
+
+      marker.addTo(this.map!).bindPopup(`
+        <div style="min-width:220px">
+          <div style="font-weight:700; margin-bottom:6px;">${bin.binCode || 'BIN-' + bin.binId}</div>
+          <div><b>Ordre:</b> ${bin.visitOrder}</div>
+          <div><b>Statut:</b> ${bin.collected ? 'Collecté' : 'À collecter'}</div>
+          <div><b>Seuil:</b> ${bin.targetFillThreshold ?? '—'}%</div>
+        </div>
+      `);
+
+      const orderLabel = L.marker([bin.lat, bin.lng], {
+        icon: L.divIcon({
+          className: 'mission-order-icon',
+          html: `<div class="mission-order-badge">${bin.visitOrder}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        }),
+        zIndexOffset: 2500
+      }).addTo(this.map!);
+
+      this.missionMarkers.set(bin.id, marker);
+      this.missionMarkers.set(bin.id * 100000, orderLabel);
+
+      boundsPoints.push([bin.lat, bin.lng]);
+    });
+
+    routeStops.forEach((stop, index) => {
+      let color = '#111827';
+      let fillColor = '#ffffff';
+      let radius = 6;
+
+      if (stop.stopType === 'DEPOT_START') {
+        color = '#16a34a';
+        fillColor = '#16a34a';
+        radius = 7;
+      } else if (stop.stopType === 'DEPOT_RETURN') {
+        color = '#dc2626';
+        fillColor = '#dc2626';
+        radius = 7;
+      } else if (stop.stopType === 'BIN_PICKUP') {
+        color = '#111827';
+        fillColor = '#ffffff';
+        radius = 5;
+      }
+
+      const marker = L.circleMarker([stop.lat, stop.lng], {
+        radius,
+        color,
+        fillColor,
+        fillOpacity: 1,
+        weight: 2
+      });
+
+      marker.addTo(this.map!).bindPopup(`
+        <div style="min-width:180px">
+          <div style="font-weight:700; margin-bottom:6px;">Route stop</div>
+          <div><b>Order:</b> ${stop.stopOrder}</div>
+          <div><b>Type:</b> ${stop.stopType ?? '—'}</div>
+          <div><b>Bin ID:</b> ${stop.binId ?? '—'}</div>
+        </div>
+      `);
+
+      this.missionRouteStopMarkers.set(index, marker);
+      boundsPoints.push([stop.lat, stop.lng]);
+    });
+
+    snapped.forEach((point, index) => {
+      const marker = L.circleMarker([point.lat, point.lng], {
+        radius: 6,
+        color: '#2563eb',
+        fillColor: '#ffffff',
+        fillOpacity: 1,
+        weight: 3
+      });
+
+      marker.addTo(this.map!).bindPopup(`
+        <div style="min-width:180px">
+          <div style="font-weight:700; margin-bottom:6px;">Snapped waypoint</div>
+          <div><b>Index:</b> ${index + 1}</div>
+          <div><b>Lat:</b> ${point.lat.toFixed(6)}</div>
+          <div><b>Lng:</b> ${point.lng.toFixed(6)}</div>
+        </div>
+      `);
+
+      this.snappedWaypointMarkers.set(index, marker);
+      boundsPoints.push([point.lat, point.lng]);
+    });
+
+    const pickupStops = routeStops.filter(s => s.stopType === 'BIN_PICKUP');
+    const snappedPickupPoints = snapped.slice(1, snapped.length - 1);
+
+    pickupStops.forEach((stop, index) => {
+      const snappedPoint = snappedPickupPoints[index];
+      if (!snappedPoint) return;
+
+      const connector = L.polyline(
+        [
+          [stop.lat, stop.lng],
+          [snappedPoint.lat, snappedPoint.lng]
+        ],
+        {
+          color: '#dc2626',
+          weight: 2,
+          opacity: 0.9,
+          dashArray: '5 5'
+        }
+      ).addTo(this.map!);
+
+      this.snappedConnectorLines.set(index, connector);
+      boundsPoints.push([snappedPoint.lat, snappedPoint.lng]);
+    });
+
+    if (routeCoords.length >= 2) {
+      const realLatLngs: L.LatLngExpression[] = routeCoords.map(p => [p.lat, p.lng]);
+
+      this.missionRealRoutePolyline = L.polyline(realLatLngs, {
+        color: '#2563eb',
+        weight: 5,
+        opacity: 0.9
+      }).addTo(this.map);
+
+      boundsPoints.push(...realLatLngs);
+    } else if (bins.length >= 2) {
+      const fallbackLatLngs: L.LatLngExpression[] = bins.map(bin => [bin.lat, bin.lng]);
+
+      this.missionPolyline = L.polyline(fallbackLatLngs, {
+        color: '#0f766e',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8 6'
+      }).addTo(this.map);
+
+      boundsPoints.push(...fallbackLatLngs);
+    }
+
+    if (boundsPoints.length) {
+      const bounds = L.latLngBounds(boundsPoints as [number, number][]);
+      this.map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }
+
   private loadReportsOnMap(): void {
     if (!this.map) return;
 
     const map = this.map;
-
     this.clearReportMarkers();
 
     (this.reports || []).forEach((report) => {
@@ -444,6 +666,40 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
 
     this.reportMarkers.clear();
+  }
+
+  private clearMissionMarkers(): void {
+    if (!this.map) return;
+
+    for (const marker of this.missionMarkers.values()) {
+      marker.removeFrom(this.map);
+    }
+    this.missionMarkers.clear();
+
+    for (const marker of this.missionRouteStopMarkers.values()) {
+      marker.removeFrom(this.map);
+    }
+    this.missionRouteStopMarkers.clear();
+
+    for (const marker of this.snappedWaypointMarkers.values()) {
+      marker.removeFrom(this.map);
+    }
+    this.snappedWaypointMarkers.clear();
+
+    for (const line of this.snappedConnectorLines.values()) {
+      line.removeFrom(this.map);
+    }
+    this.snappedConnectorLines.clear();
+
+    if (this.missionPolyline) {
+      this.missionPolyline.removeFrom(this.map);
+      this.missionPolyline = undefined;
+    }
+
+    if (this.missionRealRoutePolyline) {
+      this.missionRealRoutePolyline.removeFrom(this.map);
+      this.missionRealRoutePolyline = undefined;
+    }
   }
 
   private getBinColor(bin: any): string {
@@ -610,5 +866,9 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.truckMarkers.clear();
     this.binMarkers.clear();
     this.reportMarkers.clear();
+    this.missionMarkers.clear();
+    this.missionRouteStopMarkers.clear();
+    this.snappedWaypointMarkers.clear();
+    this.snappedConnectorLines.clear();
   }
 }

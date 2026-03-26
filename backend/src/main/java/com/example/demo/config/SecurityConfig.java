@@ -56,6 +56,7 @@ public class SecurityConfig {
 
                         // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/security/**").hasRole("ADMIN")
                    
                         .requestMatchers("/api/telemetry/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
@@ -73,6 +74,9 @@ public class SecurityConfig {
                         // MISSIONS
                         .requestMatchers("/api/missions/**")
                         .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-locations/**").permitAll()
                         
                         .requestMatchers("/api/truck-locations").permitAll()
                         

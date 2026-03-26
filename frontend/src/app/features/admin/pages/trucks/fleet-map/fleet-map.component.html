@@ -15,6 +15,14 @@
         {{ addBinMode ? 'Annuler ajout' : 'Ajouter des poubelles' }}
       </button>
 
+      <span class="source-badge source-traffic" *ngIf="matrixSource">
+        Traffic: {{ matrixSource }}
+      </span>
+
+      <span class="source-badge source-geometry" *ngIf="geometrySource">
+        Geometry: {{ geometrySource }}
+      </span>
+
       <span class="live-badge" *ngIf="showTrucks">En direct</span>
     </div>
   </div>
@@ -26,22 +34,37 @@
   <div id="fleetMap"></div>
 
   <div class="map-legend">
-    <div class="legend-item">
+    <div class="legend-item" *ngIf="showBins">
       <span class="legend-dot legend-bin"></span>
       <span>Bacs</span>
     </div>
 
-    <div class="legend-item">
+    <div class="legend-item" *ngIf="missionBins?.length">
+      <span class="legend-dot legend-mission-pending"></span>
+      <span>Bac mission à collecter</span>
+    </div>
+
+    <div class="legend-item" *ngIf="missionBins?.length">
+      <span class="legend-dot legend-mission-collected"></span>
+      <span>Bac mission collecté</span>
+    </div>
+
+    <div class="legend-item" *ngIf="missionRouteCoordinates?.length">
+      <span class="legend-dot" style="background:#2563eb;"></span>
+      <span>Trajet réel (OSRM)</span>
+    </div>
+
+    <div class="legend-item" *ngIf="showReports">
       <span class="legend-dot legend-pending"></span>
       <span>Signalement en attente</span>
     </div>
 
-    <div class="legend-item">
+    <div class="legend-item" *ngIf="showReports">
       <span class="legend-dot legend-validated"></span>
       <span>Signalement validé</span>
     </div>
 
-    <div class="legend-item">
+    <div class="legend-item" *ngIf="showReports">
       <span class="legend-dot legend-assigned"></span>
       <span>Signalement affecté</span>
     </div>
@@ -49,6 +72,21 @@
     <div class="legend-item" *ngIf="showTrucks">
       <span class="legend-truck">🚛</span>
       <span>Camion</span>
+    </div>
+
+    <div class="legend-item" *ngIf="snappedWaypoints?.length">
+      <span class="legend-dot" style="background:#ffffff; border:2px solid #2563eb;"></span>
+      <span>Snapped waypoint</span>
+    </div>
+
+    <div class="legend-item" *ngIf="snappedWaypoints?.length">
+      <span class="legend-dot" style="background:#dc2626;"></span>
+      <span>Écart bin / route</span>
+    </div>
+
+    <div class="legend-item" *ngIf="matrixSource">
+      <span class="legend-dot legend-traffic"></span>
+      <span>Matrice: {{ matrixSource }}</span>
     </div>
   </div>
 

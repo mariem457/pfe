@@ -95,6 +95,14 @@ public class BinService {
             b.setLng(req.lng);
         }
 
+        if (isCreate || req.accessLat != null) {
+            b.setAccessLat(req.accessLat);
+        }
+
+        if (isCreate || req.accessLng != null) {
+            b.setAccessLng(req.accessLng);
+        }
+
         if (req.installationDate != null) {
             b.setInstallationDate(req.installationDate);
         } else if (isCreate) {
@@ -115,7 +123,18 @@ public class BinService {
             throw new IllegalArgumentException("lat and lng are required");
         }
 
-        Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(b.getLat(), b.getLng());
+        if (b.getAccessLat() == null) {
+            b.setAccessLat(b.getLat());
+        }
+
+        if (b.getAccessLng() == null) {
+            b.setAccessLng(b.getLng());
+        }
+
+        Double zoneLat = b.getAccessLat() != null ? b.getAccessLat() : b.getLat();
+        Double zoneLng = b.getAccessLng() != null ? b.getAccessLng() : b.getLng();
+
+        Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(zoneLat, zoneLng);
 
         Zone zone = zoneOpt.orElseThrow(() ->
                 new IllegalArgumentException("Aucune zone trouvée pour cette position")
@@ -163,6 +182,8 @@ public class BinService {
         r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
         r.lat = b.getLat();
         r.lng = b.getLng();
+        r.accessLat = b.getAccessLat();
+        r.accessLng = b.getAccessLng();
         r.installationDate = b.getInstallationDate();
         r.isActive = b.getIsActive();
         r.notes = b.getNotes();

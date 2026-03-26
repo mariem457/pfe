@@ -350,6 +350,9 @@
     flex-direction: column;
     align-items: stretch;
   }
+  .bouton-ajout {
+  width: 100%;
+}
 
   .zone-recherche {
     justify-content: stretch;
@@ -358,6 +361,24 @@
   .champ-recherche {
     max-width: 100%;
   }
+}
+.bouton-ajout {
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #10b981, #22c55e);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 0 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.22);
+}
+
+.bouton-ajout:hover {
+  opacity: 0.95;
 }
 
 @media (max-width: 768px) {

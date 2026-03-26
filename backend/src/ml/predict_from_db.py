@@ -31,9 +31,23 @@ data = pd.DataFrame([{
 }])
 
 prediction = model.predict(data)[0]
+
+# نخلي prediction منطقية
 prediction = max(fill_level, prediction)
-prediction = min(prediction, 100)
+prediction = min(prediction, 100.0)
 
-alert_status = "COLLECT_SOON" if prediction >= 80 else "NORMAL"
+# priority score بسيطة مبنية على prediction
+priority_score = round(prediction / 100.0, 2)
 
-print(f"{prediction:.2f},{alert_status}")
+# alert status
+if prediction >= 90:
+    alert_status = "URGENT"
+elif prediction >= 80:
+    alert_status = "COLLECT_SOON"
+else:
+    alert_status = "NORMAL"
+
+# should collect
+should_collect = "true" if prediction >= 80 else "false"
+
+print(f"{prediction:.2f},{alert_status},{priority_score:.2f},{should_collect}")

@@ -9,6 +9,7 @@ import { OptimisationComponent } from './pages/optimisation/optimisation.compone
 import { ParametreComponent } from './pages/parametre/parametre.component';
 import { RapportComponent } from './pages/rapport/rapport.component';
 import { PublicReportsComponent } from './pages/public-reports/public-reports.component';
+import { MissionsComponent } from './pages/missions/missions.component';
 
 const routes: Routes = [
   {
@@ -23,6 +24,10 @@ const routes: Routes = [
       { path: 'parametres', component: ParametreComponent, data: { title: 'Paramètres' } },
       { path: 'rapport', component: RapportComponent, data: { title: 'Rapport' } },
       { path: 'public-reports', component: PublicReportsComponent, data: { title: 'Rapports Publics' } },
+      {
+  path: 'missions',
+  component: MissionsComponent
+}
     ],
   },
 ];

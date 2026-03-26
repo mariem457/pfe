@@ -82,6 +82,35 @@ public class UserAdminService {
         );
     }
 
+    @Transactional
+    public CreateUserResponse createMaintenanceUser(CreateMaintenanceUserRequest req) {
+
+        if (userRepo.findByUsername(req.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepo.findByEmail(req.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        String tempPassword = generateTempPassword(10);
+
+        User user = new User();
+        user.setUsername(req.getUsername());
+        user.setEmail(req.getEmail());
+        user.setRole("MAINTENANCE");
+        user.setIsEnabled(true);
+        user.setPasswordHash(passwordEncoder.encode(tempPassword));
+
+        user = userRepo.save(user);
+
+        return new CreateUserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                tempPassword
+        );
+    }
+
     private String generateTempPassword(int length) {
         final String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#";
         SecureRandom rnd = new SecureRandom();

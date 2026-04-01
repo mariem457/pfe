@@ -1,6 +1,7 @@
 package com.example.demo.entity;
-import java.math.BigDecimal;
+
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -22,14 +23,18 @@ public class BinTelemetry {
     private short fillLevel;
 
     private BigDecimal weightKg;
-    private short batteryLevel;
+
+    private Short batteryLevel;
 
     private String status;
 
-    private short rssi;
+    private Short rssi;
 
     @Column(nullable = false)
     private String source;
+
+    @Column(nullable = false)
+    private Boolean collected = false;
 
     public Long getId() {
         return id;
@@ -71,11 +76,11 @@ public class BinTelemetry {
         this.weightKg = weightKg;
     }
 
-    public short getBatteryLevel() {
+    public Short getBatteryLevel() {
         return batteryLevel;
     }
 
-    public void setBatteryLevel(short batteryLevel) {
+    public void setBatteryLevel(Short batteryLevel) {
         this.batteryLevel = batteryLevel;
     }
 
@@ -87,6 +92,14 @@ public class BinTelemetry {
         this.status = status;
     }
 
+    public Short getRssi() {
+        return rssi;
+    }
+
+    public void setRssi(Short rssi) {
+        this.rssi = rssi;
+    }
+
     public String getSource() {
         return source;
     }
@@ -95,10 +108,11 @@ public class BinTelemetry {
         this.source = source;
     }
 
-    public short getRssi() {
-        return rssi;
+    public Boolean getCollected() {
+        return collected;
     }
-    public void setRssi(short rssi) {
-        this.rssi = rssi;
+
+    public void setCollected(Boolean collected) {
+        this.collected = collected;
     }
 }

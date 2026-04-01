@@ -5,14 +5,10 @@ import java.time.LocalDate;
 
 public class BinRequest {
 
-    // optional: backend ينجم يولدها وحدو
     public String binCode;
 
     @NotNull(message = "type is required")
     public String type;
-
-    // optional
-    public Long zoneId;
 
     @NotNull(message = "lat is required")
     public Double lat;
@@ -20,12 +16,10 @@ public class BinRequest {
     @NotNull(message = "lng is required")
     public Double lng;
 
-    // optional: backend يحط today إذا null
+    public Double accessLat;
+    public Double accessLng;
+
     public LocalDate installationDate;
-
-    // optional
     public Boolean isActive;
-
-    // optional
     public String notes;
 }

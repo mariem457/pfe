@@ -23,13 +23,19 @@ public class Bin {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zone_id")
-    private Zone zone; // nullable (DB يسمح)
+    private Zone zone;
 
     @Column(nullable = false)
     private Double lat;
 
     @Column(nullable = false)
     private Double lng;
+
+    @Column(name = "access_lat")
+    private Double accessLat;
+
+    @Column(name = "access_lng")
+    private Double accessLng;
 
     @Column(name = "installation_date")
     private LocalDate installationDate;
@@ -59,7 +65,6 @@ public class Bin {
         updatedAt = OffsetDateTime.now();
     }
 
-    // getters/setters
     public Long getId() { return id; }
     public String getBinCode() { return binCode; }
     public void setBinCode(String binCode) { this.binCode = binCode; }
@@ -75,6 +80,12 @@ public class Bin {
 
     public Double getLng() { return lng; }
     public void setLng(Double lng) { this.lng = lng; }
+
+    public Double getAccessLat() { return accessLat; }
+    public void setAccessLat(Double accessLat) { this.accessLat = accessLat; }
+
+    public Double getAccessLng() { return accessLng; }
+    public void setAccessLng(Double accessLng) { this.accessLng = accessLng; }
 
     public LocalDate getInstallationDate() { return installationDate; }
     public void setInstallationDate(LocalDate installationDate) { this.installationDate = installationDate; }

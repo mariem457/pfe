@@ -27,7 +27,6 @@ public class AlertService {
         this.userRepo = userRepo;
     }
 
-    // ================= CREATE =================
     public AlertResponse create(AlertCreateRequest req) {
 
         Bin bin = binRepo.findById(req.getBinId())
@@ -51,7 +50,6 @@ public class AlertService {
         return toResponse(alertRepo.save(alert));
     }
 
-    // ================= OPEN ALERTS =================
     public List<AlertResponse> getOpenAlerts() {
         return alertRepo.findOpenAlertsWithRelations()
                 .stream()
@@ -59,7 +57,6 @@ public class AlertService {
                 .toList();
     }
 
-    // ================= ALERTS BY BIN =================
     public List<AlertResponse> getAlertsByBin(Long binId, boolean onlyOpen) {
 
         List<Alert> list = onlyOpen
@@ -69,20 +66,14 @@ public class AlertService {
         return list.stream().map(this::toResponse).toList();
     }
 
-    // ================= RESOLVE =================
-    
-
     @Transactional
     public AlertResponse resolve(Long alertId, String username) {
 
-        // ✅ جيب alert مع العلاقات باش نتفادو LazyInitialization
         Alert alert = alertRepo.findByIdWithRelations(alertId);
         if (alert == null) throw new RuntimeException("Alert not found: " + alertId);
 
-        // ✅ prevent double resolve
         if (alert.isResolved()) return toResponse(alert);
 
-        // ✅ جيب user حسب username (مش id)
         User user = userRepo.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
@@ -90,14 +81,11 @@ public class AlertService {
         alert.setResolvedAt(Instant.now());
         alert.setResolvedBy(user);
 
-        // save
         alertRepo.save(alert);
 
-        // ✅ رجّع response من نفس entity اللي فيه relations جاهزين
         return toResponse(alert);
     }
 
-    // ================= DETAILS =================
     public AlertDetailsResponse getAlertDetails(Long alertId) {
 
         Alert a = alertRepo.findByIdWithRelations(alertId);
@@ -105,7 +93,6 @@ public class AlertService {
 
         AlertDetailsResponse res = new AlertDetailsResponse();
 
-        // base mapping
         res.setId(a.getId());
         res.setBinId(a.getBin().getId());
         res.setBinCode(a.getBin().getBinCode());
@@ -119,18 +106,15 @@ public class AlertService {
         res.setResolvedAt(a.getResolvedAt());
         res.setResolvedByUserId(a.getResolvedBy() != null ? a.getResolvedBy().getId() : null);
 
-        // extra bin info
         res.setBinLat(a.getBin().getLat());
         res.setBinLng(a.getBin().getLng());
 
-        // zoneName (optional)
         try {
             if (a.getBin().getZone() != null) {
-                res.setZoneName(a.getBin().getZone().getName());
+                res.setZoneName(a.getBin().getZone().getShapeName());
             }
         } catch (Exception ignored) {}
 
-        // telemetry extra
         if (a.getTelemetry() != null) {
             res.setTelemetryTimestamp(a.getTelemetry().getTimestamp());
             res.setFillLevel((int) a.getTelemetry().getFillLevel());
@@ -140,27 +124,23 @@ public class AlertService {
         return res;
     }
 
-    // ================= SEARCH / FILTERS =================
     public List<AlertResponse> search(Boolean resolved, String severity, String alertType, String q) {
 
         String qq  = (q == null || q.isBlank()) ? null : q.trim();
         String sev = (severity == null || severity.isBlank()) ? null : severity.trim();
         String typ = (alertType == null || alertType.isBlank()) ? null : alertType.trim();
 
-        // 1) get ids (native ILIKE)
         List<Long> ids = alertRepo.searchIdsNative(resolved, sev, typ, qq);
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
 
-        // 2) fetch relations by ids (no LazyInit)
         return alertRepo.findByIdInWithRelations(ids)
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    // ================= MAPPING =================
     private AlertResponse toResponse(Alert a) {
         AlertResponse res = new AlertResponse();
         res.setId(a.getId());

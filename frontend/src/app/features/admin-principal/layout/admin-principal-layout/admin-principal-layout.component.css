@@ -1,0 +1,34 @@
+.layout {
+  display: flex;
+  height: 100vh; 
+  background: #f5f7fb;
+}
+
+/* SIDEBAR */
+app-sidebar {
+  width: 270px;
+  flex: 0 0 270px;
+  height: 100vh;
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+app-head-pages {
+  height: 70px; /* حدد ارتفاع واضح */
+  flex-shrink: 0; /* ما يتصغّرش */
+}
+
+/* CONTENT */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #f5f7fb;
+}

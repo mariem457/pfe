@@ -1,0 +1,135 @@
+<div class="page">
+
+  <div class="cartes-statistiques">
+    <div class="carte-statistique">
+      <div class="texte-statistique">
+        <p>Total<br>Utilisateurs</p>
+        <h2>{{ nombreTotalUtilisateurs }}</h2>
+      </div>
+      <div class="icone-statistique icone-bleue">
+        👥
+      </div>
+    </div>
+
+    <div class="carte-statistique">
+      <div class="texte-statistique">
+        <p>Utilisateurs<br>Actifs</p>
+        <h2>{{ nombreUtilisateursActifs }}</h2>
+      </div>
+      <div class="icone-statistique icone-verte">
+        👤
+      </div>
+    </div>
+
+    <div class="carte-statistique">
+      <div class="texte-statistique">
+        <p>Chauffeurs</p>
+        <h2>{{ nombreChauffeurs }}</h2>
+      </div>
+      <div class="icone-statistique icone-violette">
+        🛡
+      </div>
+    </div>
+
+    <div class="carte-statistique">
+      <div class="texte-statistique">
+        <p>Inactifs</p>
+        <h2>{{ nombreUtilisateursInactifs }}</h2>
+      </div>
+      <div class="icone-statistique icone-grise">
+        👤
+      </div>
+    </div>
+  </div>
+
+  <div class="barre-filtres">
+    <div class="groupe-filtres">
+      <button
+        *ngFor="let filtre of filtres"
+        (click)="selectionnerFiltre(filtre)"
+        [class.actif]="filtreSelectionne === filtre">
+        {{ filtre }}
+      </button>
+    </div>
+
+    <div class="zone-recherche">
+      <button class="bouton-ajout" routerLink="/admin/users/create">
+        + Ajouter un utilisateur
+      </button>
+
+      <div class="champ-recherche">
+        <span class="icone-recherche">⌕</span>
+        <input
+          type="text"
+          placeholder="Rechercher un utilisateur..."
+          [(ngModel)]="termeRecherche"
+        />
+      </div>
+
+      <button class="bouton-filtre">
+        ⌁
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="message-info">
+    Chargement des utilisateurs...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!loading && !errorMessage" class="bloc-utilisateurs">
+    <div class="entete-bloc">
+      <h2>Utilisateurs ({{ utilisateursFiltres.length }})</h2>
+      <p>Liste complète des utilisateurs avec leurs informations et permissions</p>
+    </div>
+
+    <div *ngIf="utilisateursFiltres.length === 0" class="message-info">
+      Aucun utilisateur trouvé.
+    </div>
+
+    <div class="carte-utilisateur" *ngFor="let utilisateur of utilisateursFiltres">
+
+      <div class="partie-gauche">
+        <div class="avatar">
+          {{ utilisateur.initiales }}
+        </div>
+
+        <div class="infos-utilisateur">
+          <div class="ligne-nom">
+            <h3>{{ utilisateur.nom }}</h3>
+
+            <span class="badge-statut" [ngClass]="obtenirClasseStatut(utilisateur.statut)">
+              {{ utilisateur.statut }}
+            </span>
+          </div>
+
+          <div class="ligne-infos">
+            <span>✉ {{ utilisateur.courriel }}</span>
+            <span>📞 {{ utilisateur.telephone }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="partie-droite">
+        <div class="bloc-role-activite">
+          <span class="badge-role" [ngClass]="obtenirClasseRole(utilisateur.role)">
+            {{ utilisateur.role }}
+          </span>
+
+          <span class="derniere-activite">
+            {{ utilisateur.derniereActivite }}
+          </span>
+        </div>
+
+        <button class="bouton-menu">
+          ⋮
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>

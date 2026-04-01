@@ -1,0 +1,90 @@
+<div class="page-creation">
+  <div class="entete-page">
+    <div>
+      <h1>Créer un utilisateur</h1>
+      <p>Ajouter un nouveau compte au système de gestion</p>
+    </div>
+
+    <button class="bouton-retour" (click)="annuler()">
+      Retour
+    </button>
+  </div>
+
+  <div class="carte-formulaire">
+    <div class="section-formulaire">
+      <h2>Informations générales</h2>
+
+      <div class="grille-formulaire">
+        <div class="champ">
+          <label>Nom complet</label>
+          <input type="text" [(ngModel)]="form.fullName" placeholder="Ex: Mohamed Ben Ali" />
+        </div>
+
+        <div class="champ">
+          <label>Nom d’utilisateur</label>
+          <input type="text" [(ngModel)]="form.username" placeholder="Ex: mohamed.benali" />
+        </div>
+
+        <div class="champ">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="form.email" placeholder="Ex: driver@test.com" />
+        </div>
+
+        <div class="champ">
+          <label>Téléphone</label>
+          <input type="text" [(ngModel)]="form.phone" placeholder="Ex: +21612345678" />
+        </div>
+
+        <div class="champ">
+          <label>Rôle</label>
+          <select [(ngModel)]="form.role">
+            <option value="DRIVER">Chauffeur</option>
+            <option value="ADMIN">Administrateur</option>
+            <option value="MUNICIPALITY">Superviseur</option>
+          </select>
+        </div>
+
+        <div class="champ">
+          <label>Statut</label>
+          <select [(ngModel)]="form.isEnabled">
+            <option [ngValue]="true">Actif</option>
+            <option [ngValue]="false">Inactif</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-formulaire" *ngIf="isDriver">
+      <h2>Informations chauffeur</h2>
+
+      <div class="grille-formulaire">
+        <div class="champ">
+          <label>Code véhicule</label>
+          <input type="text" [(ngModel)]="form.vehicleCode" placeholder="Ex: T05" />
+        </div>
+      </div>
+
+      <div class="info-sms">
+        Un SMS contenant les identifiants provisoires sera envoyé automatiquement au chauffeur après création du compte.
+      </div>
+    </div>
+
+    <div *ngIf="successMessage" class="message-succes">
+      {{ successMessage }}
+    </div>
+
+    <div *ngIf="errorMessage" class="message-erreur">
+      {{ errorMessage }}
+    </div>
+
+    <div class="actions-formulaire">
+      <button class="bouton-secondaire" (click)="annuler()" [disabled]="loading">
+        Annuler
+      </button>
+
+      <button class="bouton-primaire" (click)="submit()" [disabled]="loading">
+        {{ loading ? 'Création...' : 'Créer l’utilisateur' }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,21 +1,19 @@
 <section class="it-pr">
 
-  <!-- En-tête -->
   <div class="it-prHead">
     <div>
       <h1 class="it-prTitle">Signalements publics</h1>
-      <p class="it-prSub">Problèmes de collecte des déchets signalés par les citoyens</p>
+      <p class="it-prSub">Validation et suivi des signalements citoyens</p>
     </div>
   </div>
 
-  <!-- KPI -->
   <div class="it-prKpi">
     <article class="it-prKpiCard">
       <div class="it-prKpiTop">
         <div class="it-prIcon">
           <span class="material-icons it-mi">chat_bubble_outline</span>
         </div>
-        <div class="it-prKpiLabel">Total des signalements</div>
+        <div class="it-prKpiLabel">Total</div>
       </div>
       <div class="it-prKpiValue">{{ stats.total }}</div>
     </article>
@@ -33,25 +31,24 @@
     <article class="it-prKpiCard">
       <div class="it-prKpiTop">
         <div class="it-prIcon">
-          <span class="material-icons it-mi">check_circle</span>
+          <span class="material-icons it-mi">verified</span>
         </div>
-        <div class="it-prKpiLabel">Affectés</div>
+        <div class="it-prKpiLabel">Validés</div>
       </div>
-      <div class="it-prKpiValue">{{ stats.assigned }}</div>
+      <div class="it-prKpiValue">{{ stats.validated }}</div>
     </article>
 
     <article class="it-prKpiCard">
       <div class="it-prKpiTop">
-        <div class="it-prIcon">
-          <span class="material-icons it-mi">check_circle</span>
+        <div class="it-prIcon it-prIcon--red">
+          <span class="material-icons it-mi it-mi-red">cancel</span>
         </div>
-        <div class="it-prKpiLabel">Résolus</div>
+        <div class="it-prKpiLabel">Rejetés</div>
       </div>
-      <div class="it-prKpiValue">{{ stats.resolved }}</div>
+      <div class="it-prKpiValue">{{ stats.rejected }}</div>
     </article>
   </div>
 
-  <!-- Filtres -->
   <div class="it-prFilter">
     <div class="it-prSearch">
       <span class="material-icons it-prSIcon">search</span>
@@ -61,7 +58,9 @@
     <div class="it-prSelect">
       <select [(ngModel)]="statusFilter">
         <option value="All">Tous les statuts</option>
-        <option value="Pending">En attente</option>
+        <option value="PendingReview">En attente de validation</option>
+        <option value="Validated">Validé</option>
+        <option value="Rejected">Rejeté</option>
         <option value="Assigned">Affecté</option>
         <option value="Resolved">Résolu</option>
       </select>
@@ -69,12 +68,17 @@
     </div>
   </div>
 
-  <!-- Cartes -->
-  <div class="it-prList">
+  <div *ngIf="loading" class="it-loading">Chargement...</div>
+  <div *ngIf="!loading && error" class="it-error">{{ error }}</div>
+
+  <div class="it-prList" *ngIf="!loading && !error">
     <article class="it-prCard" *ngFor="let r of filteredReports">
 
       <div class="it-prImg">
-        <span class="material-icons it-prImgIcon">image</span>
+        <img *ngIf="r.imageUrl; else noImage" [src]="r.imageUrl" alt="Signalement" class="it-prRealImg" />
+        <ng-template #noImage>
+          <span class="material-icons it-prImgIcon">image</span>
+        </ng-template>
       </div>
 
       <div class="it-prBody">
@@ -83,9 +87,6 @@
 
           <div class="it-prBadges">
             <span class="it-badge" [ngClass]="statusClass(r.status)">
-              <span class="material-icons it-bIcon">
-                {{ r.status==='Pending' ? 'schedule' : 'check_circle' }}
-              </span>
               {{ statusLabel(r.status) }}
             </span>
 
@@ -109,21 +110,72 @@
             Coordonnées : <b>{{ r.lat.toFixed(4) }}, {{ r.lng.toFixed(4) }}</b>
           </span>
 
-          <span class="it-chip it-chip--mint" *ngIf="r.status==='Assigned'">
+          <span class="it-chip" *ngIf="r.reportType">
+            Type : <b>{{ r.reportType }}</b>
+          </span>
+
+          <span class="it-chip" *ngIf="r.qualificationNote">
+            Qualification : <b>{{ r.qualificationNote }}</b>
+          </span>
+
+          <span class="it-chip it-chip--reject" *ngIf="r.duplicateOfReportId">
+            Doublon possible : <b>#{{ r.duplicateOfReportId }}</b>
+          </span>
+
+          <span class="it-chip it-chip--mint" *ngIf="r.status === 'Assigned'">
             Affecté à : <b class="it-green">{{ r.assignedTo }}</b>
           </span>
 
-          <span class="it-chip it-chip--mint" *ngIf="r.status==='Resolved'">
+          <span class="it-chip it-chip--mint" *ngIf="r.status === 'Resolved'">
             Résolu : <b>{{ r.resolvedAgo }}</b>
+          </span>
+
+          <span class="it-chip it-chip--reject" *ngIf="r.status === 'Rejected' && r.resolvedNote">
+            Motif : <b>{{ r.resolvedNote }}</b>
           </span>
         </div>
 
-        <div class="it-prActions" *ngIf="r.status !== 'Resolved'">
-          <button class="it-btn it-btn--green" (click)="assignToTruck(r)">
-            Affecter à un camion
+        <div class="it-prActions">
+          <button
+            class="it-btn it-btn--green"
+            *ngIf="canValidate(r)"
+            (click)="validate(r)"
+            [disabled]="actingId === r.id">
+            {{ actingId === r.id ? 'Validation...' : 'Valider' }}
           </button>
+
+          <button
+            class="it-btn it-btn--danger"
+            *ngIf="canReject(r)"
+            (click)="reject(r)"
+            [disabled]="actingId === r.id">
+            {{ actingId === r.id ? 'Rejet...' : 'Rejeter' }}
+          </button>
+
+          <button class="it-btn it-btn--ghost" (click)="qualify(r)">
+            Qualifier
+          </button>
+
+          <button class="it-btn it-btn--ghost" (click)="viewHistory(r)">
+            Historique
+          </button>
+
           <button class="it-btn it-btn--ghost" (click)="viewOnMap(r)">
             Voir sur la carte
+          </button>
+
+          <button
+            class="it-btn it-btn--green"
+            *ngIf="canAssign(r)"
+            (click)="assignToTruck(r)">
+            Affecter à un camion
+          </button>
+
+          <button
+            class="it-btn it-btn--ghost"
+            *ngIf="canResolve(r)"
+            (click)="resolveReport(r)">
+            Marquer résolu
           </button>
         </div>
       </div>

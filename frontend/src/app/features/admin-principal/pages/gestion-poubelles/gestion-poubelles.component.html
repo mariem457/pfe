@@ -1,0 +1,149 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Gestion des Poubelles</h1>
+      <p>Gérez et surveillez toutes les poubelles connectées</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondaire">Vue Carte</button>
+      <button class="btn btn-secondaire">Exporter</button>
+      <button class="btn btn-primaire">Nouvelle Poubelle</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Total Poubelles</p>
+        <h2>{{ nombreTotalPoubelles }}</h2>
+      </div>
+      <div class="stat-icone bleu">🗑</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Pleines</p>
+        <h2>{{ nombrePoubellesPleines }}</h2>
+      </div>
+      <div class="stat-icone rouge">⚠</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>Actives</p>
+        <h2>{{ nombrePoubellesActives }}</h2>
+      </div>
+      <div class="stat-icone vert">〰</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-texte">
+        <p>En Maintenance</p>
+        <h2>{{ nombrePoubellesMaintenance }}</h2>
+      </div>
+      <div class="stat-icone orange">⚠</div>
+    </div>
+  </div>
+
+  <div class="barre-filtres">
+    <div class="filtres">
+      <button
+        *ngFor="let filtre of filtres"
+        (click)="selectionnerFiltre(filtre)"
+        [class.active]="filtreSelectionne === filtre">
+        {{ filtre }}
+      </button>
+    </div>
+
+    <div class="zone-recherche">
+      <input
+        type="text"
+        placeholder="Rechercher une poubelle..."
+        [(ngModel)]="termeRecherche"
+      />
+      <button class="btn-filtre">⌁</button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="message-info">
+    Chargement des poubelles...
+  </div>
+
+  <div *ngIf="errorMessage" class="message-erreur">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!loading && !errorMessage && poubellesFiltrees.length === 0" class="message-info">
+    Aucune poubelle trouvée.
+  </div>
+
+  <div class="grille-poubelles" *ngIf="!loading && !errorMessage && poubellesFiltrees.length > 0">
+    <div class="carte-poubelle" *ngFor="let poubelle of poubellesFiltrees">
+
+      <div class="ligne-entete">
+        <div class="bloc-titre">
+          <div class="titre-statut">
+            <h3>{{ poubelle.nom }}</h3>
+
+            <span class="badge-statut" [ngClass]="getClasseStatut(poubelle.statut)">
+              {{ getLibelleStatut(poubelle.statut) }}
+            </span>
+          </div>
+
+          <p class="localisation">⌖ {{ poubelle.zone }} • {{ poubelle.code }}</p>
+        </div>
+
+        <button class="btn-menu">⋮</button>
+      </div>
+
+      <div class="bloc-remplissage">
+        <div class="ligne-remplissage">
+          <span>Niveau de remplissage</span>
+          <strong>{{ poubelle.niveauRemplissage }}%</strong>
+        </div>
+
+        <div class="barre-remplissage">
+          <div
+            class="barre-remplissage-valeur"
+            [style.width.%]="poubelle.niveauRemplissage">
+          </div>
+        </div>
+      </div>
+
+      <div class="ligne-type">
+        <span class="capacite">{{ poubelle.capacite }}</span>
+      </div>
+
+      <div class="bloc-indicateurs">
+        <div class="indicateur">
+          <span class="libelle">▭ Batterie</span>
+          <strong>{{ poubelle.batterie }}%</strong>
+        </div>
+
+        <div class="indicateur">
+          <span class="libelle">⌒ Signal</span>
+          <strong>{{ poubelle.signal }}%</strong>
+        </div>
+
+        <div class="indicateur">
+          <span class="libelle">∿ Temp</span>
+          <strong>{{ poubelle.temperature }}</strong>
+        </div>
+      </div>
+
+      <div class="bloc-dates">
+        <div class="date-item">
+          <span class="libelle-date">Dernière collecte</span>
+          <strong>🗓 {{ poubelle.derniereCollecte }}</strong>
+        </div>
+
+        <div class="date-item">
+          <span class="libelle-date">Prochaine collecte</span>
+          <strong>🗓 {{ poubelle.prochaineCollecte }}</strong>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

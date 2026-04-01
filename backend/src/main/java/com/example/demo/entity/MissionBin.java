@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 import java.time.Instant;
 
 @Entity
@@ -52,6 +53,82 @@ public class MissionBin {
 
     @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
+    
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assignment_status", nullable = false, length = 20)
+    private AssignmentStatus assignmentStatus = AssignmentStatus.PLANNED;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reassigned_from_truck_id")
+    private Truck reassignedFromTruck;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reassigned_to_truck_id")
+    private Truck reassignedToTruck;
+
+    @Column(name = "planned_arrival")
+    private OffsetDateTime plannedArrival;
+
+    @Column(name = "actual_arrival")
+    private OffsetDateTime actualArrival;
+
+    @Column(name = "skipped_reason", length = 50)
+    private String skippedReason;
+    public enum AssignmentStatus {
+        PLANNED,
+        COLLECTED,
+        SKIPPED,
+        REASSIGNED,
+        CANCELLED
+    }
+	public AssignmentStatus getAssignmentStatus() {
+		return assignmentStatus;
+	}
+
+	public void setAssignmentStatus(AssignmentStatus assignmentStatus) {
+		this.assignmentStatus = assignmentStatus;
+	}
+
+	public Truck getReassignedFromTruck() {
+		return reassignedFromTruck;
+	}
+
+	public void setReassignedFromTruck(Truck reassignedFromTruck) {
+		this.reassignedFromTruck = reassignedFromTruck;
+	}
+
+	public Truck getReassignedToTruck() {
+		return reassignedToTruck;
+	}
+
+	public void setReassignedToTruck(Truck reassignedToTruck) {
+		this.reassignedToTruck = reassignedToTruck;
+	}
+
+	public OffsetDateTime getPlannedArrival() {
+		return plannedArrival;
+	}
+
+	public void setPlannedArrival(OffsetDateTime plannedArrival) {
+		this.plannedArrival = plannedArrival;
+	}
+
+	public OffsetDateTime getActualArrival() {
+		return actualArrival;
+	}
+
+	public void setActualArrival(OffsetDateTime actualArrival) {
+		this.actualArrival = actualArrival;
+	}
+
+	public String getSkippedReason() {
+		return skippedReason;
+	}
+
+	public void setSkippedReason(String skippedReason) {
+		this.skippedReason = skippedReason;
+	}
 
 	public Long getId() {
 		return id;

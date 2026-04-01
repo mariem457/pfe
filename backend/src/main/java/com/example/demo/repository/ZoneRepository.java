@@ -4,5 +4,5 @@ import com.example.demo.entity.Zone;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ZoneRepository extends JpaRepository<Zone, Long> {
-    boolean existsByName(String name);
+    boolean existsByShapeName(String shapeName);
 }

@@ -1,0 +1,2 @@
+ALTER TABLE zones
+ADD COLUMN IF NOT EXISTS polygon_json TEXT;

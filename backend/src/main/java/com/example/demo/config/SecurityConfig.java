@@ -55,8 +55,9 @@ public class SecurityConfig {
 
                         // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/security/**").hasRole("ADMIN")
                    
-                        .requestMatchers("/api/telemetry/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/telemetry/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")
@@ -64,11 +65,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/public-reports").permitAll()
+                        .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/uploads/**").permitAll()
 
 
                         // MISSIONS
                         .requestMatchers("/api/missions/**")
                         .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-locations/**").permitAll()
                         
                         .requestMatchers("/api/truck-locations").permitAll()
                         

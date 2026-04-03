@@ -5,6 +5,8 @@ public class MissionRouteStopDto {
     private Integer stopOrder;
     private String stopType;
     private Long binId;
+    private Long fuelStationId;
+    private String fuelStationName;
     private Double lat;
     private Double lng;
 
@@ -33,6 +35,22 @@ public class MissionRouteStopDto {
 
     public void setBinId(Long binId) {
         this.binId = binId;
+    }
+
+    public Long getFuelStationId() {
+        return fuelStationId;
+    }
+
+    public void setFuelStationId(Long fuelStationId) {
+        this.fuelStationId = fuelStationId;
+    }
+
+    public String getFuelStationName() {
+        return fuelStationName;
+    }
+
+    public void setFuelStationName(String fuelStationName) {
+        this.fuelStationName = fuelStationName;
     }
 
     public Double getLat() {

@@ -451,3 +451,170 @@
     font-size: 26px;
   }
 }
+/* =========================
+   DARK MODE FIX
+   ========================= */
+
+/* Angular / host-context */
+:host-context(.dark-mode) .page,
+:host-context(body.dark-mode) .page,
+:host-context([data-theme="dark"]) .page {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header h1,
+:host-context(body.dark-mode) .page-header h1,
+:host-context([data-theme="dark"]) .page-header h1,
+:host-context(.dark-mode) .stat-texte h2,
+:host-context(body.dark-mode) .stat-texte h2,
+:host-context([data-theme="dark"]) .stat-texte h2,
+:host-context(.dark-mode) .bloc-titre h3,
+:host-context(body.dark-mode) .bloc-titre h3,
+:host-context([data-theme="dark"]) .bloc-titre h3,
+:host-context(.dark-mode) .ligne-remplissage strong,
+:host-context(body.dark-mode) .ligne-remplissage strong,
+:host-context([data-theme="dark"]) .ligne-remplissage strong,
+:host-context(.dark-mode) .indicateur strong,
+:host-context(body.dark-mode) .indicateur strong,
+:host-context([data-theme="dark"]) .indicateur strong,
+:host-context(.dark-mode) .date-item strong,
+:host-context(body.dark-mode) .date-item strong,
+:host-context([data-theme="dark"]) .date-item strong {
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header p,
+:host-context(body.dark-mode) .page-header p,
+:host-context([data-theme="dark"]) .page-header p,
+:host-context(.dark-mode) .stat-texte p,
+:host-context(body.dark-mode) .stat-texte p,
+:host-context([data-theme="dark"]) .stat-texte p,
+:host-context(.dark-mode) .localisation,
+:host-context(body.dark-mode) .localisation,
+:host-context([data-theme="dark"]) .localisation,
+:host-context(.dark-mode) .capacite,
+:host-context(body.dark-mode) .capacite,
+:host-context([data-theme="dark"]) .capacite,
+:host-context(.dark-mode) .ligne-remplissage,
+:host-context(body.dark-mode) .ligne-remplissage,
+:host-context([data-theme="dark"]) .ligne-remplissage,
+:host-context(.dark-mode) .indicateur .libelle,
+:host-context(body.dark-mode) .indicateur .libelle,
+:host-context([data-theme="dark"]) .indicateur .libelle,
+:host-context(.dark-mode) .libelle-date,
+:host-context(body.dark-mode) .libelle-date,
+:host-context([data-theme="dark"]) .libelle-date {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .stat-card,
+:host-context(body.dark-mode) .stat-card,
+:host-context([data-theme="dark"]) .stat-card,
+:host-context(.dark-mode) .barre-filtres,
+:host-context(body.dark-mode) .barre-filtres,
+:host-context([data-theme="dark"]) .barre-filtres,
+:host-context(.dark-mode) .carte-poubelle,
+:host-context(body.dark-mode) .carte-poubelle,
+:host-context([data-theme="dark"]) .carte-poubelle {
+  background: #111827;
+  border: 1px solid #243041;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+:host-context(.dark-mode) .filtres,
+:host-context(body.dark-mode) .filtres,
+:host-context([data-theme="dark"]) .filtres {
+  background: #1e293b;
+}
+
+:host-context(.dark-mode) .filtres button,
+:host-context(body.dark-mode) .filtres button,
+:host-context([data-theme="dark"]) .filtres button {
+  color: #cbd5e1;
+}
+
+:host-context(.dark-mode) .filtres button.active,
+:host-context(body.dark-mode) .filtres button.active,
+:host-context([data-theme="dark"]) .filtres button.active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+:host-context(.dark-mode) .zone-recherche input,
+:host-context(body.dark-mode) .zone-recherche input,
+:host-context([data-theme="dark"]) .zone-recherche input {
+  background: #0b1220;
+  color: #f8fafc;
+  border: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .zone-recherche input::placeholder,
+:host-context(body.dark-mode) .zone-recherche input::placeholder,
+:host-context([data-theme="dark"]) .zone-recherche input::placeholder {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .btn-secondaire,
+:host-context(body.dark-mode) .btn-secondaire,
+:host-context([data-theme="dark"]) .btn-secondaire,
+:host-context(.dark-mode) .btn-filtre,
+:host-context(body.dark-mode) .btn-filtre,
+:host-context([data-theme="dark"]) .btn-filtre {
+  background: #111827;
+  border-color: #243041;
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .btn-secondaire:hover,
+:host-context(body.dark-mode) .btn-secondaire:hover,
+:host-context([data-theme="dark"]) .btn-secondaire:hover,
+:host-context(.dark-mode) .btn-filtre:hover,
+:host-context(body.dark-mode) .btn-filtre:hover,
+:host-context([data-theme="dark"]) .btn-filtre:hover {
+  background: #1e293b;
+}
+
+:host-context(.dark-mode) .bloc-indicateurs,
+:host-context(body.dark-mode) .bloc-indicateurs,
+:host-context([data-theme="dark"]) .bloc-indicateurs {
+  border-top: 1px solid #243041;
+  border-bottom: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .type-general,
+:host-context(body.dark-mode) .type-general,
+:host-context([data-theme="dark"]) .type-general {
+  background: #1f2937;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+:host-context(.dark-mode) .barre-remplissage,
+:host-context(body.dark-mode) .barre-remplissage,
+:host-context([data-theme="dark"]) .barre-remplissage {
+  background: #1e293b;
+}
+
+/* petit bonus */
+:host-context(.dark-mode) .page,
+:host-context(body.dark-mode) .page,
+:host-context([data-theme="dark"]) .page,
+:host-context(.dark-mode) .stat-card,
+:host-context(body.dark-mode) .stat-card,
+:host-context([data-theme="dark"]) .stat-card,
+:host-context(.dark-mode) .barre-filtres,
+:host-context(body.dark-mode) .barre-filtres,
+:host-context([data-theme="dark"]) .barre-filtres,
+:host-context(.dark-mode) .carte-poubelle,
+:host-context(body.dark-mode) .carte-poubelle,
+:host-context([data-theme="dark"]) .carte-poubelle,
+:host-context(.dark-mode) .zone-recherche input,
+:host-context(body.dark-mode) .zone-recherche input,
+:host-context([data-theme="dark"]) .zone-recherche input,
+:host-context(.dark-mode) .btn,
+:host-context(body.dark-mode) .btn,
+:host-context([data-theme="dark"]) .btn {
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}

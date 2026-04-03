@@ -39,6 +39,7 @@ public class UserAdminService {
         user.setEmail(req.getEmail());
         user.setRole("MUNICIPALITY");
         user.setIsEnabled(true);
+        user.setMustChangePassword(true);
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
 
         user = userRepo.save(user);
@@ -68,6 +69,7 @@ public class UserAdminService {
         user.setEmail(req.getEmail());
         user.setRole("MAINTENANCE");
         user.setIsEnabled(true);
+        user.setMustChangePassword(true);
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
 
         user = userRepo.save(user);

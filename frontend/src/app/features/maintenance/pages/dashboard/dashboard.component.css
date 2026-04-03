@@ -1,6 +1,6 @@
 .maintenance-page {
   padding: 24px;
-  background: #f7f8fa;
+  background: var(--bg-color);
   min-height: 100%;
 }
 
@@ -10,7 +10,7 @@
 
 .breadcrumb {
   font-size: 14px;
-  color: #2c2f36;
+  color: var(--muted-color);
   margin-bottom: 14px;
 }
 
@@ -18,13 +18,13 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #14181f;
+  color: var(--text-color);
 }
 
 .page-subtitle {
   margin: 8px 0 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted-color);
 }
 
 .stats-grid {
@@ -36,10 +36,10 @@
 
 .stat-card,
 .dashboard-card {
-  background: #ffffff;
-  border: 1px solid #e7e7e7;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--card-shadow);
 }
 
 .stat-card {
@@ -65,12 +65,12 @@
 }
 
 .stat-icon.danger {
-  background: #ffe8e8;
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
 
 .stat-icon.warning {
-  background: #fff4da;
+  background: rgba(245, 158, 11, 0.14);
   color: #eab308;
 }
 
@@ -93,12 +93,12 @@
 .stat-card h2 {
   margin: 0 0 10px;
   font-size: 22px;
-  color: #161b22;
+  color: var(--text-color);
 }
 
 .stat-card p {
   margin: 0;
-  color: #6b7280;
+  color: var(--muted-color);
   font-size: 14px;
 }
 
@@ -117,7 +117,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-color);
 }
 
 .fake-chart.bars {
@@ -127,7 +127,7 @@
   gap: 10px;
   padding: 0 10px;
   margin-top: 18px;
-  border-bottom: 1px dashed #d1d5db;
+  border-bottom: 1px dashed var(--chart-grid);
 }
 
 .bar {
@@ -140,7 +140,7 @@
   display: flex;
   justify-content: space-between;
   padding: 10px 8px 0;
-  color: #9ca3af;
+  color: var(--muted-color);
   font-size: 13px;
 }
 
@@ -162,7 +162,7 @@
   content: "";
   position: absolute;
   inset: 21px;
-  background: white;
+  background: var(--card-color);
   border-radius: 50%;
 }
 
@@ -187,7 +187,7 @@
   display: grid;
   gap: 10px;
   font-size: 14px;
-  color: #4b5563;
+  color: var(--muted-color);
 }
 
 .legend div {
@@ -236,7 +236,7 @@
 
 .card-head a {
   text-decoration: none;
-  color: #374151;
+  color: var(--muted-color);
   font-size: 14px;
 }
 
@@ -262,10 +262,10 @@
 
 .alert-item,
 .priority-item {
-  border: 1px solid #e7e7e7;
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   padding: 14px 16px;
-  background: #fff;
+  background: var(--card-color);
 }
 
 .alert-item-top,
@@ -287,17 +287,17 @@
 }
 
 .chip-red {
-  background: #ffe1e1;
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
 
 .chip-orange {
-  background: #fff0df;
+  background: rgba(249, 115, 22, 0.12);
   color: #f97316;
 }
 
 .chip-yellow {
-  background: #fff6cf;
+  background: rgba(245, 158, 11, 0.14);
   color: #d97706;
 }
 
@@ -321,19 +321,19 @@
   margin: 10px 0 4px;
   font-size: 16px;
   font-weight: 700;
-  color: #20242c;
+  color: var(--text-color);
 }
 
 .alert-item p,
 .priority-item p {
   margin: 0 0 4px;
-  color: #6b7280;
+  color: var(--muted-color);
   font-size: 14px;
 }
 
 .alert-item small,
 .priority-item small {
-  color: #9ca3af;
+  color: var(--muted-color);
   font-size: 12px;
 }
 
@@ -354,8 +354,8 @@
 }
 
 .status-gray {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--soft-bg);
+  color: var(--text-color);
 }
 
 .status-green {
@@ -366,7 +366,7 @@
 .problem-line {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #ececec;
+  border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -374,18 +374,18 @@
 
 .problem-line span {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted-color);
 }
 
 .problem-line strong {
   font-size: 14px;
-  color: #1f2937;
+  color: var(--text-color);
 }
 
 .treat-btn {
-  border: 1px solid #dcdfe4;
-  background: #f9fafb;
-  color: #374151;
+  border: 1px solid var(--border-color);
+  background: var(--soft-bg);
+  color: var(--text-color);
   border-radius: 999px;
   padding: 10px 18px;
   font-size: 13px;
@@ -394,7 +394,7 @@
 }
 
 .treat-btn:hover {
-  background: #f3f4f6;
+  background: var(--soft-hover-bg);
 }
 
 @media (max-width: 1200px) {

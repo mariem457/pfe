@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-login-page',
@@ -12,43 +12,75 @@ import { HttpClient } from '@angular/common/http';
   styleUrl: './login-page.component.css'
 })
 export class LoginPageComponent {
-
   usernameOrEmail = '';
   password = '';
   rememberMe = true;
+  showPassword = false;
   errorMessage = '';
 
-  private API = 'http://localhost:8083/api';
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) {}
 
-  constructor(private router: Router, private http: HttpClient) {}
+  togglePasswordVisibility(): void {
+    this.showPassword = !this.showPassword;
+  }
 
-  login() {
+  forgotPassword(): void {
+    this.router.navigate(['/forgot-password']);
+  }
+
+  login(): void {
     this.errorMessage = '';
 
-    this.http.post<any>(`${this.API}/auth/login`, {
-      usernameOrEmail: this.usernameOrEmail.trim(),
-      password: this.password
-    }).subscribe({
+    this.authService.login(
+      this.usernameOrEmail.trim(),
+      this.password,
+      this.rememberMe
+    ).subscribe({
       next: (res) => {
-        const storage = this.rememberMe ? localStorage : sessionStorage;
+        localStorage.setItem('accessToken', res.token);
 
-        storage.setItem('token', res.token);
-        storage.setItem('role', res.role);
-        storage.setItem('userId', String(res.userId));
+        if (res.mustChangePassword) {
+          if (res.role === 'MUNICIPALITY') {
+            this.router.navigate(['/municipality/parametres'], {
+              queryParams: { forcePasswordChange: 'true' }
+            });
+            return;
+          }
+
+          if (res.role === 'ADMIN') {
+            this.router.navigate(['/admin/parametres'], {
+              queryParams: { forcePasswordChange: 'true' }
+            });
+            return;
+          }
+
+          if (res.role === 'MAINTENANCE') {
+            this.router.navigate(['/maintenance/parametres'], {
+              queryParams: { forcePasswordChange: 'true' }
+            });
+            return;
+          }
+
+          if (res.role === 'DRIVER') {
+            this.router.navigate(['/chauffeur/parametres'], {
+              queryParams: { forcePasswordChange: 'true' }
+            });
+            return;
+          }
+        }
 
         if (res.role === 'DRIVER') {
           this.router.navigate(['/chauffeur']);
-        } 
-        else if (res.role === 'ADMIN') {
+        } else if (res.role === 'ADMIN') {
           this.router.navigate(['/admin']);
-        } 
-        else if (res.role === 'MUNICIPALITY') {
+        } else if (res.role === 'MUNICIPALITY') {
           this.router.navigate(['/municipality']);
-        } 
-        else if (res.role === 'MAINTENANCE') {
+        } else if (res.role === 'MAINTENANCE') {
           this.router.navigate(['/maintenance']);
-        } 
-        else {
+        } else {
           this.router.navigate(['/']);
         }
       },

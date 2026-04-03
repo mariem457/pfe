@@ -1,21 +1,23 @@
 <div class="container">
-    <div class="header">
-        <div class="logo">
-        <img src="assets/logo.png" alt="Logo" />
-        </div>
-        <nav class="nav">
-        <a href="#">Infos</a>
-        <a href="#">signal</a>
-        <a href="#">contact</a>
-        </nav>
-        
-        <button class ='mode' (click)="toggleTheme()" class="mode">
-            <span class="material-icons">
-                {{ isDark ? 'light_mode' : 'dark_mode' }}
-            </span>
-        </button>
-        <button routerLink="/login" class="login">Login</button>
+  <div class="header">
+    <div class="header-left">
+      <div>
+        <div class="header-title">Espace Administrateur</div>
+        <div class="header-subtitle">Gestion et supervision du système</div>
+      </div>
+    </div>
 
-    
-</div>
+    <div class="header-right">
+      <button class="icon-btn" type="button" (click)="toggleTheme()" aria-label="Changer le thème">
+        <span class="material-icons">
+          {{ isDark ? 'light_mode' : 'dark_mode' }}
+        </span>
+      </button>
+
+      <button class="icon-btn notify-btn" type="button" aria-label="Notifications">
+        <span class="material-icons">notifications_none</span>
+        <span class="notify-dot"></span>
+      </button>
+    </div>
+  </div>
 </div>

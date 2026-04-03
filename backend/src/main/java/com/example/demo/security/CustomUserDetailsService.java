@@ -6,6 +6,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -23,17 +24,20 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .or(() -> repo.findByEmail(usernameOrEmail))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Spring Security يحب roles بالشكل ROLE_ADMIN
         String role = u.getRole();
         if (role != null && !role.startsWith("ROLE_")) {
             role = "ROLE_" + role;
         }
 
+        boolean accountNonLocked = u.getLockedUntil() == null || u.getLockedUntil().isBefore(OffsetDateTime.now());
+
         return new org.springframework.security.core.userdetails.User(
                 u.getUsername(),
                 u.getPasswordHash(),
-                u.getIsEnabled() != null ? u.getIsEnabled() : true,
-                true, true, true,
+                Boolean.TRUE.equals(u.getIsEnabled()),
+                true,
+                true,
+                accountNonLocked,
                 List.of(new SimpleGrantedAuthority(role))
         );
     }

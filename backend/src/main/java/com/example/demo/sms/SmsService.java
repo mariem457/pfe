@@ -17,4 +17,11 @@ public class SmsService {
                 + "Please change your password after login.";
         smsSender.send(phone, msg);
     }
+
+    public void sendDriverResetCode(String phone, String code) {
+        String msg = "WiseTrash:\n"
+                + "Votre code de réinitialisation est: " + code + "\n"
+                + "Ce code expire dans 10 minutes.";
+        smsSender.send(phone, msg);
+    }
 }

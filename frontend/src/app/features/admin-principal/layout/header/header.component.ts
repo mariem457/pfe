@@ -1,22 +1,22 @@
-import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterModule],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
   isDark = false;
 
-  toggleTheme() {
-    this.isDark = !this.isDark;
+  ngOnInit(): void {
+    this.isDark = localStorage.getItem('theme') === 'dark';
+    document.body.classList.toggle('dark-mode', this.isDark);
+  }
 
-    if (this.isDark) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
+  toggleTheme(): void {
+    this.isDark = !this.isDark;
+    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+    document.body.classList.toggle('dark-mode', this.isDark);
   }
 }

@@ -12,60 +12,61 @@
     </div>
   </div>
 
-<nav class="nav">
-  <a routerLink="dashboard" routerLinkActive="active">
-    <mat-icon>grid_view</mat-icon>
-    <span>Overview</span>
-  </a>
+  <nav class="nav">
+    <a routerLink="dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+      <mat-icon>grid_view</mat-icon>
+      <span>Overview</span>
+    </a>
 
-  <a routerLink="bins" routerLinkActive="active">
-    <mat-icon>delete_outline</mat-icon>
-    <span>Smart Bins</span>
-  </a>
- <a routerLink="/municipality/missions" routerLinkActive="active-link" class="nav-link-with-icon">
-  <svg
-    class="nav-icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M9 11l3 3L22 4"></path>
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-  </svg>
-  <span>Missions</span>
-</a>
+    <a routerLink="bins" routerLinkActive="active">
+      <mat-icon>delete_outline</mat-icon>
+      <span>Smart Bins</span>
+    </a>
 
-  <a routerLink="trucks" routerLinkActive="active">
-    <mat-icon>local_shipping</mat-icon>
-    <span>Trucks</span>
-  </a>
+    <a routerLink="/municipality/missions" routerLinkActive="active" class="nav-link-with-icon">
+      <svg
+        class="nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M9 11l3 3L22 4"></path>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+      </svg>
+      <span>Missions</span>
+    </a>
 
-  <a routerLink="optimisation" routerLinkActive="active">
-    <mat-icon>psychology</mat-icon>
-    <span>Optimisation</span>
-  </a>
+    <a routerLink="trucks" routerLinkActive="active">
+      <mat-icon>local_shipping</mat-icon>
+      <span>Trucks</span>
+    </a>
 
-  <a routerLink="parametres" routerLinkActive="active">
-    <mat-icon>settings</mat-icon>
-    <span>Paramètres</span>
-  </a>
+    <a routerLink="optimisation" routerLinkActive="active">
+      <mat-icon>psychology</mat-icon>
+      <span>Optimisation</span>
+    </a>
 
-  <a routerLink="rapport" routerLinkActive="active">
-    <mat-icon>assessment</mat-icon>
-    <span>Rapport</span>
-  </a>
+    <a routerLink="parametres" routerLinkActive="active">
+      <mat-icon>settings</mat-icon>
+      <span>Paramètres</span>
+    </a>
 
-  <a routerLink="public-reports" routerLinkActive="active">
-    <mat-icon>public</mat-icon>
-    <span>Rapports Publics</span>
-  </a>
-</nav>
+    <a routerLink="rapport" routerLinkActive="active">
+      <mat-icon>assessment</mat-icon>
+      <span>Rapport</span>
+    </a>
 
-  <!-- BOTTOM / FIXED FOOTER -->
+    <a routerLink="public-reports" routerLinkActive="active">
+      <mat-icon>public</mat-icon>
+      <span>Rapports Publics</span>
+    </a>
+  </nav>
+
+  <!-- BOTTOM / FOOTER -->
   <div class="sidebar-footer">
     <div class="divider"></div>
 
@@ -77,7 +78,7 @@
       </div>
     </div>
 
-    <a class="logout" href="#">
+    <a class="logout" href="javascript:void(0)" (click)="onLogout($event)">
       <mat-icon>logout</mat-icon>
       <span>Log Out</span>
     </a>

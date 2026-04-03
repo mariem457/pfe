@@ -2,7 +2,10 @@
   <h1>{{ title }}</h1>
 
   <div class="actions">
-    <mat-icon>dark_mode</mat-icon>
+    <mat-icon (click)="toggleTheme()">
+      {{ isDark ? 'light_mode' : 'dark_mode' }}
+    </mat-icon>
+
     <mat-icon>notifications</mat-icon>
   </div>
 </header>

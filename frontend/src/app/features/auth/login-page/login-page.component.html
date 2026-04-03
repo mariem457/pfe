@@ -23,31 +23,49 @@
       </div>
 
       <label>Mot de passe</label>
-      <div class="input-group active">
+      <div class="input-group" [class.active]="showPassword">
         <span class="material-icons">lock</span>
+
         <input
-          type="password"
+          [type]="showPassword ? 'text' : 'password'"
           name="password"
           [(ngModel)]="password"
           placeholder="•••••••"
           required
         />
-        <span class="material-icons">visibility</span>
+
+        <button
+          type="button"
+          class="eye-btn"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+        >
+          <span class="material-icons">
+            {{ showPassword ? 'visibility_off' : 'visibility' }}
+          </span>
+        </button>
       </div>
 
       <div class="options">
         <label class="remember">
-          <input type="checkbox" name="rememberMe" [(ngModel)]="rememberMe">
-          Se souvenir de moi
+          <input
+            type="checkbox"
+            name="rememberMe"
+            [(ngModel)]="rememberMe"
+          />
+          <span>Se souvenir de moi</span>
         </label>
-        <a href="#" (click)="$event.preventDefault()">Mot de passe oublié ?</a>
+
+        <a href="javascript:void(0)" (click)="forgotPassword()">
+          Mot de passe oublié ?
+        </a>
       </div>
 
       <button type="submit" class="btn-login">
         Se connecter →
       </button>
 
-      <p *ngIf="errorMessage" style="color:#ff4d4f; margin-top:10px;">
+      <p *ngIf="errorMessage" class="login-error">
         {{ errorMessage }}
       </p>
 
@@ -56,6 +74,5 @@
       </a>
 
     </form>
-
   </div>
 </section>

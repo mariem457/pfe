@@ -52,6 +52,7 @@ public class DriverService {
         user.setEmail(req.getEmail());
         user.setRole("DRIVER");
         user.setIsEnabled(true);
+        user.setMustChangePassword(true);
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
         user = userRepo.save(user);
 

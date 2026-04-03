@@ -1,10 +1,26 @@
 <section class="it-ov">
 
+  <!-- ================= HEADER ================= -->
+  <div class="it-overviewHead">
+    <div>
+      <div class="it-overviewTitle">Vue d’ensemble</div>
+      <div class="it-overviewSub">Supervision municipale en temps réel</div>
+    </div>
+
+    <div class="it-overviewHead__actions">
+      <div class="it-lastUpdate">
+        Dernière mise à jour : {{ lastUpdatedLabel }}
+      </div>
+      <button class="it-primaryBtn" (click)="refreshAll()">
+        Actualiser
+      </button>
+    </div>
+  </div>
+
   <!-- ================= KPI ROW ================= -->
   <div class="it-kpiRow">
     <article class="it-kpiCard" *ngFor="let k of kpis">
       <div class="it-kpiCard__top">
-
         <div class="it-kpiIcon" [attr.data-icon]="k.icon">
           <span class="material-icons it-mi">
             {{
@@ -15,16 +31,6 @@
             }}
           </span>
         </div>
-
-        <div class="it-delta"
-             [class.isUp]="k.deltaType==='up'"
-             [class.isDown]="k.deltaType==='down'">
-          <span class="material-icons it-deltaIcon">
-            {{ k.deltaType === 'up' ? 'trending_up' : 'trending_down' }}
-          </span>
-          <span>{{ k.delta }}</span>
-        </div>
-
       </div>
 
       <div class="it-kpiCard__label">{{ k.label }}</div>
@@ -32,11 +38,11 @@
     </article>
   </div>
 
-  <div *ngIf="dashboardLoading" class="it-muted" style="margin-bottom: 12px;">
-    Chargement des KPI...
+  <div *ngIf="dashboardLoading" class="it-muted">
+    Chargement des indicateurs...
   </div>
 
-  <div *ngIf="dashboardError" class="it-error" style="margin-bottom: 12px;">
+  <div *ngIf="dashboardError" class="it-error">
     {{ dashboardError }}
   </div>
 
@@ -45,15 +51,15 @@
 
     <!-- ========= MAP ========= -->
     <section class="it-panel it-panel--map">
-          <app-fleet-map
-      [showTrucks]="false"
-      [showBins]="true"
-      [showReports]="true"
-      [allowAddBins]="true"
-      [reports]="mapReports"
-      title="Carte de l’état des bacs en temps réel"
-      subtitle="Surveillance en temps réel à travers la ville">
-</app-fleet-map>
+      <app-fleet-map
+        [showTrucks]="false"
+        [showBins]="true"
+        [showReports]="true"
+        [allowAddBins]="false"
+        [reports]="mapReports"
+        title="Carte de l’état des bacs en temps réel"
+        subtitle="Surveillance en temps réel à travers la ville">
+      </app-fleet-map>
     </section>
 
     <!-- ========= ALERTS ========= -->
@@ -65,45 +71,50 @@
           <div class="it-panelSub">Bacs nécessitant une intervention</div>
         </div>
 
-        <button class="it-refreshBtn" (click)="loadAlerts()">↻</button>
+        <button class="it-refreshBtn" (click)="loadAlerts()">
+          <span class="material-icons">refresh</span>
+        </button>
       </div>
 
       <!-- Filters -->
       <div class="it-alertFilters">
-
         <select [(ngModel)]="filterResolved" (change)="loadAlerts()">
-          <option value="false">Open</option>
-          <option value="true">Resolved</option>
-          <option value="">All</option>
+          <option value="false">Ouvertes</option>
+          <option value="true">Résolues</option>
+          <option value="">Toutes</option>
         </select>
 
         <select [(ngModel)]="filterSeverity" (change)="loadAlerts()">
-          <option value="">Severity: All</option>
-          <option value="HIGH">HIGH</option>
-          <option value="MEDIUM">MEDIUM</option>
-          <option value="LOW">LOW</option>
+          <option value="">Sévérité : toutes</option>
+          <option value="HIGH">Élevée</option>
+          <option value="MEDIUM">Moyenne</option>
+          <option value="LOW">Faible</option>
         </select>
 
         <select [(ngModel)]="filterType" (change)="loadAlerts()">
-          <option value="">Type: All</option>
-          <option value="MAINTENANCE">MAINTENANCE</option>
-          <option value="THRESHOLD">THRESHOLD</option>
-          <option value="ANOMALY">ANOMALY</option>
-          <option value="SYSTEM">SYSTEM</option>
+          <option value="">Type : tous</option>
+          <option value="MAINTENANCE">Maintenance</option>
+          <option value="THRESHOLD">Seuil</option>
+          <option value="ANOMALY">Anomalie</option>
+          <option value="SYSTEM">Système</option>
         </select>
 
-        <input [(ngModel)]="searchText"
-               (keyup.enter)="loadAlerts()"
-               placeholder="Search: BIN-001 / title..." />
+        <input
+          [(ngModel)]="searchText"
+          (keyup.enter)="loadAlerts()"
+          placeholder="Rechercher : BIN-001 / titre..." />
 
-        <button (click)="loadAlerts()">Search</button>
-        <button (click)="resetFilters()">Reset</button>
-
+        <button class="it-filterBtn it-filterBtn--primary" (click)="loadAlerts()">
+          Rechercher
+        </button>
+        <button class="it-filterBtn it-filterBtn--secondary" (click)="resetFilters()">
+          Réinitialiser
+        </button>
       </div>
 
       <!-- Loading -->
       <div *ngIf="loadingAlerts" class="it-muted">
-        Chargement...
+        Chargement des alertes...
       </div>
 
       <!-- Error -->
@@ -113,13 +124,12 @@
 
       <!-- List -->
       <div *ngIf="!loadingAlerts && !alertsError">
-
-        <div *ngIf="alerts.length === 0" class="it-muted">
-          Aucune alerte ✅
+        <div *ngIf="alerts.length === 0" class="it-emptyState">
+          <span class="material-icons">check_circle</span>
+          <span>Aucune alerte active</span>
         </div>
 
         <article class="it-alertCard" *ngFor="let a of alerts">
-
           <div class="it-alertCard__top">
             <div class="it-alertId">
               <span class="it-alertDot"
@@ -130,6 +140,7 @@
                     }"></span>
               <span>{{ a.id }}</span>
             </div>
+
             <div class="it-alertTime">{{ a.timeAgo }}</div>
           </div>
 
@@ -137,21 +148,26 @@
             {{ a.location }}
           </div>
 
-          <div class="it-badge"
-               [class.isFull]="a.status==='Plein'"
-               [class.isMaint]="a.status==='Maintenance'">
-            {{ a.status }}
+          <div class="it-alertMeta">
+            <div class="it-badge"
+                 [class.isFull]="a.status==='Plein'"
+                 [class.isMaint]="a.status==='Maintenance'">
+              {{ a.status }}
+            </div>
           </div>
 
           <div class="it-alertActions">
-            <button (click)="openDetails(a)">Details</button>
+            <button class="it-actionBtn it-actionBtn--light" (click)="openDetails(a)">
+              Détails
+            </button>
 
-            <button (click)="resolve(a)"
-                    [disabled]="resolvingId === a.alertId">
-              {{ resolvingId === a.alertId ? 'Resolving...' : 'Resolve' }}
+            <button
+              class="it-actionBtn it-actionBtn--dark"
+              (click)="resolve(a)"
+              [disabled]="resolvingId === a.alertId">
+              {{ resolvingId === a.alertId ? 'Traitement...' : 'Résoudre' }}
             </button>
           </div>
-
         </article>
       </div>
 
@@ -160,30 +176,63 @@
         <div class="it-modal" (click)="$event.stopPropagation()">
 
           <div class="it-modalHeader">
-            <h3>Alert Details</h3>
+            <h3>Détails de l’alerte</h3>
             <button (click)="closeDetails()">✕</button>
           </div>
 
-          <div *ngIf="detailsLoading">Chargement...</div>
+          <div *ngIf="detailsLoading" class="it-muted">Chargement...</div>
           <div *ngIf="detailsError" class="it-error">{{ detailsError }}</div>
 
-          <div *ngIf="selectedDetails">
+          <div *ngIf="selectedDetails" class="it-detailsGrid">
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Bac</span>
+              <span class="it-detailValue">{{ selectedDetails.binCode }}</span>
+            </div>
 
-            <p><b>Bin:</b> {{ selectedDetails.binCode }}</p>
-            <p><b>Type:</b> {{ selectedDetails.alertType }}</p>
-            <p><b>Severity:</b> {{ selectedDetails.severity }}</p>
-            <p><b>Title:</b> {{ selectedDetails.title }}</p>
-            <p><b>Message:</b> {{ selectedDetails.message }}</p>
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Type</span>
+              <span class="it-detailValue">{{ selectedDetails.alertType }}</span>
+            </div>
 
-            <hr>
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Sévérité</span>
+              <span class="it-detailValue">{{ selectedDetails.severity }}</span>
+            </div>
 
-            <p><b>Zone:</b> {{ selectedDetails.zoneName || '—' }}</p>
-            <p><b>Coords:</b> {{ selectedDetails.binLat }}, {{ selectedDetails.binLng }}</p>
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Zone</span>
+              <span class="it-detailValue">{{ selectedDetails.zoneName || '—' }}</span>
+            </div>
 
-            <p><b>Fill:</b> {{ selectedDetails.fillLevel }}%</p>
-            <p><b>Battery:</b> {{ selectedDetails.batteryLevel }}%</p>
-            <p><b>Telemetry Time:</b> {{ selectedDetails.telemetryTimestamp }}</p>
+            <div class="it-detailItem it-detailItem--full">
+              <span class="it-detailLabel">Titre</span>
+              <span class="it-detailValue">{{ selectedDetails.title }}</span>
+            </div>
 
+            <div class="it-detailItem it-detailItem--full">
+              <span class="it-detailLabel">Message</span>
+              <span class="it-detailValue">{{ selectedDetails.message }}</span>
+            </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Coordonnées</span>
+              <span class="it-detailValue">{{ selectedDetails.binLat }}, {{ selectedDetails.binLng }}</span>
+            </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Niveau</span>
+              <span class="it-detailValue">{{ selectedDetails.fillLevel }}%</span>
+            </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Batterie</span>
+              <span class="it-detailValue">{{ selectedDetails.batteryLevel }}%</span>
+            </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Télémétrie</span>
+              <span class="it-detailValue">{{ selectedDetails.telemetryTimestamp }}</span>
+            </div>
           </div>
 
         </div>
@@ -196,137 +245,185 @@
   <!-- ================= CHARTS ROW ================= -->
   <div class="it-chartsRow">
 
-  <section class="it-panel it-panel--chart">
-    <div class="it-panelTitle">Niveau moyen de remplissage</div>
+    <!-- ===== Fill Trend ===== -->
+    <section class="it-panel it-panel--chart">
+      <div class="it-panelTitle">Niveau moyen de remplissage</div>
+      <div class="it-panelSub">Évolution récente du taux de remplissage</div>
 
-    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
-    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
-    <div *ngIf="!chartsLoading && !chartsError && fillTrend.length === 0" class="it-muted">
-      Aucune donnée disponible
-    </div>
+      <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+      <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+      <div *ngIf="!chartsLoading && !chartsError && fillTrend.length === 0" class="it-emptyState">
+        <span class="material-icons">insights</span>
+        <span>Aucune donnée disponible</span>
+      </div>
 
-    <div class="it-chart" *ngIf="!chartsLoading && !chartsError && fillTrend.length > 0">
-      <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
-        <g opacity="0.15">
-          <line x1="30" y1="40" x2="500" y2="40" />
-          <line x1="30" y1="80" x2="500" y2="80" />
-          <line x1="30" y1="120" x2="500" y2="120" />
-          <line x1="30" y1="160" x2="500" y2="160" />
-          <line x1="30" y1="200" x2="500" y2="200" />
-        </g>
+      <div class="it-chart" *ngIf="!chartsLoading && !chartsError && fillTrend.length > 0">
+        <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
+          <g class="it-gridLines">
+            <line x1="30" y1="40" x2="500" y2="40"></line>
+            <line x1="30" y1="80" x2="500" y2="80"></line>
+            <line x1="30" y1="120" x2="500" y2="120"></line>
+            <line x1="30" y1="160" x2="500" y2="160"></line>
+            <line x1="30" y1="190" x2="500" y2="190"></line>
+          </g>
 
-        <path
-          d="M30 170 C 90 160, 120 120, 170 130 S 260 170, 320 120 S 410 80, 500 95 L 500 200 L 30 200 Z"
-          fill="currentColor" opacity="0.12">
-        </path>
+          <path [attr.d]="fillTrendAreaPath" class="it-lineArea"></path>
+          <path [attr.d]="fillTrendLinePath" class="it-lineStroke"></path>
 
-        <path
-          d="M30 170 C 90 160, 120 120, 170 130 S 260 170, 320 120 S 410 80, 500 95"
-          fill="none" stroke="currentColor" stroke-width="3"
-          stroke-linecap="round" stroke-linejoin="round">
-        </path>
+          <g *ngFor="let p of lineChartPoints">
+            <circle [attr.cx]="p.x" [attr.cy]="p.y" r="4" class="it-linePoint"></circle>
+            <text [attr.x]="p.x" y="214" text-anchor="middle" class="it-axisLabel">
+              {{ p.label }}
+            </text>
+          </g>
+        </svg>
+      </div>
+    </section>
 
-        <g fill="currentColor">
-          <circle cx="30" cy="170" r="4"></circle>
-          <circle cx="170" cy="130" r="4"></circle>
-          <circle cx="320" cy="120" r="4"></circle>
-          <circle cx="500" cy="95" r="4"></circle>
-        </g>
+    <!-- ===== Weekly Collections ===== -->
+    <section class="it-panel it-panel--chart">
+      <div class="it-panelTitle">Collectes cette semaine</div>
+      <div class="it-panelSub">Nombre de collectes réalisées par jour</div>
 
-        <g font-size="12" opacity="0.65">
-          <text *ngFor="let p of fillTrend; let i = index"
-                [attr.x]="30 + (i * 78)"
-                y="214">
-            {{ p.label }}
+      <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+      <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+      <div *ngIf="!chartsLoading && !chartsError && weeklyCollections.length === 0" class="it-emptyState">
+        <span class="material-icons">bar_chart</span>
+        <span>Aucune donnée disponible</span>
+      </div>
+
+      <div class="it-chart" *ngIf="!chartsLoading && !chartsError && weeklyCollections.length > 0">
+        <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
+          <line x1="30" y1="190" x2="500" y2="190" class="it-axisBase"></line>
+
+          <g *ngFor="let bar of weeklyBarItems">
+            <text
+              [attr.x]="bar.labelX"
+              [attr.y]="bar.valueY"
+              text-anchor="middle"
+              class="it-barValue">
+              {{ bar.value }}
+            </text>
+
+            <rect
+              [attr.x]="bar.x"
+              [attr.y]="bar.y"
+              [attr.width]="bar.width"
+              [attr.height]="bar.height"
+              rx="12"
+              class="it-barRect">
+            </rect>
+
+            <text
+              [attr.x]="bar.labelX"
+              y="214"
+              text-anchor="middle"
+              class="it-axisLabel">
+              {{ bar.label }}
+            </text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ===== Distribution ===== -->
+    <section class="it-panel it-panel--chart">
+      <div class="it-panelTitle">Répartition de l’état des bacs</div>
+      <div class="it-panelSub">Vue globale de la distribution actuelle</div>
+
+      <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
+      <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+
+      <div class="it-chart it-chart--donut" *ngIf="!chartsLoading && !chartsError">
+        <svg viewBox="0 0 220 220" width="220" height="220">
+          <circle
+            cx="110"
+            cy="110"
+            r="78"
+            fill="none"
+            stroke="#e5e7eb"
+            stroke-width="18">
+          </circle>
+
+          <g class="it-donutRings">
+            <circle
+              cx="110"
+              cy="110"
+              r="78"
+              fill="none"
+              stroke="#22c55e"
+              stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokeEmpty"
+              stroke-dashoffset="0"
+              stroke-linecap="round">
+            </circle>
+
+            <circle
+              cx="110"
+              cy="110"
+              r="78"
+              fill="none"
+              stroke="#f59e0b"
+              stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokePartial"
+              [attr.stroke-dashoffset]="donutOffsetPartial"
+              stroke-linecap="round">
+            </circle>
+
+            <circle
+              cx="110"
+              cy="110"
+              r="78"
+              fill="none"
+              stroke="#ef4444"
+              stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokeFull"
+              [attr.stroke-dashoffset]="donutOffsetFull"
+              stroke-linecap="round">
+            </circle>
+          </g>
+
+          <text x="110" y="104" text-anchor="middle" class="it-donutTotal">
+            {{ safeDistributionTotal }}
           </text>
-        </g>
-      </svg>
-    </div>
-  </section>
-
-  <section class="it-panel it-panel--chart">
-    <div class="it-panelTitle">Collectes cette semaine</div>
-
-    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
-    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
-    <div *ngIf="!chartsLoading && !chartsError && weeklyCollections.length === 0" class="it-muted">
-      Aucune donnée disponible
-    </div>
-
-    <div class="it-chart" *ngIf="!chartsLoading && !chartsError && weeklyCollections.length > 0">
-      <svg viewBox="0 0 520 220" width="100%" height="100%" preserveAspectRatio="none">
-        <line x1="30" y1="200" x2="500" y2="200" opacity="0.2"></line>
-
-        <g fill="currentColor" opacity="0.85">
-          <rect *ngFor="let p of weeklyCollections; let i = index"
-                [attr.x]="55 + (i * 70)"
-                [attr.y]="200 - (p.value * 6)"
-                width="45"
-                [attr.height]="p.value * 6"
-                rx="10">
-          </rect>
-        </g>
-
-        <g font-size="12" opacity="0.65">
-          <text *ngFor="let p of weeklyCollections; let i = index"
-                [attr.x]="60 + (i * 70)"
-                y="214">
-            {{ p.label }}
+          <text x="110" y="128" text-anchor="middle" class="it-donutSub">
+            bacs
           </text>
-        </g>
-      </svg>
-    </div>
-  </section>
+        </svg>
 
-  <section class="it-panel it-panel--chart">
-    <div class="it-panelTitle">Répartition de l’état des bacs</div>
+        <div class="it-legend">
+          <div class="it-legendItem">
+            <span class="it-legendDot is-empty"></span>
+            <div>
+              <div class="it-legendLabel">Vide</div>
+              <div class="it-legendValue">
+                {{ distribution.emptyBins }} · {{ distributionPercent(distribution.emptyBins) }}
+              </div>
+            </div>
+          </div>
 
-    <div *ngIf="chartsLoading" class="it-muted">Chargement...</div>
-    <div *ngIf="!chartsLoading && chartsError" class="it-error">{{ chartsError }}</div>
+          <div class="it-legendItem">
+            <span class="it-legendDot is-partial"></span>
+            <div>
+              <div class="it-legendLabel">Partiel</div>
+              <div class="it-legendValue">
+                {{ distribution.partialBins }} · {{ distributionPercent(distribution.partialBins) }}
+              </div>
+            </div>
+          </div>
 
-    <div class="it-chart it-chart--donut" style="display:flex; gap:18px; align-items:center;" *ngIf="!chartsLoading && !chartsError">
-      <svg viewBox="0 0 220 220" width="220" height="220">
-        <circle cx="110" cy="110" r="78" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="18"></circle>
-
-        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
-                [attr.stroke-dasharray]="donutStrokeEmpty"
-                stroke-dashoffset="0"
-                stroke-linecap="round"></circle>
-
-        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
-                opacity="0.55"
-                [attr.stroke-dasharray]="donutStrokePartial"
-                stroke-dashoffset="-170"
-                stroke-linecap="round"></circle>
-
-        <circle cx="110" cy="110" r="78" fill="none" stroke="currentColor" stroke-width="18"
-                opacity="0.25"
-                [attr.stroke-dasharray]="donutStrokeFull"
-                stroke-dashoffset="-300"
-                stroke-linecap="round"></circle>
-
-        <text x="110" y="105" text-anchor="middle" font-size="20" font-weight="700">
-          {{ distribution.totalBins }}
-        </text>
-        <text x="110" y="128" text-anchor="middle" font-size="12" opacity="0.7">bacs</text>
-      </svg>
-
-      <div style="display:flex; flex-direction:column; gap:10px; font-size:14px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.9; display:inline-block;"></span>
-          <span>Vide ({{ distribution.emptyBins }})</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.55; display:inline-block;"></span>
-          <span>Partiel ({{ distribution.partialBins }})</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="width:10px; height:10px; border-radius:50%; background: currentColor; opacity:0.25; display:inline-block;"></span>
-          <span>Plein ({{ distribution.fullBins }})</span>
+          <div class="it-legendItem">
+            <span class="it-legendDot is-full"></span>
+            <div>
+              <div class="it-legendLabel">Plein</div>
+              <div class="it-legendValue">
+                {{ distribution.fullBins }} · {{ distributionPercent(distribution.fullBins) }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-</div>
+  </div>
 </section>

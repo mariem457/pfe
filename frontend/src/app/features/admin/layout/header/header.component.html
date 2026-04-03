@@ -1,21 +1,13 @@
-<div class="container">
-    <div class="header">
-        <div class="logo">
-        <img src="assets/logo.png" alt="Logo" />
-        </div>
-        <nav class="nav">
-        <a href="#">Infos</a>
-        <a href="#">signal</a>
-        <a href="#">contact</a>
-        </nav>
-        
-        <button class ='mode' (click)="toggleTheme()" class="mode">
-            <span class="material-icons">
-                {{ isDark ? 'light_mode' : 'dark_mode' }}
-            </span>
-        </button>
-        <button routerLink="/login" class="login">Login</button>
+<header class="head-page">
+  <h1>{{ title }}</h1>
 
-    
-</div>
-</div>
+  <div class="actions">
+    <button class="icon-btn" type="button" (click)="toggleTheme()">
+      <mat-icon>{{ themeService.isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    </button>
+
+    <button class="icon-btn" type="button">
+      <mat-icon>notifications</mat-icon>
+    </button>
+  </div>
+</header>

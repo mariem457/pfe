@@ -1,0 +1,19 @@
+<header class="public-header">
+  <div class="logo">WiseTrash</div>
+
+  <nav class="nav-links">
+    <a href="#home">Accueil</a>
+    <a href="#features">Fonctionnalités</a>
+    <a href="#about">À propos</a>
+    <a href="#contact">Contact</a>
+  </nav>
+
+  <div class="header-actions">
+    <button class="icon-btn" type="button" (click)="toggleTheme()">
+      <mat-icon>{{ isDark ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    </button>
+
+    <a routerLink="/login" class="btn btn-outline">Connexion</a>
+    <a routerLink="/login" class="btn btn-primary">Commencer</a>
+  </div>
+</header>

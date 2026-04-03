@@ -478,3 +478,211 @@
     align-items: stretch;
   }
 }
+/* =========================
+   DARK MODE - SECURITE
+   ========================= */
+
+:host-context(.dark-mode) .page,
+:host-context(body.dark-mode) .page,
+:host-context([data-theme="dark"]) .page {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header h1,
+:host-context(body.dark-mode) .page-header h1,
+:host-context([data-theme="dark"]) .page-header h1,
+:host-context(.dark-mode) .stat-texte h2,
+:host-context(body.dark-mode) .stat-texte h2,
+:host-context([data-theme="dark"]) .stat-texte h2,
+:host-context(.dark-mode) .alerte-texte h3,
+:host-context(body.dark-mode) .alerte-texte h3,
+:host-context([data-theme="dark"]) .alerte-texte h3,
+:host-context(.dark-mode) .bloc-entete h2,
+:host-context(body.dark-mode) .bloc-entete h2,
+:host-context([data-theme="dark"]) .bloc-entete h2,
+:host-context(.dark-mode) .evenement-titre h3,
+:host-context(body.dark-mode) .evenement-titre h3,
+:host-context([data-theme="dark"]) .evenement-titre h3,
+:host-context(.dark-mode) .controle-ligne h4,
+:host-context(body.dark-mode) .controle-ligne h4,
+:host-context([data-theme="dark"]) .controle-ligne h4,
+:host-context(.dark-mode) .champ-cle label,
+:host-context(body.dark-mode) .champ-cle label,
+:host-context([data-theme="dark"]) .champ-cle label,
+:host-context(.dark-mode) .valeur-cle,
+:host-context(body.dark-mode) .valeur-cle,
+:host-context([data-theme="dark"]) .valeur-cle,
+:host-context(.dark-mode) .onglets button,
+:host-context(body.dark-mode) .onglets button,
+:host-context([data-theme="dark"]) .onglets button,
+:host-context(.dark-mode) .btn-grand,
+:host-context(body.dark-mode) .btn-grand,
+:host-context([data-theme="dark"]) .btn-grand,
+:host-context(.dark-mode) .btn-oeil,
+:host-context(body.dark-mode) .btn-oeil,
+:host-context([data-theme="dark"]) .btn-oeil {
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header p,
+:host-context(body.dark-mode) .page-header p,
+:host-context([data-theme="dark"]) .page-header p,
+:host-context(.dark-mode) .stat-texte p,
+:host-context(body.dark-mode) .stat-texte p,
+:host-context([data-theme="dark"]) .stat-texte p,
+:host-context(.dark-mode) .alerte-texte p,
+:host-context(body.dark-mode) .alerte-texte p,
+:host-context([data-theme="dark"]) .alerte-texte p,
+:host-context(.dark-mode) .bloc-entete p,
+:host-context(body.dark-mode) .bloc-entete p,
+:host-context([data-theme="dark"]) .bloc-entete p,
+:host-context(.dark-mode) .evenement-details p,
+:host-context(body.dark-mode) .evenement-details p,
+:host-context([data-theme="dark"]) .evenement-details p,
+:host-context(.dark-mode) .controle-ligne p,
+:host-context(body.dark-mode) .controle-ligne p,
+:host-context([data-theme="dark"]) .controle-ligne p {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .alerte-securite,
+:host-context(body.dark-mode) .alerte-securite,
+:host-context([data-theme="dark"]) .alerte-securite {
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(245, 210, 122, 0.3);
+}
+
+:host-context(.dark-mode) .alerte-icone,
+:host-context(body.dark-mode) .alerte-icone,
+:host-context([data-theme="dark"]) .alerte-icone,
+:host-context(.dark-mode) .alerte-texte h3,
+:host-context(body.dark-mode) .alerte-texte h3,
+:host-context([data-theme="dark"]) .alerte-texte h3 {
+  color: #f59e0b;
+}
+
+:host-context(.dark-mode) .stat-card,
+:host-context(body.dark-mode) .stat-card,
+:host-context([data-theme="dark"]) .stat-card,
+:host-context(.dark-mode) .bloc,
+:host-context(body.dark-mode) .bloc,
+:host-context([data-theme="dark"]) .bloc,
+:host-context(.dark-mode) .evenement-card,
+:host-context(body.dark-mode) .evenement-card,
+:host-context([data-theme="dark"]) .evenement-card {
+  background: #111827;
+  border: 1px solid #243041;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+:host-context(.dark-mode) .onglets,
+:host-context(body.dark-mode) .onglets,
+:host-context([data-theme="dark"]) .onglets {
+  background: #1e293b;
+}
+
+:host-context(.dark-mode) .onglets button.active,
+:host-context(body.dark-mode) .onglets button.active,
+:host-context([data-theme="dark"]) .onglets button.active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+:host-context(.dark-mode) .controle-ligne,
+:host-context(body.dark-mode) .controle-ligne,
+:host-context([data-theme="dark"]) .controle-ligne {
+  border-bottom: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .slider,
+:host-context(body.dark-mode) .slider,
+:host-context([data-theme="dark"]) .slider {
+  background: #475569;
+}
+
+:host-context(.dark-mode) .switch input:checked + .slider,
+:host-context(body.dark-mode) .switch input:checked + .slider,
+:host-context([data-theme="dark"]) .switch input:checked + .slider {
+  background: #10b981;
+}
+
+:host-context(.dark-mode) .valeur-cle,
+:host-context(body.dark-mode) .valeur-cle,
+:host-context([data-theme="dark"]) .valeur-cle {
+  background: #0f172a;
+  border: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .btn-secondaire,
+:host-context(body.dark-mode) .btn-secondaire,
+:host-context([data-theme="dark"]) .btn-secondaire,
+:host-context(.dark-mode) .btn-oeil,
+:host-context(body.dark-mode) .btn-oeil,
+:host-context([data-theme="dark"]) .btn-oeil,
+:host-context(.dark-mode) .btn-grand,
+:host-context(body.dark-mode) .btn-grand,
+:host-context([data-theme="dark"]) .btn-grand {
+  background: #0f172a;
+  border-color: #243041;
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .btn-danger-secondaire,
+:host-context(body.dark-mode) .btn-danger-secondaire,
+:host-context([data-theme="dark"]) .btn-danger-secondaire {
+  color: #f87171;
+  border-color: #7f1d1d;
+}
+
+:host-context(.dark-mode) .icone-connexion,
+:host-context(body.dark-mode) .icone-connexion,
+:host-context([data-theme="dark"]) .icone-connexion {
+  background: rgba(37, 99, 235, 0.16);
+  color: #60a5fa;
+}
+
+:host-context(.dark-mode) .icone-echec,
+:host-context(body.dark-mode) .icone-echec,
+:host-context([data-theme="dark"]) .icone-echec {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}
+
+:host-context(.dark-mode) .icone-api,
+:host-context(body.dark-mode) .icone-api,
+:host-context([data-theme="dark"]) .icone-api {
+  background: rgba(147, 51, 234, 0.16);
+  color: #c084fc;
+}
+
+:host-context(.dark-mode) .icone-modification,
+:host-context(body.dark-mode) .icone-modification,
+:host-context([data-theme="dark"]) .icone-modification {
+  background: rgba(217, 119, 6, 0.16);
+  color: #f59e0b;
+}
+
+:host-context(.dark-mode) .icone-deconnexion,
+:host-context(body.dark-mode) .icone-deconnexion,
+:host-context([data-theme="dark"]) .icone-deconnexion {
+  background: rgba(100, 116, 139, 0.16);
+  color: #cbd5e1;
+}
+
+:host-context(.dark-mode) .statut-succes,
+:host-context(body.dark-mode) .statut-succes,
+:host-context([data-theme="dark"]) .statut-succes {
+  background: rgba(22, 163, 74, 0.16);
+  color: #4ade80;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+:host-context(.dark-mode) .statut-echec,
+:host-context(body.dark-mode) .statut-echec,
+:host-context([data-theme="dark"]) .statut-echec {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}

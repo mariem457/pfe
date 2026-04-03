@@ -15,14 +15,10 @@ import {
   PublicReportDto
 } from '../../../../services/public-report.service';
 
-type DeltaType = 'up' | 'down';
-
 interface KpiCard {
   icon: 'trash' | 'alert' | 'truck' | 'leaf';
   label: string;
   value: string;
-  delta: string;
-  deltaType: DeltaType;
 }
 
 interface AlertItem {
@@ -50,6 +46,24 @@ export interface MapReportItem {
   assignedTo?: string;
 }
 
+interface SvgPoint {
+  x: number;
+  y: number;
+  label: string;
+  value: number;
+}
+
+interface BarItem {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  value: number;
+  labelX: number;
+  valueY: number;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -59,10 +73,10 @@ export interface MapReportItem {
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   kpis: KpiCard[] = [
-    { icon: 'trash', label: 'Nombre total de bacs', value: '0', delta: '+0', deltaType: 'up' },
-    { icon: 'alert', label: 'Bacs pleins', value: '0', delta: '+0', deltaType: 'up' },
-    { icon: 'truck', label: 'Camions actifs', value: '0', delta: '+0', deltaType: 'up' },
-    { icon: 'leaf', label: 'Taux moyen de remplissage', value: '0 %', delta: '+0 %', deltaType: 'up' }
+    { icon: 'trash', label: 'Nombre total de bacs', value: '0' },
+    { icon: 'alert', label: 'Bacs pleins', value: '0' },
+    { icon: 'truck', label: 'Camions actifs', value: '0' },
+    { icon: 'leaf', label: 'Taux moyen de remplissage', value: '0 %' }
   ];
 
   dashboardLoading = false;
@@ -79,6 +93,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     fullBins: 0,
     totalBins: 0
   };
+
+  lineChartPoints: SvgPoint[] = [];
+  weeklyBarItems: BarItem[] = [];
 
   loadingAlerts = true;
   alertsError = '';
@@ -100,10 +117,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
   detailsError = '';
   selectedDetails: AlertDetailsDto | null = null;
 
+  lastUpdatedLabel = '—';
+
   private kpiInterval: any;
   private alertsInterval: any;
   private chartsInterval: any;
   private reportsInterval: any;
+
+  private readonly lineChartConfig = {
+    width: 520,
+    height: 220,
+    left: 30,
+    right: 20,
+    top: 24,
+    bottom: 190
+  };
+
+  private readonly barChartConfig = {
+    width: 520,
+    height: 220,
+    left: 30,
+    right: 20,
+    top: 24,
+    bottom: 190
+  };
 
   constructor(
     private alertService: AlertService,
@@ -112,10 +149,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.loadKpis();
-    this.loadCharts();
-    this.loadAlerts();
-    this.loadReportsForMap();
+    this.refreshAll();
 
     this.kpiInterval = setInterval(() => {
       this.loadKpis();
@@ -141,6 +175,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.reportsInterval) clearInterval(this.reportsInterval);
   }
 
+  refreshAll(): void {
+    this.loadKpis();
+    this.loadCharts();
+    this.loadAlerts();
+    this.loadReportsForMap();
+  }
+
   loadKpis(): void {
     this.dashboardLoading = true;
     this.dashboardError = '';
@@ -151,34 +192,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
           {
             icon: 'trash',
             label: 'Nombre total de bacs',
-            value: this.formatNumber(data.totalBins),
-            delta: '+0',
-            deltaType: 'up'
+            value: this.formatNumber(data.totalBins)
           },
           {
             icon: 'alert',
             label: 'Bacs pleins',
-            value: this.formatNumber(data.fullBins),
-            delta: '+0',
-            deltaType: 'up'
+            value: this.formatNumber(data.fullBins)
           },
           {
             icon: 'truck',
             label: 'Camions actifs',
-            value: this.formatNumber(data.activeTrucks),
-            delta: '+0',
-            deltaType: 'up'
+            value: this.formatNumber(data.activeTrucks)
           },
           {
             icon: 'leaf',
             label: 'Taux moyen de remplissage',
-            value: `${this.formatDecimal(data.averageFillLevel)} %`,
-            delta: '+0 %',
-            deltaType: 'up'
+            value: `${this.formatDecimal(data.averageFillLevel)} %`
           }
         ];
 
         this.dashboardLoading = false;
+        this.updateLastRefresh();
       },
       error: (err) => {
         console.error('GET /api/dashboard/kpis failed', err);
@@ -202,7 +236,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           fullBins: 0,
           totalBins: 0
         };
+
+        this.lineChartPoints = this.buildLineChartPoints(this.fillTrend);
+        this.weeklyBarItems = this.buildWeeklyBarItems(this.weeklyCollections);
+
         this.chartsLoading = false;
+        this.updateLastRefresh();
       },
       error: (err) => {
         console.error('GET /api/dashboard/charts failed', err);
@@ -217,8 +256,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.alertsError = '';
 
     const resolvedParam =
-      this.filterResolved === '' ? null :
-      this.filterResolved === 'true' ? true : false;
+      this.filterResolved === ''
+        ? null
+        : this.filterResolved === 'true'
+        ? true
+        : false;
 
     this.alertService.searchAlerts({
       resolved: resolvedParam,
@@ -230,6 +272,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const arr = data || [];
         this.alerts = arr.slice(0, 6).map(a => this.mapAlert(a));
         this.loadingAlerts = false;
+        this.updateLastRefresh();
       },
       error: (err) => {
         console.error('GET /api/alerts failed', err);
@@ -253,13 +296,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
             id: r.id,
             code: r.reportCode,
             status:
-              r.status === 'AFFECTE' ? 'Assigned' :
-              r.status === 'VALIDE' ? 'Validated' :
-              'Pending',
+              r.status === 'AFFECTE'
+                ? 'Assigned'
+                : r.status === 'VALIDE'
+                ? 'Validated'
+                : 'Pending',
             priority:
-              r.priority === 'HIGH' ? 'High' :
-              r.priority === 'MEDIUM' ? 'Medium' :
-              'Low',
+              r.priority === 'HIGH'
+                ? 'High'
+                : r.priority === 'MEDIUM'
+                ? 'Medium'
+                : 'Low',
             description: r.description || 'Aucune description',
             location: r.address || 'Adresse non disponible',
             lat: Number(r.latitude),
@@ -269,6 +316,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           .filter(r => !Number.isNaN(r.lat) && !Number.isNaN(r.lng));
 
         this.reportsLoading = false;
+        this.updateLastRefresh();
       },
       error: (err) => {
         console.error('GET /municipality/public-reports failed', err);
@@ -332,19 +380,74 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.detailsLoading = false;
   }
 
+  get fillTrendLinePath(): string {
+    if (!this.lineChartPoints.length) return '';
+    return this.lineChartPoints
+      .map((p, index) => `${index === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+      .join(' ');
+  }
+
+  get fillTrendAreaPath(): string {
+    if (!this.lineChartPoints.length) return '';
+
+    const first = this.lineChartPoints[0];
+    const last = this.lineChartPoints[this.lineChartPoints.length - 1];
+    const bottom = this.lineChartConfig.bottom;
+
+    return `${this.fillTrendLinePath} L ${last.x} ${bottom} L ${first.x} ${bottom} Z`;
+  }
+
+  get safeDistributionTotal(): number {
+    const sum =
+      (this.distribution.emptyBins || 0) +
+      (this.distribution.partialBins || 0) +
+      (this.distribution.fullBins || 0);
+
+    return this.distribution.totalBins || sum || 1;
+  }
+
+  get donutCircumference(): number {
+    return 2 * Math.PI * 78;
+  }
+
   get donutStrokeEmpty(): string {
-    const total = this.distribution.totalBins || 1;
-    return `${(this.distribution.emptyBins / total) * 490} 490`;
+    return `${((this.distribution.emptyBins || 0) / this.safeDistributionTotal) * this.donutCircumference} ${this.donutCircumference}`;
   }
 
   get donutStrokePartial(): string {
-    const total = this.distribution.totalBins || 1;
-    return `${(this.distribution.partialBins / total) * 490} 490`;
+    return `${((this.distribution.partialBins || 0) / this.safeDistributionTotal) * this.donutCircumference} ${this.donutCircumference}`;
   }
 
   get donutStrokeFull(): string {
-    const total = this.distribution.totalBins || 1;
-    return `${(this.distribution.fullBins / total) * 490} 490`;
+    return `${((this.distribution.fullBins || 0) / this.safeDistributionTotal) * this.donutCircumference} ${this.donutCircumference}`;
+  }
+
+  get donutOffsetPartial(): number {
+    return -(((this.distribution.emptyBins || 0) / this.safeDistributionTotal) * this.donutCircumference);
+  }
+
+  get donutOffsetFull(): number {
+    return -((((this.distribution.emptyBins || 0) + (this.distribution.partialBins || 0)) / this.safeDistributionTotal) * this.donutCircumference);
+  }
+
+  distributionPercent(value: number): string {
+    const pct = ((value || 0) / this.safeDistributionTotal) * 100;
+    return `${Math.round(pct)} %`;
+  }
+
+  timeAgo(iso: string): string {
+    const d = new Date(iso).getTime();
+    const diff = Date.now() - d;
+    const min = Math.floor(diff / 60000);
+
+    if (min < 1) return "à l'instant";
+    if (min < 60) return `il y a ${min} min`;
+
+    const h = Math.floor(min / 60);
+    if (h < 24) return `il y a ${h} h`;
+
+    const days = Math.floor(h / 24);
+    return `il y a ${days} j`;
   }
 
   private mapAlert(a: AlertDto): AlertItem {
@@ -368,6 +471,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  private updateLastRefresh(): void {
+    this.lastUpdatedLabel = new Date().toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
   private formatNumber(value: number): string {
     return new Intl.NumberFormat('fr-FR').format(value ?? 0);
   }
@@ -379,18 +490,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }).format(value ?? 0);
   }
 
-  timeAgo(iso: string): string {
-    const d = new Date(iso).getTime();
-    const diff = Date.now() - d;
-    const min = Math.floor(diff / 60000);
+  private buildLineChartPoints(data: ChartPointDto[]): SvgPoint[] {
+    if (!data || data.length === 0) return [];
 
-    if (min < 1) return "à l'instant";
-    if (min < 60) return `il y a ${min} min`;
+    const { width, left, right, top, bottom } = this.lineChartConfig;
+    const usableWidth = width - left - right;
+    const plotHeight = bottom - top;
 
-    const h = Math.floor(min / 60);
-    if (h < 24) return `il y a ${h} h`;
+    const values = data.map(p => Number(p.value) || 0);
+    const rawMin = Math.min(...values);
+    const rawMax = Math.max(...values);
 
-    const days = Math.floor(h / 24);
-    return `il y a ${days} j`;
+    const padding = rawMax === rawMin ? 10 : (rawMax - rawMin) * 0.15;
+    const minValue = Math.max(0, rawMin - padding);
+    const maxValue = rawMax + padding;
+    const range = Math.max(1, maxValue - minValue);
+
+    return data.map((p, index) => {
+      const value = Number(p.value) || 0;
+      const x =
+        data.length === 1
+          ? left + usableWidth / 2
+          : left + (index * usableWidth) / (data.length - 1);
+
+      const y = bottom - ((value - minValue) / range) * plotHeight;
+
+      return {
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+        label: p.label,
+        value
+      };
+    });
+  }
+
+  private buildWeeklyBarItems(data: ChartPointDto[]): BarItem[] {
+    if (!data || data.length === 0) return [];
+
+    const { width, left, right, top, bottom } = this.barChartConfig;
+    const usableWidth = width - left - right;
+    const maxBarHeight = bottom - top;
+    const maxValue = Math.max(...data.map(p => Number(p.value) || 0), 1);
+
+    const gap = 14;
+    const barWidth = Math.max(
+      20,
+      Math.min(44, (usableWidth - gap * (data.length - 1)) / data.length)
+    );
+    const contentWidth = data.length * barWidth + (data.length - 1) * gap;
+    const startX = left + (usableWidth - contentWidth) / 2;
+
+    return data.map((p, index) => {
+      const value = Number(p.value) || 0;
+      const height = (value / maxValue) * maxBarHeight;
+      const x = startX + index * (barWidth + gap);
+      const y = bottom - height;
+
+      return {
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+        width: Number(barWidth.toFixed(2)),
+        height: Number(height.toFixed(2)),
+        label: p.label,
+        value,
+        labelX: Number((x + barWidth / 2).toFixed(2)),
+        valueY: Number((y - 8).toFixed(2))
+      };
+    });
   }
 }

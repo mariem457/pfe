@@ -74,8 +74,7 @@ public class BinPrediction {
         return errorValue;
     }
 
-    public void setErrorValue(BigDecimal
-         errorValue) {
+    public void setErrorValue(BigDecimal errorValue) {
         this.errorValue = errorValue;
     }
 
@@ -93,5 +92,13 @@ public class BinPrediction {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public void setPriorityScore(BigDecimal valueOf) {
+        throw new UnsupportedOperationException("Unimplemented method 'setPriorityScore'");
+    }
+
+    public void setShouldCollect(boolean shouldCollect) {
+        throw new UnsupportedOperationException("Unimplemented method 'setShouldCollect'");
     }
 }

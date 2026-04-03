@@ -74,13 +74,6 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
         request.setTrucks(buildTrucks(trucks));
         request.setActiveIncidents(buildActiveIncidents(trucks));
 
-        System.out.println(
-                "Replan payload built | trucks=" + request.getTrucks().size()
-                        + " | bins=" + request.getBins().size()
-                        + " | activeIncidents=" + request.getActiveIncidents().size()
-                        + " | recommendedFuelStations=" + lastRecommendedFuelStations.size()
-        );
-
         return request;
     }
 
@@ -120,35 +113,21 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             dto.setDescription(incident.getDescription());
 
             incidents.add(dto);
-
-            System.out.println(
-                    "Active incident added to routing payload | incidentId=" + dto.getId()
-                            + " | truckId=" + dto.getTruckId()
-                            + " | type=" + dto.getType()
-                            + " | severity=" + dto.getSeverity()
-            );
         }
 
         for (Truck truck : trucks) {
-            if (truck == null || truck.getId() == null) {
-                continue;
-            }
+            if (truck == null || truck.getId() == null) continue;
 
-            boolean fuelCritical = fuelManagementService.isFuelCritical(truck);
-            if (!fuelCritical) {
-                continue;
-            }
+            if (!fuelManagementService.isFuelCritical(truck)) continue;
 
-            if (refuelRequiredTruckIds.contains(truck.getId())) {
-                continue;
-            }
+            if (refuelRequiredTruckIds.contains(truck.getId())) continue;
 
             RoutingIncidentDto dto = new RoutingIncidentDto();
             dto.setId(-truck.getId());
             dto.setTruckId(truck.getId());
             dto.setType("REFUEL_REQUIRED");
             dto.setSeverity("CRITICAL");
-            dto.setDescription("Truck fuel is critical and must refuel before routing");
+            dto.setDescription("Truck fuel is critical");
 
             incidents.add(dto);
             refuelRequiredTruckIds.add(truck.getId());
@@ -163,19 +142,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 recommendation.setLng(station.getLng());
 
                 lastRecommendedFuelStations.add(recommendation);
-
-                System.out.println(
-                        "Recommended fuel station prepared | truckId=" + truck.getId()
-                                + " | stationId=" + station.getId()
-                                + " | stationName=" + station.getName()
-                );
             }
-
-            System.out.println(
-                    "Synthetic incident added to routing payload | truckId=" + dto.getTruckId()
-                            + " | type=" + dto.getType()
-                            + " | severity=" + dto.getSeverity()
-            );
         }
 
         return incidents;
@@ -184,20 +151,12 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private List<RoutingBinDto> buildRoutingBins() {
         List<RoutingBinDto> bins = binPriorityService.getPriorityBinsForRouting();
 
-        if (bins == null) {
-            return new ArrayList<>();
-        }
+        if (bins == null) return new ArrayList<>();
 
         for (RoutingBinDto bin : bins) {
             double fillLevel = safeDouble(bin.getFillLevel());
             double estimatedLoadKg = computeEstimatedLoadKg(fillLevel, DEFAULT_BIN_MAX_CAPACITY_KG);
             bin.setEstimatedLoadKg(estimatedLoadKg);
-
-            System.out.println(
-                    "Routing bin " + bin.getId()
-                            + " | fillLevel=" + fillLevel
-                            + " | estimatedLoadKg=" + estimatedLoadKg
-            );
         }
 
         return bins;
@@ -206,14 +165,10 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private List<RoutingBinDto> buildRoutingBinsFromMissionBins(List<MissionBin> missionBins) {
         List<RoutingBinDto> bins = new ArrayList<>();
 
-        if (missionBins == null || missionBins.isEmpty()) {
-            return bins;
-        }
+        if (missionBins == null || missionBins.isEmpty()) return bins;
 
         for (MissionBin missionBin : missionBins) {
-            if (missionBin == null || missionBin.getBin() == null) {
-                continue;
-            }
+            if (missionBin == null || missionBin.getBin() == null) continue;
 
             Bin bin = missionBin.getBin();
 
@@ -231,21 +186,13 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             dto.setEstimatedLoadKg(computeEstimatedLoadKg(fillLevel, DEFAULT_BIN_MAX_CAPACITY_KG));
 
             bins.add(dto);
-
-            System.out.println(
-                    "Replan bin " + dto.getId()
-                            + " | fillLevel=" + dto.getFillLevel()
-                            + " | estimatedLoadKg=" + dto.getEstimatedLoadKg()
-            );
         }
 
         return bins;
     }
 
     private List<RoutingTruckDto> buildTrucks(List<Truck> trucks) {
-        return trucks.stream()
-                .map(this::mapTruckToRoutingTruckDto)
-                .toList();
+        return trucks.stream().map(this::mapTruckToRoutingTruckDto).toList();
     }
 
     private RoutingTruckDto mapTruckToRoutingTruckDto(Truck truck) {
@@ -274,8 +221,8 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     }
 
     private double computeEstimatedLoadKg(double fillLevel, double maxCapacityKg) {
-        double normalizedFillLevel = Math.max(0.0, Math.min(fillLevel, 100.0));
-        double estimated = (normalizedFillLevel / 100.0) * maxCapacityKg;
+        double normalized = Math.max(0.0, Math.min(fillLevel, 100.0));
+        double estimated = (normalized / 100.0) * maxCapacityKg;
         return Math.max(1.0, Math.round(estimated));
     }
 
@@ -284,16 +231,10 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     }
 
     private double resolveBinLat(Bin bin) {
-        if (bin.getAccessLat() != null) {
-            return bin.getAccessLat();
-        }
-        return bin.getLat();
+        return bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat();
     }
 
     private double resolveBinLng(Bin bin) {
-        if (bin.getAccessLng() != null) {
-            return bin.getAccessLng();
-        }
-        return bin.getLng();
+        return bin.getAccessLng() != null ? bin.getAccessLng() : bin.getLng();
     }
 }

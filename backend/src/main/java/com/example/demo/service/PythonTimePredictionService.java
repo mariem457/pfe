@@ -1,3 +1,4 @@
+// PythonTimePredictionService.java
 package com.example.demo.service;
 
 import org.springframework.stereotype.Service;
@@ -6,31 +7,25 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
 @Service
-public class PythonPredictionService {
+public class PythonTimePredictionService {
 
-    public PredictionResult runPrediction(
+    public TimeToThresholdPredictionResult runPrediction(
             double hour,
             double fillLevel,
             double fillRate,
             double batteryLevel,
             double weightKg,
             double rssi,
-            boolean collected,
-            double fillLevelLag1,
-            double fillLevelLag2,
-            double fillRateLag1,
-            double weightKgLag1,
-            double rssiLag1
+            boolean collected
     ) {
         try {
-            String scriptPath = resolveScriptPath("predict_from_db.py");
+            String scriptPath = resolveScriptPath("predict_hours.py");
 
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "python",
@@ -41,19 +36,14 @@ public class PythonPredictionService {
                     String.valueOf(batteryLevel),
                     String.valueOf(weightKg),
                     String.valueOf(rssi),
-                    String.valueOf(collected),
-                    String.valueOf(fillLevelLag1),
-                    String.valueOf(fillLevelLag2),
-                    String.valueOf(fillRateLag1),
-                    String.valueOf(weightKgLag1),
-                    String.valueOf(rssiLag1)
+                    String.valueOf(collected)
             );
 
             File workingDir = new File(System.getProperty("user.dir"));
             processBuilder.directory(workingDir);
             processBuilder.redirectErrorStream(true);
 
-            System.out.println("========== PYTHON MODEL START ==========");
+            System.out.println("========== PYTHON MODEL 2 START ==========");
             System.out.println("Working directory = " + workingDir.getAbsolutePath());
             System.out.println("Script path = " + scriptPath);
 
@@ -67,45 +57,45 @@ public class PythonPredictionService {
             String line;
 
             while ((line = reader.readLine()) != null) {
-                System.out.println("[PYTHON] " + line);
+                System.out.println("[PYTHON-M2] " + line);
                 fullOutput.append(line).append("\n");
             }
 
             int exitCode = process.waitFor();
             String output = fullOutput.toString().trim();
 
-            System.out.println("EXIT CODE = " + exitCode);
-            System.out.println("RAW OUTPUT = " + output);
-            System.out.println("========== PYTHON MODEL END ==========");
+            System.out.println("MODEL 2 EXIT CODE = " + exitCode);
+            System.out.println("MODEL 2 RAW OUTPUT = " + output);
+            System.out.println("========== PYTHON MODEL 2 END ==========");
 
             if (exitCode != 0 || output.isBlank()) {
-                throw new RuntimeException(
-                        "Python model failed. ExitCode=" + exitCode + ", Output=" + output
-                );
+                throw new RuntimeException("Python model 2 failed. ExitCode=" + exitCode + ", Output=" + output);
             }
 
             String[] lines = output.split("\\R");
             String lastLine = lines[lines.length - 1].trim();
-            String[] parts = lastLine.split(",");
 
+            String[] parts = lastLine.split(",");
             if (parts.length < 4) {
-                throw new RuntimeException("Unexpected Python output: " + lastLine);
+                throw new RuntimeException("Unexpected Python model 2 output: " + lastLine);
             }
 
-            double predictedFillNext = Double.parseDouble(parts[0].trim());
+            double predictedHours = Double.parseDouble(parts[0].trim());
             String alertStatus = parts[1].trim();
             double priorityScore = Double.parseDouble(parts[2].trim());
             boolean shouldCollect = Boolean.parseBoolean(parts[3].trim());
 
-            return new PredictionResult(
-                    predictedFillNext,
+            return new TimeToThresholdPredictionResult(
+                    predictedHours,
                     alertStatus,
                     priorityScore,
                     shouldCollect
             );
 
         } catch (Exception e) {
-            throw new RuntimeException("Error running Python prediction", e);
+            System.err.println("Error running Python time prediction: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error running Python time prediction", e);
         }
     }
 

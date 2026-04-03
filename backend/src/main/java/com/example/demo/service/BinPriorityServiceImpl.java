@@ -2,11 +2,17 @@ package com.example.demo.service;
 
 import com.example.demo.dto.routing.RoutingBinDto;
 import com.example.demo.entity.Bin;
+import com.example.demo.entity.BinPrediction;
 import com.example.demo.entity.BinTelemetry;
+import com.example.demo.repository.BinPredictionRepository;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
@@ -19,13 +25,18 @@ public class BinPriorityServiceImpl implements BinPriorityService {
 
     private final BinRepository binRepository;
     private final BinTelemetryRepository binTelemetryRepository;
+    private final BinPredictionRepository binPredictionRepository;
     private final PythonPredictionService pythonPredictionService;
 
-    public BinPriorityServiceImpl(BinRepository binRepository,
-                                  BinTelemetryRepository binTelemetryRepository,
-                                  PythonPredictionService pythonPredictionService) {
+    public BinPriorityServiceImpl(
+            BinRepository binRepository,
+            BinTelemetryRepository binTelemetryRepository,
+            BinPredictionRepository binPredictionRepository,
+            PythonPredictionService pythonPredictionService
+    ) {
         this.binRepository = binRepository;
         this.binTelemetryRepository = binTelemetryRepository;
+        this.binPredictionRepository = binPredictionRepository;
         this.pythonPredictionService = pythonPredictionService;
     }
 
@@ -51,34 +62,110 @@ public class BinPriorityServiceImpl implements BinPriorityService {
                 .toList();
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public BinPrediction predictAndSave(
+            Long binId,
+            Long telemetryId,
+            double hour,
+            double fillLevel,
+            double fillRate,
+            double batteryLevel,
+            double weightKg,
+            double rssi,
+            boolean collected,
+            double fillLevelLag1,
+            double fillLevelLag2,
+            double fillRateLag1,
+            double weightKgLag1,
+            double rssiLag1
+    ) {
+        PredictionResult result = pythonPredictionService.runPrediction(
+                hour,
+                fillLevel,
+                fillRate,
+                batteryLevel,
+                weightKg,
+                rssi,
+                collected,
+                fillLevelLag1,
+                fillLevelLag2,
+                fillRateLag1,
+                weightKgLag1,
+                rssiLag1
+        );
+
+        BinPrediction prediction = new BinPrediction();
+        prediction.setBinId(binId);
+        prediction.setTelemetryId(telemetryId);
+        prediction.setPredictedFillNext(BigDecimal.valueOf(result.getPredictedFillNext()));
+        prediction.setAlertStatus(result.getAlertStatus());
+        prediction.setActualFillNext(null);
+        prediction.setErrorValue(null);
+        prediction.setCreatedAt(OffsetDateTime.now());
+
+        return binPredictionRepository.save(prediction);
+    }
+
     private RoutingBinDto buildRoutingBin(Bin bin, BinTelemetry telemetry) {
         if (telemetry == null) {
             return null;
         }
 
+        BinTelemetry previousTelemetry = binTelemetryRepository
+                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), telemetry.getId())
+                .orElse(null);
+
+        BinTelemetry secondPreviousTelemetry = previousTelemetry != null
+                ? binTelemetryRepository
+                        .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
+                        .orElse(null)
+                : null;
+
         double hour = telemetry.getTimestamp()
                 .atZone(ZoneId.systemDefault())
                 .getHour();
 
-        double day = telemetry.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getDayOfWeek()
-                .getValue();
-
         double fillLevel = telemetry.getFillLevel();
-        double fillRate = estimateFillRate(bin.getId(), telemetry);
+        double fillRate = previousTelemetry != null
+                ? Math.max(0.0, telemetry.getFillLevel() - previousTelemetry.getFillLevel())
+                : 0.0;
+
         double batteryLevel = telemetry.getBatteryLevel();
         double weightKg = telemetry.getWeightKg() != null ? telemetry.getWeightKg().doubleValue() : 0.0;
         double rssi = telemetry.getRssi();
+        boolean collected = Boolean.TRUE.equals(telemetry.getCollected());
+
+        double fillLevelLag1 = previousTelemetry != null ? previousTelemetry.getFillLevel() : fillLevel;
+        double fillLevelLag2 = secondPreviousTelemetry != null ? secondPreviousTelemetry.getFillLevel() : fillLevelLag1;
+
+        double fillRateLag1 = 0.0;
+        if (previousTelemetry != null && secondPreviousTelemetry != null) {
+            fillRateLag1 = Math.max(
+                    0.0,
+                    previousTelemetry.getFillLevel() - secondPreviousTelemetry.getFillLevel()
+            );
+        }
+
+        double weightKgLag1 = previousTelemetry != null && previousTelemetry.getWeightKg() != null
+                ? previousTelemetry.getWeightKg().doubleValue()
+                : weightKg;
+
+        double rssiLag1 = previousTelemetry != null ? previousTelemetry.getRssi() : rssi;
 
         PredictionResult predictionResult = pythonPredictionService.runPrediction(
                 hour,
-                day,
                 fillLevel,
                 fillRate,
                 batteryLevel,
                 weightKg,
-                rssi
+                rssi,
+                collected,
+                fillLevelLag1,
+                fillLevelLag2,
+                fillRateLag1,
+                weightKgLag1,
+                rssiLag1
         );
 
         Double routingLat = bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat();
@@ -97,20 +184,5 @@ public class BinPriorityServiceImpl implements BinPriorityService {
 
     private boolean shouldCollect(RoutingBinDto dto) {
         return dto.getPredictedPriority() >= 0.80 || dto.getFillLevel() >= 80.0;
-    }
-
-    private double estimateFillRate(Long binId, BinTelemetry latestTelemetry) {
-        BinTelemetry previousTelemetry = binTelemetryRepository
-                .findTopByBinIdAndIdNotOrderByTimestampDesc(binId, latestTelemetry.getId())
-                .orElse(null);
-
-        if (previousTelemetry == null) {
-            return 0.0;
-        }
-
-        double currentFill = latestTelemetry.getFillLevel();
-        double previousFill = previousTelemetry.getFillLevel();
-
-        return Math.max(0.0, currentFill - previousFill);
     }
 }

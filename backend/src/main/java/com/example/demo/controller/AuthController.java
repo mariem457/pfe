@@ -5,6 +5,7 @@ import com.example.demo.dto.ForgotPasswordRequest;
 import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.ResetPasswordByCodeRequest;
 import com.example.demo.dto.ResetPasswordRequest;
+import com.example.demo.dto.VerifyResetCodeRequest;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
@@ -22,7 +23,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import com.example.demo.dto.VerifyResetCodeRequest;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -56,14 +56,23 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
+    public AuthResponse login(
+            @RequestBody LoginRequest req,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
         String ip = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
-        String device = userAgent != null && userAgent.toLowerCase().contains("mobile") ? "Mobile" : "Ordinateur";
+        String device = userAgent != null && userAgent.toLowerCase().contains("mobile")
+                ? "Mobile"
+                : "Ordinateur";
 
         try {
             Authentication auth = authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(req.getUsernameOrEmail(), req.getPassword())
+                    new UsernamePasswordAuthenticationToken(
+                            req.getUsernameOrEmail(),
+                            req.getPassword()
+                    )
             );
 
             String principal = auth.getName();
@@ -85,13 +94,20 @@ public class AuthController {
                     "Localisation inconnue"
             );
 
-            String token = jwtService.generateToken(user.getUsername(), user.getRole(), user.getTokenVersion());
+            String token = jwtService.generateToken(
+                    user.getUsername(),
+                    user.getRole(),
+                    user.getTokenVersion()
+            );
 
-            RefreshToken refreshToken = authBusinessService.createRefreshToken(user, req.isRememberMe());
+            RefreshToken refreshToken = authBusinessService.createRefreshToken(
+                    user,
+                    req.isRememberMe()
+            );
 
             Cookie cookie = new Cookie("refresh_token", refreshToken.getToken());
             cookie.setHttpOnly(true);
-            cookie.setSecure(false); // true en production avec HTTPS
+            cookie.setSecure(false); // mettre true en production avec HTTPS
             cookie.setPath("/api/auth");
             cookie.setMaxAge(req.isRememberMe() ? 30 * 24 * 60 * 60 : 24 * 60 * 60);
             response.addCookie(cookie);
@@ -149,6 +165,7 @@ public class AuthController {
                 "message", "Mot de passe réinitialisé avec succès."
         ));
     }
+
     @PostMapping("/verify-reset-code")
     public ResponseEntity<?> verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
         authBusinessService.verifyResetCode(request);

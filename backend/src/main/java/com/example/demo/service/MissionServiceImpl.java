@@ -236,6 +236,7 @@ public class MissionServiceImpl implements MissionService {
             stopDto.setLng(stop.getLng());
             return stopDto;
         }).toList();
+
         String coordinates = usableStops.stream()
                 .map(stop -> stop.getLng() + "," + stop.getLat())
                 .reduce((a, b) -> a + ";" + b)

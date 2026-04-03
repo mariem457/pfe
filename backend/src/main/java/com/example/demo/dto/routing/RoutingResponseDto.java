@@ -1,15 +1,19 @@
 package com.example.demo.dto.routing;
 
+
 import java.util.ArrayList;
+
 import java.util.List;
 
 public class RoutingResponseDto {
 
     private List<RoutingMissionDto> missions;
     private String matrixSource;
+
     private List<ExcludedTruckDto> excludedTrucks = new ArrayList<>();
     private List<WarningTruckDto> warningTrucks = new ArrayList<>();
     private List<RecommendedFuelStationDto> recommendedFuelStations = new ArrayList<>();
+
 
     public RoutingResponseDto() {
     }
@@ -29,6 +33,7 @@ public class RoutingResponseDto {
     public void setMatrixSource(String matrixSource) {
         this.matrixSource = matrixSource;
     }
+
 
     public List<ExcludedTruckDto> getExcludedTrucks() {
         return excludedTrucks;
@@ -53,4 +58,5 @@ public class RoutingResponseDto {
     public void setRecommendedFuelStations(List<RecommendedFuelStationDto> recommendedFuelStations) {
         this.recommendedFuelStations = recommendedFuelStations;
     }
+
 }

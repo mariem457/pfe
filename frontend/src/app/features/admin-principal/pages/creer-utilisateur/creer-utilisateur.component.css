@@ -162,9 +162,6 @@
   font-size: 14px;
 }
 
-/* ===============================
-   RESPONSIVE
-=================================*/
 @media (max-width: 900px) {
   .grille-formulaire {
     grid-template-columns: 1fr;
@@ -184,10 +181,9 @@
     width: 100%;
   }
 }
-
 /* =========================
-   DARK MODE
-========================= */
+   DARK MODE - PAGE CREATION
+   ========================= */
 
 :host-context(.dark-mode) .page-creation,
 :host-context(body.dark-mode) .page-creation,
@@ -196,14 +192,101 @@
   color: #f8fafc;
 }
 
-:host-context(.dark-mode) .carte-formulaire {
+:host-context(.dark-mode) .entete-page h1,
+:host-context(body.dark-mode) .entete-page h1,
+:host-context([data-theme="dark"]) .entete-page h1,
+:host-context(.dark-mode) .section-formulaire h2,
+:host-context(body.dark-mode) .section-formulaire h2,
+:host-context([data-theme="dark"]) .section-formulaire h2,
+:host-context(.dark-mode) .champ input,
+:host-context(body.dark-mode) .champ input,
+:host-context([data-theme="dark"]) .champ input,
+:host-context(.dark-mode) .champ select,
+:host-context(body.dark-mode) .champ select,
+:host-context([data-theme="dark"]) .champ select,
+:host-context(.dark-mode) .bouton-retour,
+:host-context(body.dark-mode) .bouton-retour,
+:host-context([data-theme="dark"]) .bouton-retour,
+:host-context(.dark-mode) .bouton-secondaire,
+:host-context(body.dark-mode) .bouton-secondaire,
+:host-context([data-theme="dark"]) .bouton-secondaire {
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .entete-page p,
+:host-context(body.dark-mode) .entete-page p,
+:host-context([data-theme="dark"]) .entete-page p,
+:host-context(.dark-mode) .champ label,
+:host-context(body.dark-mode) .champ label,
+:host-context([data-theme="dark"]) .champ label {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .carte-formulaire,
+:host-context(body.dark-mode) .carte-formulaire,
+:host-context([data-theme="dark"]) .carte-formulaire {
   background: #111827;
   border: 1px solid #243041;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+:host-context(.dark-mode) .bouton-retour,
+:host-context(body.dark-mode) .bouton-retour,
+:host-context([data-theme="dark"]) .bouton-retour,
+:host-context(.dark-mode) .bouton-secondaire,
+:host-context(body.dark-mode) .bouton-secondaire,
+:host-context([data-theme="dark"]) .bouton-secondaire {
+  background: #0f172a;
+  border-color: #243041;
 }
 
 :host-context(.dark-mode) .champ input,
-:host-context(.dark-mode) .champ select {
+:host-context(body.dark-mode) .champ input,
+:host-context([data-theme="dark"]) .champ input,
+:host-context(.dark-mode) .champ select,
+:host-context(body.dark-mode) .champ select,
+:host-context([data-theme="dark"]) .champ select {
   background: #0b1220;
   border-color: #243041;
   color: #f8fafc;
+}
+
+:host-context(.dark-mode) .champ input::placeholder,
+:host-context(body.dark-mode) .champ input::placeholder,
+:host-context([data-theme="dark"]) .champ input::placeholder {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .champ input:focus,
+:host-context(body.dark-mode) .champ input:focus,
+:host-context([data-theme="dark"]) .champ input:focus,
+:host-context(.dark-mode) .champ select:focus,
+:host-context(body.dark-mode) .champ select:focus,
+:host-context([data-theme="dark"]) .champ select:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+:host-context(.dark-mode) .info-sms,
+:host-context(body.dark-mode) .info-sms,
+:host-context([data-theme="dark"]) .info-sms {
+  background: rgba(22, 101, 52, 0.16);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.28);
+}
+
+:host-context(.dark-mode) .message-erreur,
+:host-context(body.dark-mode) .message-erreur,
+:host-context([data-theme="dark"]) .message-erreur {
+  background: rgba(220, 38, 38, 0.14);
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.26);
+}
+
+:host-context(.dark-mode) .message-succes,
+:host-context(body.dark-mode) .message-succes,
+:host-context([data-theme="dark"]) .message-succes {
+  background: rgba(22, 101, 52, 0.16);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.28);
 }

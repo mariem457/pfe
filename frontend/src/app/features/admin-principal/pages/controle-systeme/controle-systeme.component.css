@@ -12,7 +12,6 @@
   color: #111827;
 }
 
-/* HEADER */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -30,42 +29,575 @@
 .page-header p {
   margin: 8px 0 0;
   color: #64748b;
+  font-size: 16px;
 }
 
-/* BUTTONS */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .btn {
+  border: none;
   border-radius: 999px;
   padding: 13px 22px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  transition: 0.2s ease;
 }
 
 .btn-secondaire {
-  background: #fff;
+  background: #ffffff;
   border: 1px solid #e5e7eb;
+  color: #111827;
 }
 
 .btn-danger {
   background: #ef4444;
-  color: #fff;
+  color: #ffffff;
 }
 
-/* STATS */
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
+  margin-bottom: 28px;
 }
 
-/* GRID */
+.stat-card {
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 22px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.stat-texte p {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.stat-texte h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.stat-icone {
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 26px;
+}
+
+.stat-icone.bleu {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.stat-icone.violet {
+  background: linear-gradient(135deg, #9333ea, #a855f7);
+}
+
+.stat-icone.vert {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.stat-icone.orange {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+}
+
+.barre {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 8px;
+  background: #d8ece6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barre-valeur {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #1ec98d);
+  border-radius: 999px;
+}
+
 .contenu-principal {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 24px;
 }
 
-/* DARK MODE */
-:host-context(.dark-mode) .page {
+.colonne-gauche,
+.colonne-droite {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.bloc {
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.bloc-entete h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.bloc-entete p {
+  margin: 10px 0 22px;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.service-card {
+  border: 1px solid #ececec;
+  border-radius: 22px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.service-haut {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.service-titre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.service-titre h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.service-infos p {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.badge-statut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.statut-en-cours {
+  background: #e8f8ee;
+  color: #16a34a;
+  border-color: #bde7cb;
+}
+
+.statut-arrete {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #d7dde5;
+}
+
+.service-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  border: 1px solid #d9dde4;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-action.desactive {
+  opacity: 0.45;
+}
+
+.service-bas {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.indicateur-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.indicateur-mini .libelle {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.indicateur-mini strong {
+  font-size: 16px;
+}
+
+.controle-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #ececec;
+}
+
+.controle-ligne:last-child {
+  border-bottom: none;
+}
+
+.controle-ligne h4 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.controle-ligne p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: 0.25s;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: 0.25s;
+}
+
+.switch input:checked + .slider {
+  background: #10b981;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+}
+
+.notification-icone {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.notification-information {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.notification-succes {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.notification-alerte {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.notification-texte h4 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.notification-texte p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.grille-bdd {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.carte-bdd {
+  background: #f3f4f6;
+  border-radius: 20px;
+  padding: 22px 18px;
+}
+
+.carte-bdd p {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.carte-bdd h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+@media (max-width: 1200px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contenu-principal {
+    grid-template-columns: 1fr;
+  }
+
+  .grille-bdd {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 18px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .grille-bdd {
+    grid-template-columns: 1fr;
+  }
+
+  .service-haut {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header h1 {
+    font-size: 26px;
+  }
+}
+/* =========================
+   DARK MODE - CONTROLE SYSTEME
+   ========================= */
+
+:host-context(.dark-mode) .page,
+:host-context(body.dark-mode) .page,
+:host-context([data-theme="dark"]) .page {
   background: #0f172a;
   color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header h1,
+:host-context(body.dark-mode) .page-header h1,
+:host-context([data-theme="dark"]) .page-header h1,
+:host-context(.dark-mode) .stat-texte h2,
+:host-context(body.dark-mode) .stat-texte h2,
+:host-context([data-theme="dark"]) .stat-texte h2,
+:host-context(.dark-mode) .bloc-entete h2,
+:host-context(body.dark-mode) .bloc-entete h2,
+:host-context([data-theme="dark"]) .bloc-entete h2,
+:host-context(.dark-mode) .service-titre h3,
+:host-context(body.dark-mode) .service-titre h3,
+:host-context([data-theme="dark"]) .service-titre h3,
+:host-context(.dark-mode) .controle-ligne h4,
+:host-context(body.dark-mode) .controle-ligne h4,
+:host-context([data-theme="dark"]) .controle-ligne h4,
+:host-context(.dark-mode) .notification-texte h4,
+:host-context(body.dark-mode) .notification-texte h4,
+:host-context([data-theme="dark"]) .notification-texte h4,
+:host-context(.dark-mode) .carte-bdd h3,
+:host-context(body.dark-mode) .carte-bdd h3,
+:host-context([data-theme="dark"]) .carte-bdd h3,
+:host-context(.dark-mode) .indicateur-mini strong,
+:host-context(body.dark-mode) .indicateur-mini strong,
+:host-context([data-theme="dark"]) .indicateur-mini strong,
+:host-context(.dark-mode) .btn-action,
+:host-context(body.dark-mode) .btn-action,
+:host-context([data-theme="dark"]) .btn-action {
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .page-header p,
+:host-context(body.dark-mode) .page-header p,
+:host-context([data-theme="dark"]) .page-header p,
+:host-context(.dark-mode) .stat-texte p,
+:host-context(body.dark-mode) .stat-texte p,
+:host-context([data-theme="dark"]) .stat-texte p,
+:host-context(.dark-mode) .bloc-entete p,
+:host-context(body.dark-mode) .bloc-entete p,
+:host-context([data-theme="dark"]) .bloc-entete p,
+:host-context(.dark-mode) .service-infos p,
+:host-context(body.dark-mode) .service-infos p,
+:host-context([data-theme="dark"]) .service-infos p,
+:host-context(.dark-mode) .indicateur-mini .libelle,
+:host-context(body.dark-mode) .indicateur-mini .libelle,
+:host-context([data-theme="dark"]) .indicateur-mini .libelle,
+:host-context(.dark-mode) .controle-ligne p,
+:host-context(body.dark-mode) .controle-ligne p,
+:host-context([data-theme="dark"]) .controle-ligne p,
+:host-context(.dark-mode) .notification-texte p,
+:host-context(body.dark-mode) .notification-texte p,
+:host-context([data-theme="dark"]) .notification-texte p,
+:host-context(.dark-mode) .carte-bdd p,
+:host-context(body.dark-mode) .carte-bdd p,
+:host-context([data-theme="dark"]) .carte-bdd p {
+  color: #94a3b8;
+}
+
+:host-context(.dark-mode) .stat-card,
+:host-context(body.dark-mode) .stat-card,
+:host-context([data-theme="dark"]) .stat-card,
+:host-context(.dark-mode) .bloc,
+:host-context(body.dark-mode) .bloc,
+:host-context([data-theme="dark"]) .bloc,
+:host-context(.dark-mode) .service-card,
+:host-context(body.dark-mode) .service-card,
+:host-context([data-theme="dark"]) .service-card {
+  background: #111827;
+  border: 1px solid #243041;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+:host-context(.dark-mode) .barre,
+:host-context(body.dark-mode) .barre,
+:host-context([data-theme="dark"]) .barre {
+  background: #1e293b;
+}
+
+:host-context(.dark-mode) .btn-secondaire,
+:host-context(body.dark-mode) .btn-secondaire,
+:host-context([data-theme="dark"]) .btn-secondaire,
+:host-context(.dark-mode) .btn-action,
+:host-context(body.dark-mode) .btn-action,
+:host-context([data-theme="dark"]) .btn-action {
+  background: #0f172a;
+  border-color: #243041;
+  color: #f8fafc;
+}
+
+:host-context(.dark-mode) .btn-action.desactive,
+:host-context(body.dark-mode) .btn-action.desactive,
+:host-context([data-theme="dark"]) .btn-action.desactive {
+  opacity: 0.45;
+}
+
+:host-context(.dark-mode) .controle-ligne,
+:host-context(body.dark-mode) .controle-ligne,
+:host-context([data-theme="dark"]) .controle-ligne {
+  border-bottom: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .statut-arrete,
+:host-context(body.dark-mode) .statut-arrete,
+:host-context([data-theme="dark"]) .statut-arrete {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+:host-context(.dark-mode) .slider,
+:host-context(body.dark-mode) .slider,
+:host-context([data-theme="dark"]) .slider {
+  background: #475569;
+}
+
+:host-context(.dark-mode) .switch input:checked + .slider,
+:host-context(body.dark-mode) .switch input:checked + .slider,
+:host-context([data-theme="dark"]) .switch input:checked + .slider {
+  background: #10b981;
+}
+
+:host-context(.dark-mode) .carte-bdd,
+:host-context(body.dark-mode) .carte-bdd,
+:host-context([data-theme="dark"]) .carte-bdd {
+  background: #0f172a;
+  border: 1px solid #243041;
+}
+
+:host-context(.dark-mode) .notification-information,
+:host-context(body.dark-mode) .notification-information,
+:host-context([data-theme="dark"]) .notification-information {
+  background: rgba(2, 132, 199, 0.16);
+  color: #38bdf8;
+}
+
+:host-context(.dark-mode) .notification-succes,
+:host-context(body.dark-mode) .notification-succes,
+:host-context([data-theme="dark"]) .notification-succes {
+  background: rgba(22, 163, 74, 0.16);
+  color: #4ade80;
+}
+
+:host-context(.dark-mode) .notification-alerte,
+:host-context(body.dark-mode) .notification-alerte,
+:host-context([data-theme="dark"]) .notification-alerte {
+  background: rgba(217, 119, 6, 0.16);
+  color: #f59e0b;
 }

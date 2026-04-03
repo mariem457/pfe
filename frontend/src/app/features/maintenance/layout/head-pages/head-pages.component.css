@@ -1,23 +1,27 @@
 :host {
   display: block;
+  padding: 14px 24px 0 24px;
+  background: var(--bg-color);
+  box-sizing: border-box;
 }
 
 .head-page {
   height: 74px;
-  background: #ffffff;
-  border-bottom: 1px solid #eef0f3;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 26px;
   border-radius: 50px;
+  box-sizing: border-box;
 }
 
 .head-page h1 {
   margin: 0;
   font-size: 26px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
 .actions {
@@ -35,12 +39,12 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: #374151;
+  color: var(--text-color);
   cursor: pointer;
   transition: 0.2s ease;
 }
 
 .actions mat-icon:hover {
-  background: #eaf7f1;
+  background: var(--hover-bg);
   color: #16c784;
 }

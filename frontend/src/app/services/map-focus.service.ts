@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
 
 export interface MapFocusTarget {
-  type: 'report';
-  id: number;
+  type: 'report' | 'bin';
+  id?: number | string;
   lat: number;
   lng: number;
+  code?: string;
+  zone?: string;
 }
 
 @Injectable({

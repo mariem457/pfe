@@ -1,24 +1,15 @@
-/* ===============================
-   SIDEBAR ROOT
-=================================*/
 .sidebar {
   width: 270px;
   height: 100vh;
-  background: #ffffff;
-  border-right: 1px solid #eef0f3;
-
+  background: var(--sidebar-color);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-
   padding: 18px 14px;
   box-sizing: border-box;
-
-  overflow: hidden; /* يمنع sidebar الكل يسكّرول */
+  overflow: hidden;
 }
 
-/* ===============================
-   BRAND
-=================================*/
 .brand {
   display: flex;
   align-items: center;
@@ -33,66 +24,54 @@
   border-radius: 12px;
   background: #16c784;
   color: #fff;
-
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.brand h2 {
+.brand__name {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
-.brand p {
+.brand__tag {
   margin: 2px 0 0 0;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--muted-color);
 }
 
-/* ===============================
-   NAV (SCROLL AREA)
-=================================*/
 .nav {
   flex: 1;
-  min-height: 0;              /* مهم مع flex */
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
   padding: 10px 6px;
   margin-top: 12px;
-
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* Scrollbar */
 .nav::-webkit-scrollbar {
   width: 10px;
 }
+
 .nav::-webkit-scrollbar-thumb {
-  background: #dbe3ee;
+  background: var(--border-color);
   border-radius: 999px;
 }
 
-/* ===============================
-   NAV LINKS
-=================================*/
 .nav a {
   display: flex;
   align-items: center;
   gap: 12px;
-
   padding: 12px 14px;
   border-radius: 16px;
-
   text-decoration: none;
-  color: #111827;
+  color: var(--text-color);
   font-weight: 700;
-
   transition: 0.2s ease;
   white-space: nowrap;
 }
@@ -103,15 +82,13 @@
   height: 22px;
   font-size: 20px;
   line-height: 22px;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-/* Hover */
 .nav a:hover {
-  background: #f3fbf7;
+  background: var(--hover-bg);
 }
 
-/* Active (مثل الصورة) */
 .nav a.active {
   background: #16c784;
   color: #ffffff;
@@ -123,20 +100,16 @@
   opacity: 1;
 }
 
-/* ===============================
-   FOOTER (BOTTOM FIXED)
-=================================*/
 .sidebar-footer {
   padding-top: 14px;
 }
 
 .divider {
   height: 1px;
-  background: #eef0f3;
+  background: var(--border-color);
   margin-bottom: 14px;
 }
 
-/* USER */
 .user {
   display: flex;
   align-items: center;
@@ -150,39 +123,33 @@
   border-radius: 999px;
   background: #16c784;
   color: #fff;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-weight: 900;
 }
 
 .user__name {
   font-size: 14px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
 .user__email {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--muted-color);
   margin-top: 2px;
 }
 
-/* LOGOUT */
 .logout {
   display: flex;
   align-items: center;
   gap: 10px;
-
   padding: 10px 12px;
   border-radius: 14px;
-
   text-decoration: none;
   font-weight: 800;
   color: #ef4444;
-
   transition: 0.2s ease;
 }
 
@@ -191,5 +158,5 @@
 }
 
 .logout:hover {
-  background: #fff1f2;
+  background: rgba(239, 68, 68, 0.08);
 }

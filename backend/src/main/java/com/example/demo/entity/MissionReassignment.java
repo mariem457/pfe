@@ -1,11 +1,21 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "mission_reassignments")
 public class MissionReassignment {
+
+    public enum ReassignmentReason {
+        BREAKDOWN,
+        TRAFFIC,
+        FUEL_LOW,
+        DELAY,
+        MANUAL,
+        OTHER
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,16 +38,16 @@ public class MissionReassignment {
     private Bin bin;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(name = "reason", nullable = false, length = 30)
     private ReassignmentReason reason;
 
-    @Column(name = "reassigned_at", nullable = false, updatable = false)
+    @Column(name = "reassigned_at", nullable = false)
     private OffsetDateTime reassignedAt;
 
     @Column(name = "algorithm_version", length = 50)
     private String algorithmVersion;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
     @PrePersist
@@ -45,10 +55,6 @@ public class MissionReassignment {
         if (this.reassignedAt == null) {
             this.reassignedAt = OffsetDateTime.now();
         }
-    }
-
-    public enum ReassignmentReason {
-        BREAKDOWN, TRAFFIC, FUEL_LOW, DELAY, MANUAL, OTHER
     }
 
     public MissionReassignment() {
@@ -100,6 +106,10 @@ public class MissionReassignment {
 
     public OffsetDateTime getReassignedAt() {
         return reassignedAt;
+    }
+
+    public void setReassignedAt(OffsetDateTime reassignedAt) {
+        this.reassignedAt = reassignedAt;
     }
 
     public String getAlgorithmVersion() {

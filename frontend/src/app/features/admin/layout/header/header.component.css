@@ -1,96 +1,40 @@
-.container {
-    position :relative;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 20px;
-    height: 65px;
-    background-color: #f7f7f7;
-    border: #dddddd solid 0.25px;
-    color: white;
-    font-family: 'Segoe UI', sans-serif;
-    border-radius: 30px;
-    box-shadow: #d3d3d3 0.25px 0.5px 5px;
+.head-page {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-radius: 20px;
+  background: var(--card-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
-.mode{
-    border: none;
-    justify-content: flex-end;
-    right: 150px;
-    position: absolute;
-    background-color: transparent;
-    cursor: pointer;
-    height: 35px;
-    width:40px;
-    border-radius: 15px;
- 
 
+.head-page h1 {
+  margin: 0;
+  color: var(--text-color);
 }
-body.dark{
-  background: #0b1220;
-  color: #e5e7eb;
-}
-.mode:hover{
-    background-color: #10b981;
-    color:white;
-    
-    
-}
-.material-icons{
-    font-size: 18px;
-    color: transparent;
-   -webkit-text-stroke: 1.5px black; /* border k7el */
-    }
-.mode:hover .material-icons{
-    color: transparent;
-    -webkit-text-stroke: 1.5px #f5f8f7; /* border k7el */
-}
-.logo {
-    font-size: 24px;
-    font-weight: bold;
-    color: #0f0f0f;
-    margin-left: 20px;}
-.header{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: relative;  
-    
-    width:100%;
-    
-      
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.nav{
-    position:absolute;
-    justify-content: flex-start;
-    left:550px;
-    gap:30px;
-    display: flex;
-    
+
+.icon-btn {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-color);
+  background: var(--card-color);
+  color: var(--text-color);
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
 }
-.nav a{
-    
-    text-decoration: none;
-    
-    font-weight: 500;
-    color: #374151;
+
+.icon-btn:hover {
+  background: var(--hover-bg);
 }
-.login{
-    
-    position:   absolute;
-    justify-content: flex-end;
-    right: 50px;
-    border: none;
-    border-radius: 10px;
-    background-color:transparent; 
-    width: 80px;
-    border:#10b981 solid 0.25px;
-    height: 35px;
-    color:#10b981;
-    font-size: 14px;
- 
-}
-.login:hover{
-    background-color: #10b981;
-    color:white;
-    border: none;}

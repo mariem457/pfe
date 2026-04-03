@@ -1,0 +1,137 @@
+.footerpage {
+  margin-top: 40px;
+  background: var(--card-color);
+  padding: 60px 80px 30px;
+  color: var(--text-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.footerpage .footer-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 50px;
+}
+
+.footerpage .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footerpage .logo h3 {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.footerpage .logo-icon {
+  background: #10b981;
+  color: #ffffff;
+  padding: 8px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footerpage .footer-col h4 {
+  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.footerpage .footer-col p,
+.footerpage .footer-col ul li,
+.footerpage .footer-bottom p {
+  color: var(--muted-color);
+}
+
+.footerpage .footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footerpage .footer-col ul li {
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.footerpage .footer-col ul li:hover {
+  color: #10b981;
+}
+
+.footerpage .newsletter {
+  display: flex;
+  margin-top: 15px;
+}
+
+.footerpage .newsletter input {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 25px 0 0 25px;
+  border: 1px solid var(--border-color);
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text-color);
+}
+
+.footerpage .newsletter input::placeholder {
+  color: var(--muted-color);
+}
+
+.footerpage .newsletter button {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  padding: 0 18px;
+  border-radius: 0 25px 25px 0;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.footerpage .newsletter button:hover {
+  background: #059669;
+}
+
+.footerpage hr {
+  margin: 40px 0 20px;
+  border: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.footerpage .footer-bottom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  text-align: center;
+  margin-left: 0;
+}
+
+.footerpage .footer-bottom p {
+  margin: 0;
+  color: var(--muted-color);
+}
+
+@media (max-width: 768px) {
+  .footerpage {
+    padding: 40px 20px 20px;
+  }
+
+  .footerpage .footer-container {
+    gap: 30px;
+  }
+
+  .footerpage .newsletter {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .footerpage .newsletter input,
+  .footerpage .newsletter button {
+    width: 100%;
+    border-radius: 25px;
+  }
+}

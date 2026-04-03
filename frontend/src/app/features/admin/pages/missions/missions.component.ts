@@ -20,7 +20,7 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule, FleetMapComponent],
   templateUrl: './missions.component.html',
-  styleUrl: './missions.component.css'
+  styleUrls: ['./missions.component.css']
 })
 export class MissionsComponent implements OnInit {
   missions = signal<MissionResponse[]>([]);
@@ -30,7 +30,6 @@ export class MissionsComponent implements OnInit {
   missionRouteStops = signal<MissionRouteStop[]>([]);
   snappedWaypoints = signal<RouteCoordinate[]>([]);
 
-  // NEW
   routeMatrixSource = signal<string | null>(null);
   routeGeometrySource = signal<string>('OSRM');
 
@@ -38,7 +37,15 @@ export class MissionsComponent implements OnInit {
   loadingBins = signal(false);
   loadingRoute = signal(false);
   actionLoading = signal(false);
+  generatingAi = signal(false);
+
   errorMessage = signal<string | null>(null);
+  aiMessage = signal<string | null>(null);
+
+  // NEW: batch / séparation visuelle
+  latestAiBatchLabel = signal<string | null>(null);
+  latestAiMissionIds = signal<number[]>([]);
+  showOnlyLatestAi = signal(false);
 
   searchTerm = '';
   selectedStatus = 'ALL';
@@ -51,6 +58,11 @@ export class MissionsComponent implements OnInit {
 
   filteredMissions = computed(() => {
     let data = [...this.missions()];
+
+    if (this.showOnlyLatestAi()) {
+      const latestIds = this.latestAiMissionIds();
+      data = data.filter(m => latestIds.includes(m.id));
+    }
 
     if (this.selectedStatus !== 'ALL') {
       data = data.filter(m => m.status === this.selectedStatus);
@@ -220,6 +232,7 @@ export class MissionsComponent implements OnInit {
   }
 
   selectMission(mission: MissionResponse): void {
+    this.errorMessage.set(null);
     this.selectedMission.set(mission);
     this.missionBins.set([]);
     this.missionRouteCoordinates.set([]);
@@ -274,6 +287,7 @@ export class MissionsComponent implements OnInit {
     if (!mission) return;
 
     this.actionLoading.set(true);
+    this.errorMessage.set(null);
 
     this.missionService.getMissionById(mission.id).subscribe({
       next: (data) => {
@@ -295,6 +309,7 @@ export class MissionsComponent implements OnInit {
     if (!mission) return;
 
     this.actionLoading.set(true);
+    this.errorMessage.set(null);
 
     this.missionService.startMission(mission.id).subscribe({
       next: (data) => {
@@ -314,6 +329,7 @@ export class MissionsComponent implements OnInit {
     if (!mission) return;
 
     this.actionLoading.set(true);
+    this.errorMessage.set(null);
 
     this.missionService.completeMission(mission.id).subscribe({
       next: (data) => {
@@ -333,6 +349,7 @@ export class MissionsComponent implements OnInit {
     if (!mission || bin.collected) return;
 
     this.actionLoading.set(true);
+    this.errorMessage.set(null);
 
     this.missionService.collectMissionBin(mission.id, bin.id, {
       driverId: mission.driverId,
@@ -352,6 +369,58 @@ export class MissionsComponent implements OnInit {
         this.errorMessage.set(err?.error?.message || 'Impossible de collecter le bac.');
       }
     });
+  }
+
+  generateAiMissions(): void {
+    if (this.generatingAi()) return;
+
+    this.errorMessage.set(null);
+    this.aiMessage.set(null);
+    this.generatingAi.set(true);
+
+    // TEMPORAIRE FRONTEND:
+    // plus tard le backend يرجع batchId + missionIds
+    setTimeout(() => {
+      const current = this.missions();
+      const simulatedNewIds = current
+        .filter(m => m.status === 'CREATED')
+        .slice(0, 3)
+        .map(m => m.id);
+
+      this.latestAiMissionIds.set(simulatedNewIds);
+      this.latestAiBatchLabel.set(`IA-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`);
+      this.showOnlyLatestAi.set(true);
+
+      this.generatingAi.set(false);
+      this.aiMessage.set(
+        `${simulatedNewIds.length} mission(s) marquée(s) comme dernière génération IA.`
+      );
+
+      if (simulatedNewIds.length) {
+        const firstMission = current.find(m => m.id === simulatedNewIds[0]);
+        if (firstMission) {
+          this.selectMission(firstMission);
+        }
+      }
+    }, 700);
+  }
+
+  toggleLatestAiFilter(): void {
+    this.showOnlyLatestAi.set(!this.showOnlyLatestAi());
+  }
+
+  clearLatestAiBatch(): void {
+    this.latestAiBatchLabel.set(null);
+    this.latestAiMissionIds.set([]);
+    this.showOnlyLatestAi.set(false);
+  }
+
+  isInLatestAiBatch(missionId: number): boolean {
+    return this.latestAiMissionIds().includes(missionId);
+  }
+
+  clearAiMessage(): void {
+    this.aiMessage.set(null);
   }
 
   getStatusLabel(status: string | null): string {

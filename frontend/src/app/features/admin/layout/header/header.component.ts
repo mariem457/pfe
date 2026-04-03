@@ -1,22 +1,39 @@
 import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
+import { filter, map } from 'rxjs';
+import { MatIconModule } from '@angular/material/icon';
+import { ThemeService } from '../../../../services/theme.service';
+
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterModule],
+  imports: [MatIconModule],
   templateUrl: './header.component.html',
-  styleUrl: './header.component.css',
+  styleUrls: ['./header.component.css']
 })
 export class HeaderComponent {
-  isDark = false;
+  title = '';
 
-  toggleTheme() {
-    this.isDark = !this.isDark;
+  constructor(
+    private router: Router,
+    private route: ActivatedRoute,
+    public themeService: ThemeService
+  ) {
+    this.router.events
+      .pipe(
+        filter(event => event instanceof NavigationEnd),
+        map(() => {
+          let currentRoute = this.route;
+          while (currentRoute.firstChild) {
+            currentRoute = currentRoute.firstChild;
+          }
+          return currentRoute.snapshot.data['title'];
+        })
+      )
+      .subscribe(title => this.title = title || '');
+  }
 
-    if (this.isDark) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
   }
 }

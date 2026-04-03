@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtAuthFilter;
 import com.example.demo.security.JwtService;
 import jakarta.servlet.DispatcherType;
@@ -27,10 +28,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(
             HttpSecurity http,
             JwtService jwtService,
-            UserDetailsService userDetailsService
+            UserDetailsService userDetailsService,
+            UserRepository userRepository
     ) throws Exception {
 
-        JwtAuthFilter jwtFilter = new JwtAuthFilter(jwtService, userDetailsService);
+        JwtAuthFilter jwtFilter = new JwtAuthFilter(jwtService, userDetailsService, userRepository);
 
         http
                 .csrf(csrf -> csrf.disable())
@@ -39,54 +41,50 @@ public class SecurityConfig {
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-
-                        // allow error dispatch
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // PUBLIC endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ADMIN
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/reset-password-by-code",
+                                "/api/auth/verify-reset-code"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+
+                        .requestMatchers("/actuator/**").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/users/municipality").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/users/maintenance").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/users/maintenance").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
-                        // ADMIN + MUNICIPALITY
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/security/**").hasRole("ADMIN")
-                   
                         .requestMatchers("/api/telemetry/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
+                        .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/public-reports").permitAll()
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/users/maintenance").permitAll()
 
-                        // MISSIONS
-                        .requestMatchers("/api/missions/**")
-                        .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
+                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-locations/**").permitAll()
-                        
                         .requestMatchers("/api/truck-locations").permitAll()
-                        
-                        
-                        
-                        .requestMatchers("/ws/**").permitAll()
 
-                        // DRIVERS
-                        .requestMatchers("/api/drivers/**")
-                        .hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
 
                         .anyRequest().authenticated()
                 )
@@ -95,28 +93,14 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ CORS FIXED FOR ANGULAR
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
-        // Allow any localhost port (4200, 5173, etc.)
         config.setAllowedOriginPatterns(List.of("http://localhost:*"));
-
-        config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-
-        config.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "Origin",
-                "X-Requested-With"
-        ));
-
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         config.setExposedHeaders(List.of("Authorization"));
-
-        // JWT ما يحتاجش cookies
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

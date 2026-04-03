@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,13 +24,13 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username, String role) {
-
+    public String generateToken(String username, String role, Integer tokenVersion) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
+                .claim("tokenVersion", tokenVersion)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + expirationMs))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -52,10 +53,19 @@ public class JwtService {
         return extractClaims(token).get("role", String.class);
     }
 
-    public boolean isTokenValid(String token) {
+    public Integer extractTokenVersion(String token) {
+        return extractClaims(token).get("tokenVersion", Integer.class);
+    }
+
+    public boolean isTokenValid(String token, User user) {
         try {
-            extractClaims(token);
-            return true;
+            Claims claims = extractClaims(token);
+            String username = claims.getSubject();
+            Integer tokenVersion = claims.get("tokenVersion", Integer.class);
+
+            return username.equals(user.getUsername())
+                    && tokenVersion != null
+                    && tokenVersion.equals(user.getTokenVersion());
         } catch (JwtException e) {
             return false;
         }

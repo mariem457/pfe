@@ -1,36 +1,50 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 
 export interface LoginResponse {
   token: string;
-  role: 'ADMIN' | 'MUNICIPALITY' | 'DRIVER' | 'MAINTENANCE';
+  role: string;
   userId: number;
   username: string;
+  mustChangePassword: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class AuthService {
-  private API = 'http://localhost:8083/api'; // بدّلها حسب back
+  private readonly apiUrl = 'http://localhost:8081/api/auth';
 
   constructor(private http: HttpClient) {}
 
-  login(usernameOrEmail: string, password: string) {
-    return this.http.post<LoginResponse>(`${this.API}/auth/login`, { usernameOrEmail, password })
-      .pipe(tap(res => {
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('role', res.role);
-        localStorage.setItem('userId', String(res.userId));
-      }));
+  login(usernameOrEmail: string, password: string, rememberMe: boolean): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(
+      `${this.apiUrl}/login`,
+      { usernameOrEmail, password, rememberMe },
+      { withCredentials: true }
+    );
   }
 
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
+  forgotPassword(email: string): Observable<any> {
+    return this.http.post(
+      `${this.apiUrl}/forgot-password`,
+      { email }
+    );
   }
 
-  get token() { return localStorage.getItem('token'); }
-  get role() { return localStorage.getItem('role'); }
-  isLoggedIn() { return !!this.token; }
+  resetPassword(token: string, newPassword: string): Observable<any> {
+    return this.http.post(
+      `${this.apiUrl}/reset-password`,
+      { token, newPassword }
+    );
+  }
+
+  refresh(): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(
+      `${this.apiUrl}/refresh`,
+      {},
+      { withCredentials: true }
+    );
+  }
 }

@@ -5,11 +5,12 @@
 
 .page {
   padding: 28px;
-  background: #f5f6f8;
+  background: var(--page-bg, var(--soft-bg));
   min-height: 100vh;
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
-  color: #111827;
+  color: var(--text-color);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 /* cartes statistiques */
@@ -22,19 +23,25 @@
 }
 
 .carte-statistique {
-  background: #ffffff;
-  border: 1px solid #ececec;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   border-radius: 22px;
   padding: 30px 28px;
   min-height: 164px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.carte-statistique:hover {
+  transform: translateY(-1px);
 }
 
 .texte-statistique p {
   margin: 0 0 18px;
-  color: #64748b;
+  color: var(--muted-color);
   font-size: 18px;
   line-height: 1.45;
 }
@@ -43,7 +50,7 @@
   margin: 0;
   font-size: 38px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
 .icone-statistique {
@@ -77,8 +84,8 @@
 /* filtres et recherche */
 
 .barre-filtres {
-  background: #ffffff;
-  border: 1px solid #ececec;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 30px 28px;
   display: flex;
@@ -86,13 +93,14 @@
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 32px;
+  box-shadow: var(--panel-shadow);
 }
 
 .groupe-filtres {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #eceef2;
+  background: var(--soft-bg);
   padding: 6px;
   border-radius: 999px;
   flex-wrap: wrap;
@@ -101,7 +109,7 @@
 .groupe-filtres button {
   border: none;
   background: transparent;
-  color: #111827;
+  color: var(--text-color);
   padding: 11px 16px;
   border-radius: 999px;
   font-size: 16px;
@@ -110,8 +118,13 @@
   transition: 0.2s ease;
 }
 
+.groupe-filtres button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .groupe-filtres button.actif {
-  background: #ffffff;
+  background: var(--card-color);
+  color: var(--text-color);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -128,16 +141,23 @@
   max-width: 520px;
   height: 52px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 18px;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.champ-recherche:focus-within {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
 }
 
 .icone-recherche {
   font-size: 20px;
-  color: #6b7280;
+  color: var(--muted-color);
   line-height: 1;
 }
 
@@ -147,28 +167,63 @@
   outline: none;
   background: transparent;
   font-size: 16px;
-  color: #334155;
+  color: var(--text-color);
+}
+
+.champ-recherche input::placeholder {
+  color: var(--muted-color);
+  opacity: 1;
 }
 
 .bouton-filtre {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  border: 1px solid #d7d7d7;
-  background: #ffffff;
-  color: #111827;
+  border: 1px solid var(--border-color);
+  background: var(--card-color);
+  color: var(--text-color);
   font-size: 20px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.bouton-filtre:hover {
+  transform: translateY(-1px);
+  background: var(--soft-bg);
+}
+
+/* bouton ajout */
+
+.bouton-ajout {
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #10b981, #22c55e);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 0 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.22);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.bouton-ajout:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
 }
 
 /* bloc utilisateurs */
 
 .bloc-utilisateurs {
-  background: #ffffff;
-  border: 1px solid #ececec;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 28px;
+  box-shadow: var(--panel-shadow);
 }
 
 .entete-bloc {
@@ -179,20 +234,20 @@
   margin: 0;
   font-size: 20px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
 .entete-bloc p {
   margin: 12px 0 0;
-  color: #64748b;
+  color: var(--muted-color);
   font-size: 17px;
 }
 
 /* carte utilisateur */
 
 .carte-utilisateur {
-  background: #ffffff;
-  border: 1px solid #ececec;
+  background: var(--card-color);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 22px 20px;
   display: flex;
@@ -200,6 +255,11 @@
   justify-content: space-between;
   gap: 18px;
   margin-top: 18px;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.carte-utilisateur:hover {
+  transform: translateY(-1px);
 }
 
 .partie-gauche {
@@ -222,6 +282,7 @@
   font-size: 28px;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 8px 18px rgba(35, 199, 139, 0.22);
 }
 
 .infos-utilisateur {
@@ -241,7 +302,7 @@
   margin: 0;
   font-size: 22px;
   font-weight: 800;
-  color: #111827;
+  color: var(--text-color);
 }
 
 .ligne-infos {
@@ -249,8 +310,15 @@
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
-  color: #64748b;
+  color: var(--muted-color);
   font-size: 16px;
+}
+
+.ligne-infos span,
+.ligne-infos a,
+.ligne-infos i,
+.ligne-infos .material-icons {
+  color: var(--muted-color);
 }
 
 /* droite */
@@ -271,7 +339,7 @@
 }
 
 .derniere-activite {
-  color: #64748b;
+  color: var(--muted-color);
   font-size: 16px;
   text-align: right;
 }
@@ -287,6 +355,13 @@
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  box-shadow: 0 8px 18px rgba(21, 196, 127, 0.22);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.bouton-menu:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
 }
 
 /* badges */
@@ -339,6 +414,91 @@
   border-color: #d9dde4;
 }
 
+/* scrollbar */
+
+.page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.page::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 999px;
+}
+
+.page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* DARK MODE POLISH */
+
+body.dark-mode .page {
+  background: var(--page-bg, var(--soft-bg));
+  color: var(--text-color);
+}
+
+body.dark-mode .groupe-filtres {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .groupe-filtres button.actif {
+  background: var(--card-color);
+  color: var(--text-color);
+}
+
+body.dark-mode .champ-recherche {
+  background: var(--soft-bg);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .champ-recherche input {
+  color: var(--text-color);
+}
+
+body.dark-mode .champ-recherche input::placeholder,
+body.dark-mode .icone-recherche,
+body.dark-mode .derniere-activite,
+body.dark-mode .ligne-infos,
+body.dark-mode .entete-bloc p,
+body.dark-mode .texte-statistique p {
+  color: var(--muted-color);
+}
+
+body.dark-mode .statut-actif {
+  background: rgba(16, 185, 129, 0.16);
+  color: #bbf7d0;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+body.dark-mode .statut-inactif {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+body.dark-mode .role-administrateur {
+  background: rgba(168, 85, 247, 0.16);
+  color: #e9d5ff;
+  border-color: rgba(168, 85, 247, 0.32);
+}
+
+body.dark-mode .role-chauffeur {
+  background: rgba(59, 130, 246, 0.16);
+  color: #bfdbfe;
+  border-color: rgba(59, 130, 246, 0.32);
+}
+
+body.dark-mode .role-superviseur {
+  background: rgba(249, 115, 22, 0.16);
+  color: #fed7aa;
+  border-color: rgba(249, 115, 22, 0.32);
+}
+
+body.dark-mode .role-observateur {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
 /* adaptation */
 
 @media (max-width: 1200px) {
@@ -350,9 +510,10 @@
     flex-direction: column;
     align-items: stretch;
   }
+
   .bouton-ajout {
-  width: 100%;
-}
+    width: 100%;
+  }
 
   .zone-recherche {
     justify-content: stretch;
@@ -361,24 +522,6 @@
   .champ-recherche {
     max-width: 100%;
   }
-}
-.bouton-ajout {
-  height: 48px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #10b981, #22c55e);
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-  padding: 0 20px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.22);
-}
-
-.bouton-ajout:hover {
-  opacity: 0.95;
 }
 
 @media (max-width: 768px) {

@@ -230,11 +230,12 @@ public class MissionServiceImpl implements MissionService {
             stopDto.setStopOrder(stop.getStopOrder());
             stopDto.setStopType(stop.getStopType() != null ? stop.getStopType().name() : null);
             stopDto.setBinId(stop.getBin() != null ? stop.getBin().getId() : null);
+            stopDto.setFuelStationId(stop.getFuelStation() != null ? stop.getFuelStation().getId() : null);
+            stopDto.setFuelStationName(stop.getFuelStation() != null ? stop.getFuelStation().getName() : null);
             stopDto.setLat(stop.getLat());
             stopDto.setLng(stop.getLng());
             return stopDto;
         }).toList();
-
         String coordinates = usableStops.stream()
                 .map(stop -> stop.getLng() + "," + stop.getLat())
                 .reduce((a, b) -> a + ";" + b)

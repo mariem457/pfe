@@ -1,34 +1,43 @@
-.layout {
-  display: flex;
-  height: 100vh; 
-  background: #f5f7fb;
+:host {
+  display: block;
+  min-height: 100vh;
 }
 
-/* SIDEBAR */
+.admin-layout {
+  min-height: 100vh;
+}
+
+/* sidebar ثابت */
 app-sidebar {
-  width: 270px;
-  flex: 0 0 270px;
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
   height: 100vh;
+  z-index: 1000;
 }
 
-/* MAIN */
-.main {
-  flex: 1;
-  min-width: 0;
+/* المحتوى الرئيسي بعد الـ sidebar */
+.admin-main {
+  margin-left: 280px;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-/* HEADER */
-app-head-pages {
-  height: 70px; /* حدد ارتفاع واضح */
-  flex-shrink: 0; /* ما يتصغّرش */
+/* header عادي */
+app-header {
+  display: block;
+  position: static !important;
+  width: 100%;
 }
 
-/* CONTENT */
-.content {
+/* content */
+.admin-content {
   flex: 1;
-  overflow-y: auto;
   padding: 24px;
-  background: #f5f7fb;
+  min-width: 0;
+  background: transparent;
 }

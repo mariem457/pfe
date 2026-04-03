@@ -6,7 +6,39 @@
     </div>
 
     <div class="header-actions">
-      <button class="btn btn-outline" (click)="loadMissions()">Actualiser</button>
+      <button
+        class="btn btn-primary"
+        (click)="generateAiMissions()"
+        [disabled]="generatingAi()"
+      >
+        {{ generatingAi() ? 'Génération...' : 'Générer missions IA' }}
+      </button>
+
+      <button class="btn btn-outline" (click)="loadMissions()">
+        Actualiser
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="aiMessage()" class="empty-state" (click)="clearAiMessage()">
+    {{ aiMessage() }}
+  </div>
+
+  <div *ngIf="latestAiBatchLabel()" class="ai-batch-banner">
+    <div class="ai-batch-banner__left">
+      <strong>Dernière génération IA</strong>
+      <span>{{ latestAiBatchLabel() }}</span>
+      <small>{{ latestAiMissionIds().length }} mission(s)</small>
+    </div>
+
+    <div class="ai-batch-banner__actions">
+      <button class="btn btn-outline btn-small" (click)="toggleLatestAiFilter()">
+        {{ showOnlyLatestAi() ? 'Afficher toutes les missions' : 'Afficher seulement ce lot IA' }}
+      </button>
+
+      <button class="btn btn-outline btn-small" (click)="clearLatestAiBatch()">
+        Fermer
+      </button>
     </div>
   </div>
 
@@ -108,10 +140,22 @@
           class="mission-item"
           *ngFor="let mission of filteredMissions()"
           [class.active]="selectedMission()?.id === mission.id"
+          [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
           (click)="selectMission(mission)"
         >
           <div class="mission-top">
-            <strong>{{ mission.missionCode }}</strong>
+            <div class="mission-titleWrap">
+              <strong>{{ mission.missionCode }}</strong>
+
+              <span class="mission-ai-badge" *ngIf="isInLatestAiBatch(mission.id)">
+                IA
+              </span>
+
+              <span class="mission-ai-badge mission-ai-badge--soft" *ngIf="isInLatestAiBatch(mission.id)">
+                Dernière génération
+              </span>
+            </div>
+
             <span [class]="statusClass(mission.status)">
               {{ getStatusLabel(mission.status) }}
             </span>
@@ -183,7 +227,6 @@
         </div>
       </div>
 
-      <!-- NEW -->
       <div class="sources-grid">
         <div class="source-card">
           <span>Source trafic / matrice</span>

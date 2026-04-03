@@ -1,8 +1,7 @@
 import math
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
-from services.matrix_service import create_matrices
-from services.fuel_service import compute_max_distance_from_fuel, is_truck_eligible_by_fuel
-from services.osrm_service import call_osrm_route
+
+from config.settings import DEFAULT_MAX_ROUTE_MINUTES
 from models.routing_models import (
     RoutingRequestDto,
     RoutingResponseDto,
@@ -10,25 +9,10 @@ from models.routing_models import (
     RoutingStopDto,
     RouteCoordinateDto
 )
-from config.settings import DEFAULT_MAX_ROUTE_MINUTES
-
-
-def filter_eligible_trucks(trucks):
-    eligible = []
-
-    for truck in trucks:
-        status_ok = truck.status is None or truck.status.upper() == "AVAILABLE"
-        fuel_ok = is_truck_eligible_by_fuel(truck)
-
-        print(
-            f"Truck {truck.id} -> status={truck.status}, status_ok={status_ok}, fuel_ok={fuel_ok}, maxDistance={compute_max_distance_from_fuel(truck)}",
-            flush=True
-        )
-
-        if status_ok and fuel_ok:
-            eligible.append(truck)
-
-    return eligible
+from services.fuel_service import compute_max_distance_from_fuel
+from services.incident_service import filter_eligible_trucks
+from services.matrix_service import create_matrices
+from services.osrm_service import call_osrm_route
 
 
 def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
@@ -36,26 +20,35 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         f"Optimizing with {len(request.bins)} bins and {len(request.trucks)} trucks",
         flush=True
     )
+    print(
+        f"Active incidents received: {len(request.activeIncidents)}",
+        flush=True
+    )
 
-    eligible_trucks = filter_eligible_trucks(request.trucks)
+    eligible_trucks, excluded_trucks, warning_trucks = filter_eligible_trucks(
+        request.trucks,
+        request.activeIncidents
+    )
 
-    print(f"Eligible trucks after fuel/status filtering: {len(eligible_trucks)}", flush=True)
+    print(f"Eligible trucks after fuel/status/incident filtering: {len(eligible_trucks)}", flush=True)
+    print(f"Excluded trucks count: {len(excluded_trucks)}", flush=True)
+    print(f"Warning trucks count: {len(warning_trucks)}", flush=True)
 
     if not eligible_trucks or not request.bins:
         print("No eligible trucks or no bins received. Returning empty missions.", flush=True)
-        return RoutingResponseDto(missions=[], matrixSource="NONE")
+        return RoutingResponseDto(
+            missions=[],
+            matrixSource="NONE",
+            excludedTrucks=excluded_trucks,
+            warningTrucks=warning_trucks,
+            recommendedFuelStations=[]
+        )
 
     distance_matrix, duration_matrix, matrix_source = create_matrices(request)
 
     if len(distance_matrix) > 1 and len(distance_matrix[0]) > 1:
-        print(
-            f"Distance depot -> first point (m): {distance_matrix[0][1]}",
-            flush=True
-        )
-        print(
-            f"Duration depot -> first point (min): {duration_matrix[0][1]}",
-            flush=True
-        )
+        print(f"Distance depot -> first point (m): {distance_matrix[0][1]}", flush=True)
+        print(f"Duration depot -> first point (min): {duration_matrix[0][1]}", flush=True)
 
     for b in request.bins:
         print(
@@ -63,9 +56,7 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             flush=True
         )
 
-    # minimum 1 باش capacity constraint تبقى فعالة
     demands = [0] + [max(1, int(round(b.estimatedLoadKg or 0))) for b in request.bins]
-
     capacities = [int(t.remainingCapacityKg) for t in eligible_trucks]
     max_distances = [compute_max_distance_from_fuel(t) for t in eligible_trucks]
     max_route_minutes = [DEFAULT_MAX_ROUTE_MINUTES for _ in eligible_trucks]
@@ -96,7 +87,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     def demand_callback(from_i):
         return demands[manager.IndexToNode(from_i)]
 
-    # 1 stop لكل bac، و depot = 0
     def stop_callback(from_i):
         node = manager.IndexToNode(from_i)
         return 0 if node == 0 else 1
@@ -106,10 +96,8 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     demand = routing.RegisterUnaryTransitCallback(demand_callback)
     stop_transit = routing.RegisterUnaryTransitCallback(stop_callback)
 
-    # Objective principal = minimiser durée réelle
     routing.SetArcCostEvaluatorOfAllVehicles(duration_transit)
 
-    # Capacity
     routing.AddDimensionWithVehicleCapacity(
         demand,
         0,
@@ -118,7 +106,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         "Capacity"
     )
 
-    # Distance fuel autonomy
     routing.AddDimensionWithVehicleCapacity(
         distance_transit,
         0,
@@ -127,7 +114,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         "Distance"
     )
 
-    # Time max route duration
     routing.AddDimensionWithVehicleCapacity(
         duration_transit,
         0,
@@ -136,7 +122,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         "Time"
     )
 
-    # Stops balancing dimension
     max_possible_stops = len(request.bins)
     routing.AddDimension(
         stop_transit,
@@ -149,13 +134,9 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     time_dimension = routing.GetDimensionOrDie("Time")
     stops_dimension = routing.GetDimensionOrDie("Stops")
 
-    # Balance total time بين trucks
     time_dimension.SetGlobalSpanCostCoefficient(100)
-
-    # Balance عدد الباكات بين trucks
     stops_dimension.SetGlobalSpanCostCoefficient(1000)
 
-    # target تقريبي لعدد stops لكل truck
     target_stops_per_truck = math.ceil(len(request.bins) / len(eligible_trucks))
     soft_upper_bound = target_stops_per_truck + 1
 
@@ -167,14 +148,12 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     for v in range(len(eligible_trucks)):
         end_index = routing.End(v)
 
-        # ن penalizi route اللي تتعدى target برشة
         stops_dimension.SetCumulVarSoftUpperBound(
             end_index,
             soft_upper_bound,
             10000
         )
 
-        # نعاون solver ينقص الزمن النهائي والstops النهائية
         routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(end_index))
         routing.AddVariableMinimizedByFinalizer(stops_dimension.CumulVar(end_index))
 
@@ -188,7 +167,13 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
     if not solution:
         print("No OR-Tools solution found.", flush=True)
-        return RoutingResponseDto(missions=[], matrixSource=matrix_source)
+        return RoutingResponseDto(
+            missions=[],
+            matrixSource=matrix_source,
+            excludedTrucks=excluded_trucks,
+            warningTrucks=warning_trucks,
+            recommendedFuelStations=[]
+        )
 
     missions = []
 
@@ -262,4 +247,10 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             )
 
     print(f"Returned missions: {len(missions)}", flush=True)
-    return RoutingResponseDto(missions=missions, matrixSource=matrix_source)
+    return RoutingResponseDto(
+        missions=missions,
+        matrixSource=matrix_source,
+        excludedTrucks=excluded_trucks,
+        warningTrucks=warning_trucks,
+        recommendedFuelStations=[]
+    )

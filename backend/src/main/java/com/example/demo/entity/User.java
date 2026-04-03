@@ -46,6 +46,18 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword = false;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private OffsetDateTime lockedUntil;
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+   
 
     @PrePersist
     public void prePersist() {
@@ -53,6 +65,9 @@ public class User {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.isEnabled == null) this.isEnabled = true;
+        if (this.mustChangePassword == null) this.mustChangePassword = false;
+        if (this.failedLoginAttempts == null) this.failedLoginAttempts = 0;
+        if (this.tokenVersion == null) this.tokenVersion = 0;
     }
 
     @PreUpdate
@@ -98,4 +113,15 @@ public class User {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
-}
+    public Boolean getMustChangePassword() { return mustChangePassword; }
+    public void setMustChangePassword(Boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
+
+    public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
+    public void setFailedLoginAttempts(Integer failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
+
+    public OffsetDateTime getLockedUntil() { return lockedUntil; }
+    public void setLockedUntil(OffsetDateTime lockedUntil) { this.lockedUntil = lockedUntil; }
+
+    public Integer getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }}
+  

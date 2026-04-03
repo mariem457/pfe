@@ -1,16 +1,24 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.routing.RecommendedFuelStationDto;
+import com.example.demo.dto.routing.RoutingBinDto;
 import com.example.demo.dto.routing.RoutingDepotDto;
 import com.example.demo.dto.routing.RoutingIncidentDto;
 import com.example.demo.dto.routing.RoutingRequestDto;
 import com.example.demo.dto.routing.RoutingTruckDto;
-import com.example.demo.dto.routing.RoutingBinDto;
+import com.example.demo.entity.Bin;
+import com.example.demo.entity.FuelStation;
+import com.example.demo.entity.MissionBin;
 import com.example.demo.entity.Truck;
+import com.example.demo.entity.TruckIncident;
+import com.example.demo.repository.TruckIncidentRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderService {
@@ -18,25 +26,67 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private static final double DEFAULT_BIN_MAX_CAPACITY_KG = 50.0;
 
     private final BinPriorityService binPriorityService;
+    private final TruckIncidentRepository truckIncidentRepository;
+    private final FuelManagementService fuelManagementService;
+    private final FuelStationService fuelStationService;
 
-    public RoutingPayloadBuilderServiceImpl(BinPriorityService binPriorityService) {
+    private final List<RecommendedFuelStationDto> lastRecommendedFuelStations = new ArrayList<>();
+
+    public RoutingPayloadBuilderServiceImpl(BinPriorityService binPriorityService,
+                                            TruckIncidentRepository truckIncidentRepository,
+                                            FuelManagementService fuelManagementService,
+                                            FuelStationService fuelStationService) {
         this.binPriorityService = binPriorityService;
+        this.truckIncidentRepository = truckIncidentRepository;
+        this.fuelManagementService = fuelManagementService;
+        this.fuelStationService = fuelStationService;
     }
 
     @Override
     public RoutingRequestDto buildRoutingRequest(List<Truck> trucks) {
+        lastRecommendedFuelStations.clear();
+
         RoutingRequestDto request = new RoutingRequestDto();
-
         request.setDepot(buildDefaultDepot());
-
-        // valeurs supportées côté Python: LIGHT / NORMAL / HEAVY
         request.setTrafficMode("NORMAL");
-
         request.setBins(buildRoutingBins());
         request.setTrucks(buildTrucks(trucks));
-        request.setActiveIncidents(buildActiveIncidents());
+        request.setActiveIncidents(buildActiveIncidents(trucks));
+
+        System.out.println(
+                "Routing payload built | trucks=" + request.getTrucks().size()
+                        + " | bins=" + request.getBins().size()
+                        + " | activeIncidents=" + request.getActiveIncidents().size()
+                        + " | recommendedFuelStations=" + lastRecommendedFuelStations.size()
+        );
 
         return request;
+    }
+
+    @Override
+    public RoutingRequestDto buildReplanRequest(List<Truck> trucks, List<MissionBin> remainingMissionBins) {
+        lastRecommendedFuelStations.clear();
+
+        RoutingRequestDto request = new RoutingRequestDto();
+        request.setDepot(buildDefaultDepot());
+        request.setTrafficMode("NORMAL");
+        request.setBins(buildRoutingBinsFromMissionBins(remainingMissionBins));
+        request.setTrucks(buildTrucks(trucks));
+        request.setActiveIncidents(buildActiveIncidents(trucks));
+
+        System.out.println(
+                "Replan payload built | trucks=" + request.getTrucks().size()
+                        + " | bins=" + request.getBins().size()
+                        + " | activeIncidents=" + request.getActiveIncidents().size()
+                        + " | recommendedFuelStations=" + lastRecommendedFuelStations.size()
+        );
+
+        return request;
+    }
+
+    @Override
+    public List<RecommendedFuelStationDto> getLastRecommendedFuelStations() {
+        return new ArrayList<>(lastRecommendedFuelStations);
     }
 
     private RoutingDepotDto buildDefaultDepot() {
@@ -46,8 +96,89 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
         return depot;
     }
 
-    private List<RoutingIncidentDto> buildActiveIncidents() {
-        return new ArrayList<>();
+    private List<RoutingIncidentDto> buildActiveIncidents(List<Truck> trucks) {
+        List<RoutingIncidentDto> incidents = new ArrayList<>();
+        Set<Long> refuelRequiredTruckIds = new HashSet<>();
+
+        List<TruckIncident> allActiveIncidents = truckIncidentRepository.findByStatusIn(
+                List.of(
+                        TruckIncident.IncidentStatus.OPEN,
+                        TruckIncident.IncidentStatus.IN_PROGRESS
+                )
+        );
+
+        for (TruckIncident incident : allActiveIncidents) {
+            if (incident.getTruck() == null || incident.getTruck().getId() == null) {
+                continue;
+            }
+
+            RoutingIncidentDto dto = new RoutingIncidentDto();
+            dto.setId(incident.getId());
+            dto.setTruckId(incident.getTruck().getId());
+            dto.setType(incident.getIncidentType() != null ? incident.getIncidentType().name() : null);
+            dto.setSeverity(incident.getSeverity() != null ? incident.getSeverity().name() : null);
+            dto.setDescription(incident.getDescription());
+
+            incidents.add(dto);
+
+            System.out.println(
+                    "Active incident added to routing payload | incidentId=" + dto.getId()
+                            + " | truckId=" + dto.getTruckId()
+                            + " | type=" + dto.getType()
+                            + " | severity=" + dto.getSeverity()
+            );
+        }
+
+        for (Truck truck : trucks) {
+            if (truck == null || truck.getId() == null) {
+                continue;
+            }
+
+            boolean fuelCritical = fuelManagementService.isFuelCritical(truck);
+            if (!fuelCritical) {
+                continue;
+            }
+
+            if (refuelRequiredTruckIds.contains(truck.getId())) {
+                continue;
+            }
+
+            RoutingIncidentDto dto = new RoutingIncidentDto();
+            dto.setId(-truck.getId());
+            dto.setTruckId(truck.getId());
+            dto.setType("REFUEL_REQUIRED");
+            dto.setSeverity("CRITICAL");
+            dto.setDescription("Truck fuel is critical and must refuel before routing");
+
+            incidents.add(dto);
+            refuelRequiredTruckIds.add(truck.getId());
+
+            FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
+            if (station != null && station.getId() != null) {
+                RecommendedFuelStationDto recommendation = new RecommendedFuelStationDto();
+                recommendation.setTruckId(truck.getId());
+                recommendation.setStationId(station.getId());
+                recommendation.setStationName(station.getName());
+                recommendation.setLat(station.getLat());
+                recommendation.setLng(station.getLng());
+
+                lastRecommendedFuelStations.add(recommendation);
+
+                System.out.println(
+                        "Recommended fuel station prepared | truckId=" + truck.getId()
+                                + " | stationId=" + station.getId()
+                                + " | stationName=" + station.getName()
+                );
+            }
+
+            System.out.println(
+                    "Synthetic incident added to routing payload | truckId=" + dto.getTruckId()
+                            + " | type=" + dto.getType()
+                            + " | severity=" + dto.getSeverity()
+            );
+        }
+
+        return incidents;
     }
 
     private List<RoutingBinDto> buildRoutingBins() {
@@ -63,9 +194,48 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             bin.setEstimatedLoadKg(estimatedLoadKg);
 
             System.out.println(
-                "Routing bin " + bin.getId()
-                    + " | fillLevel=" + fillLevel
-                    + " | estimatedLoadKg=" + estimatedLoadKg
+                    "Routing bin " + bin.getId()
+                            + " | fillLevel=" + fillLevel
+                            + " | estimatedLoadKg=" + estimatedLoadKg
+            );
+        }
+
+        return bins;
+    }
+
+    private List<RoutingBinDto> buildRoutingBinsFromMissionBins(List<MissionBin> missionBins) {
+        List<RoutingBinDto> bins = new ArrayList<>();
+
+        if (missionBins == null || missionBins.isEmpty()) {
+            return bins;
+        }
+
+        for (MissionBin missionBin : missionBins) {
+            if (missionBin == null || missionBin.getBin() == null) {
+                continue;
+            }
+
+            Bin bin = missionBin.getBin();
+
+            RoutingBinDto dto = new RoutingBinDto();
+            dto.setId(bin.getId());
+            dto.setLat(resolveBinLat(bin));
+            dto.setLng(resolveBinLng(bin));
+
+            double fillLevel = missionBin.getTargetFillThreshold() != null
+                    ? missionBin.getTargetFillThreshold()
+                    : 80.0;
+
+            dto.setFillLevel(fillLevel);
+            dto.setPredictedPriority(1.0);
+            dto.setEstimatedLoadKg(computeEstimatedLoadKg(fillLevel, DEFAULT_BIN_MAX_CAPACITY_KG));
+
+            bins.add(dto);
+
+            System.out.println(
+                    "Replan bin " + dto.getId()
+                            + " | fillLevel=" + dto.getFillLevel()
+                            + " | estimatedLoadKg=" + dto.getEstimatedLoadKg()
             );
         }
 
@@ -106,12 +276,24 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private double computeEstimatedLoadKg(double fillLevel, double maxCapacityKg) {
         double normalizedFillLevel = Math.max(0.0, Math.min(fillLevel, 100.0));
         double estimated = (normalizedFillLevel / 100.0) * maxCapacityKg;
-
-        // minimum 1 kg pour éviter demands = 0 si le bac est sélectionné
         return Math.max(1.0, Math.round(estimated));
     }
 
     private double safeDouble(Double value) {
         return value != null ? value : 0.0;
+    }
+
+    private double resolveBinLat(Bin bin) {
+        if (bin.getAccessLat() != null) {
+            return bin.getAccessLat();
+        }
+        return bin.getLat();
+    }
+
+    private double resolveBinLng(Bin bin) {
+        if (bin.getAccessLng() != null) {
+            return bin.getAccessLng();
+        }
+        return bin.getLng();
     }
 }

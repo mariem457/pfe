@@ -1,47 +1,65 @@
 <section class="it-bins">
 
-  <!-- En-tête -->
   <div class="it-binsHeader">
     <div>
-      <h1 class="it-binsTitle">Bacs intelligents</h1>
-      <p class="it-binsSub">Surveiller et gérer tous les bacs intelligents à travers la ville</p>
+      <h1 class="it-binsTitle">Gestion des bacs</h1>
+      <p class="it-binsSub">
+        Superviser, filtrer et administrer tous les bacs intelligents de la ville
+      </p>
     </div>
 
-    <button class="it-exportBtn" (click)="exportCsv()">
-      <span class="it-icon it-icon--dl"></span>
-      Exporter
-    </button>
+    <div class="it-headerActions">
+      <div class="it-lastUpdate">
+        Dernière mise à jour : {{ lastUpdatedLabel }}
+      </div>
+
+      <button class="it-secondaryBtn" (click)="reloadBins()">
+        Actualiser
+      </button>
+
+      <button class="it-primaryBtn" (click)="openCreateModal()">
+        Ajouter un bac
+      </button>
+
+      <button class="it-exportBtn" (click)="exportCsv()">
+        Exporter
+      </button>
+    </div>
   </div>
 
-  <!-- KPI -->
   <div class="it-binsKpi">
     <div class="it-statCard">
       <div class="it-statLabel">Nombre total de bacs</div>
       <div class="it-statValue">{{ stats.total | number }}</div>
     </div>
+
     <div class="it-statCard">
       <div class="it-statLabel">Bacs pleins</div>
       <div class="it-statValue">{{ stats.full }}</div>
     </div>
+
     <div class="it-statCard">
       <div class="it-statLabel">Partiels</div>
       <div class="it-statValue">{{ stats.partial }}</div>
     </div>
+
     <div class="it-statCard">
       <div class="it-statLabel">Vides</div>
       <div class="it-statValue">{{ stats.empty }}</div>
     </div>
+
+    <div class="it-statCard">
+      <div class="it-statLabel">Maintenance</div>
+      <div class="it-statValue">{{ stats.maintenance }}</div>
+    </div>
   </div>
 
-  <!-- Filtres -->
   <div class="it-filterBar">
     <div class="it-search">
-      <span class="it-icon it-icon--search"></span>
-      <input [(ngModel)]="query" placeholder="Rechercher par ID ou localisation..." />
+      <input [(ngModel)]="query" placeholder="Rechercher par code ou zone..." />
     </div>
 
     <div class="it-select">
-      <span class="it-icon it-icon--filter"></span>
       <select [(ngModel)]="statusFilter">
         <option value="All">Tous les états</option>
         <option value="Plein">Plein</option>
@@ -53,77 +71,264 @@
     </div>
 
     <div class="it-select">
-      <select [(ngModel)]="sortBy">
-        <option value="fill_desc">Trier par niveau de remplissage</option>
-        <option value="fill_asc">Niveau de remplissage (Bas → Élevé)</option>
+      <select [(ngModel)]="activityFilter">
+        <option value="All">Tous les statuts</option>
+        <option value="Actif">Actifs</option>
+        <option value="Inactif">Inactifs</option>
       </select>
       <span class="it-caret"></span>
     </div>
+
+    <div class="it-select">
+      <select [(ngModel)]="batteryFilter">
+        <option value="All">Toutes les batteries</option>
+        <option value="Low">Batterie faible (&lt; 20%)</option>
+        <option value="Normal">Batterie normale</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+
+    <div class="it-select">
+      <select [(ngModel)]="sortBy">
+        <option value="fill_desc">Remplissage : élevé → faible</option>
+        <option value="fill_asc">Remplissage : faible → élevé</option>
+        <option value="battery_desc">Batterie : élevée → faible</option>
+        <option value="battery_asc">Batterie : faible → élevée</option>
+        <option value="id_asc">Code du bac</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+
+    <button class="it-resetBtn" (click)="resetFilters()">
+      Réinitialiser
+    </button>
   </div>
 
-  <!-- Tableau -->
-  <div class="it-tableWrap">
+  <div *ngIf="loading" class="it-stateBox">
+    Chargement des bacs...
+  </div>
+
+  <div *ngIf="!loading && error" class="it-stateBox it-stateBox--error">
+    {{ error }}
+  </div>
+
+  <div *ngIf="!loading && !error && filteredRows.length === 0" class="it-stateBox">
+    Aucun bac trouvé avec les filtres actuels.
+  </div>
+
+  <div class="it-tableWrap" *ngIf="!loading && !error && filteredRows.length > 0">
     <table class="it-table">
       <thead>
         <tr>
-          <th>ID du bac</th>
-          <th>Localisation</th>
-          <th>Niveau de remplissage</th>
+          <th>Code</th>
+          <th>Zone</th>
+          <th>Remplissage</th>
           <th>État</th>
+          <th>Statut</th>
           <th>Batterie</th>
-          <th>Dernière collecte</th>
-          <th>Temp.</th>
+          <th>Dernière télémétrie</th>
+          <th>Actions</th>
         </tr>
       </thead>
 
       <tbody>
-        <tr *ngFor="let r of filteredRows">
+        <tr *ngFor="let r of filteredRows; trackBy: trackByBin">
           <td class="it-id">{{ r.id }}</td>
 
           <td>
-            <div class="it-loc">
-              <span class="it-icon it-icon--pin"></span>
-              <span>{{ r.location }}</span>
-            </div>
+            <span class="it-zoneChip">{{ r.zone }}</span>
           </td>
 
           <td>
             <div class="it-fill">
               <div class="it-fillPct">{{ r.fill }}%</div>
               <div class="it-bar">
-                <div class="it-bar__in"
-                     [style.width.%]="r.fill"
-                     [ngClass]="fillClass(r.fill, r.status)">
+                <div
+                  class="it-bar__in"
+                  [style.width.%]="r.fill"
+                  [ngClass]="fillClass(r.fill, r.status)">
                 </div>
               </div>
             </div>
           </td>
 
           <td>
-            <span class="it-badge"
-                  [ngClass]="{
-                    'is-full': r.status==='Plein',
-                    'is-partial': r.status==='Partiel',
-                    'is-empty': r.status==='Vide',
-                    'is-maint': r.status==='Maintenance'
-                  }">
+            <span
+              class="it-badge"
+              [ngClass]="{
+                'is-full': r.status==='Plein',
+                'is-partial': r.status==='Partiel',
+                'is-empty': r.status==='Vide',
+                'is-maint': r.status==='Maintenance'
+              }">
               {{ r.status }}
             </span>
           </td>
 
           <td>
+            <span
+              class="it-badge it-badge--activity"
+              [ngClass]="{
+                'is-active': r.isActive,
+                'is-inactive': !r.isActive
+              }">
+              {{ activityLabel(r.isActive) }}
+            </span>
+          </td>
+
+          <td>
             <div class="it-battery">
-              <span class="it-battIcon"
-                    [ngClass]="{ 'is-low': r.battery < 20 }"></span>
+              <span class="it-batteryDot" [ngClass]="batteryClass(r.battery)"></span>
               <span>{{ r.battery }}%</span>
             </div>
           </td>
 
-          <td class="it-muted">{{ r.lastCollection }}</td>
-          <td>{{ r.temp }}°C</td>
+          <td class="it-muted">{{ r.lastTelemetry }}</td>
+
+          <td class="it-actionsCell">
+            <div class="it-actions">
+              <button class="it-actionBtn it-actionBtn--light" (click)="openViewModal(r)">
+                Voir
+              </button>
+
+              <button class="it-actionBtn it-actionBtn--light" (click)="openEditModal(r)">
+                Modifier
+              </button>
+
+              <button class="it-actionBtn it-actionBtn--map" (click)="openMap(r)">
+                Carte
+              </button>
+
+              <button class="it-actionBtn it-actionBtn--dark" (click)="toggleActivation(r)">
+                {{ r.isActive ? 'Désactiver' : 'Activer' }}
+              </button>
+
+              <button class="it-actionBtn it-actionBtn--danger" (click)="confirmDelete(r)">
+                Supprimer
+              </button>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div *ngIf="showFormModal" class="it-modalOverlay" (click)="closeFormModal()">
+    <div class="it-modal" (click)="$event.stopPropagation()">
+
+      <div class="it-modalHeader">
+        <h3>
+          {{
+            modalMode === 'create' ? 'Ajouter un bac' :
+            modalMode === 'edit' ? 'Modifier le bac' :
+            'Détails du bac'
+          }}
+        </h3>
+        <button class="it-closeBtn" (click)="closeFormModal()">✕</button>
+      </div>
+
+      <div *ngIf="formError" class="it-formError">
+        {{ formError }}
+      </div>
+
+      <div class="it-formGrid">
+        <div class="it-field">
+          <label>Code du bac</label>
+          <input [(ngModel)]="form.id" [disabled]="modalMode === 'view'" placeholder="Ex: BIN-101" />
+        </div>
+
+        <div class="it-field">
+          <label>Zone</label>
+          <input [(ngModel)]="form.zone" [disabled]="modalMode === 'view'" placeholder="Ex: Centre-ville" />
+        </div>
+
+        <div class="it-field it-field--full">
+          <label>Localisation</label>
+
+          <div class="it-locationPicker">
+            <input
+              [(ngModel)]="form.location"
+              [disabled]="modalMode === 'view'"
+              placeholder="Choisir sur la carte ou saisir une adresse" />
+
+            <button
+              type="button"
+              class="it-mapPickerBtn"
+              *ngIf="modalMode !== 'view'"
+              (click)="goPickLocationOnMap()">
+              Choisir sur la carte
+            </button>
+          </div>
+        </div>
+
+        <div class="it-field">
+          <label>Niveau de remplissage (%)</label>
+          <input type="number" min="0" max="100" [(ngModel)]="form.fill" [disabled]="modalMode === 'view'" />
+        </div>
+
+        <div class="it-field">
+          <label>Batterie (%)</label>
+          <input type="number" min="0" max="100" [(ngModel)]="form.battery" [disabled]="modalMode === 'view'" />
+        </div>
+
+        <div class="it-field">
+          <label>État opérationnel</label>
+          <select [(ngModel)]="form.status" [disabled]="modalMode === 'view'">
+            <option value="Plein">Plein</option>
+            <option value="Partiel">Partiel</option>
+            <option value="Vide">Vide</option>
+            <option value="Maintenance">Maintenance</option>
+          </select>
+        </div>
+
+        <div class="it-field">
+          <label>Statut administratif</label>
+          <select [(ngModel)]="form.isActive" [disabled]="modalMode === 'view'">
+            <option [ngValue]="true">Actif</option>
+            <option [ngValue]="false">Inactif</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="it-modalActions">
+        <button class="it-secondaryBtn" (click)="closeFormModal()">
+          Fermer
+        </button>
+
+        <button
+          *ngIf="modalMode !== 'view'"
+          class="it-primaryBtn"
+          (click)="saveBin()">
+          {{ modalMode === 'create' ? 'Ajouter' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="showDeleteModal" class="it-modalOverlay" (click)="closeDeleteModal()">
+    <div class="it-modal it-modal--small" (click)="$event.stopPropagation()">
+
+      <div class="it-modalHeader">
+        <h3>Confirmer la suppression</h3>
+        <button class="it-closeBtn" (click)="closeDeleteModal()">✕</button>
+      </div>
+
+      <p class="it-deleteText">
+        Voulez-vous vraiment supprimer le bac
+        <strong>{{ deleteTarget?.id }}</strong> ?
+        Cette action est irréversible.
+      </p>
+
+      <div class="it-modalActions">
+        <button class="it-secondaryBtn" (click)="closeDeleteModal()">
+          Annuler
+        </button>
+
+        <button class="it-dangerBtn" (click)="deleteBin()">
+          Supprimer
+        </button>
+      </div>
+    </div>
   </div>
 
 </section>

@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   SettingsService,
   SettingsProfileResponse,
   UpdateSettingsProfileRequest,
   ChangePasswordRequest
 } from '../../../../services/settings.service';
+import { AuthService } from '../../../../services/auth.service';
 
 @Component({
   selector: 'app-parametre',
@@ -25,6 +27,8 @@ export class ParametreComponent implements OnInit {
   errorMessage = '';
   passwordSuccessMessage = '';
   passwordErrorMessage = '';
+
+  forcePasswordChange = false;
 
   profile: SettingsProfileResponse = {
     firstName: '',
@@ -50,10 +54,20 @@ export class ParametreComponent implements OnInit {
     confirmPassword: ''
   };
 
-  constructor(private settingsService: SettingsService) {}
+  constructor(
+    private settingsService: SettingsService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     this.loadProfile();
+
+    this.route.queryParams.subscribe(params => {
+      this.forcePasswordChange = params['forcePasswordChange'] === 'true'
+        || this.authService.mustChangePassword;
+    });
   }
 
   loadProfile(): void {
@@ -115,13 +129,27 @@ export class ParametreComponent implements OnInit {
       return;
     }
 
-    if (this.security.newPassword.length < 6) {
-      this.passwordErrorMessage = 'Le nouveau mot de passe doit contenir au moins 6 caractères.';
+    if (this.security.newPassword !== this.security.confirmPassword) {
+      this.passwordErrorMessage = 'La confirmation du mot de passe ne correspond pas.';
       return;
     }
 
-    if (this.security.newPassword !== this.security.confirmPassword) {
-      this.passwordErrorMessage = 'La confirmation du mot de passe ne correspond pas.';
+    const password = this.security.newPassword;
+
+    if (password.length < 8) {
+      this.passwordErrorMessage = 'Le nouveau mot de passe doit contenir au moins 8 caractères.';
+      return;
+    }
+
+    const strong =
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password) &&
+      /[^A-Za-z0-9]/.test(password);
+
+    if (!strong) {
+      this.passwordErrorMessage =
+        'Le mot de passe doit contenir une majuscule, une minuscule, un chiffre et un caractère spécial.';
       return;
     }
 
@@ -136,16 +164,39 @@ export class ParametreComponent implements OnInit {
     this.settingsService.changePassword(payload).subscribe({
       next: () => {
         this.passwordSuccessMessage = 'Le mot de passe a été mis à jour avec succès.';
+
+        localStorage.setItem('mustChangePassword', 'false');
+        sessionStorage.setItem('mustChangePassword', 'false');
+
         this.security = {
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         };
+
         this.savingPassword = false;
+        this.forcePasswordChange = false;
+
+        setTimeout(() => {
+          const role = this.authService.role;
+
+          if (role === 'ADMIN') {
+            this.router.navigate(['/admin']);
+          } else if (role === 'MUNICIPALITY') {
+            this.router.navigate(['/municipality']);
+          } else if (role === 'MAINTENANCE') {
+            this.router.navigate(['/maintenance']);
+          } else if (role === 'DRIVER') {
+            this.router.navigate(['/chauffeur']);
+          } else {
+            this.router.navigate(['/']);
+          }
+        }, 1000);
       },
       error: (err) => {
         console.error('PUT /api/settings/password failed', err);
-        this.passwordErrorMessage = 'Impossible de mettre à jour le mot de passe.';
+        this.passwordErrorMessage =
+          err?.error?.message || 'Impossible de mettre à jour le mot de passe.';
         this.savingPassword = false;
       }
     });

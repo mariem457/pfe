@@ -6,13 +6,17 @@ import { CreerUtilisateurComponent } from './features/admin-principal/pages/cree
 import { GestionUtilisateursComponent } from './features/admin-principal/pages/gestion-utilisateurs/gestion-utilisateurs.component';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
+import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-password.component';
+import { ResetPasswordComponent } from './features/auth/reset-password/reset-password.component';
 
 export const routes: Routes = [
   { path: '', component: LandingPageComponent },
   { path: 'login', component: LoginPageComponent },
   { path: 'rapport-user', component: RapportUserComponent },
-   { path: 'admin/users', component: GestionUtilisateursComponent },
+  { path: 'admin/users', component: GestionUtilisateursComponent },
   { path: 'admin/users/create', component: CreerUtilisateurComponent },
+  { path: 'forgot-password', component: ForgotPasswordComponent },
+{ path: 'reset-password', component: ResetPasswordComponent },
 
   {
     path: 'maintenance',
@@ -26,12 +30,16 @@ export const routes: Routes = [
     path: 'admin',
     loadChildren: () =>
       import('./features/admin-principal/admin-principal.module').then(m => m.AdminPrincipalModule),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['ADMIN'] }
   },
 
   {
     path: 'municipality',
     loadChildren: () =>
       import('./features/admin/admin.module').then(m => m.AdminModule),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['MUNICIPALITY'] }
   },
 
   {

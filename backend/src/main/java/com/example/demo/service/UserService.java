@@ -4,7 +4,6 @@ import com.example.demo.dto.ChangePasswordRequest;
 import com.example.demo.dto.SettingsProfileResponse;
 import com.example.demo.dto.UpdateSettingsProfileRequest;
 import com.example.demo.dto.UpdateUserRequest;
-import com.example.demo.dto.UpdateUserStatusRequest;
 import com.example.demo.dto.UserAdminListResponse;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserStatsResponse;
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 public class UserService {
@@ -77,6 +77,11 @@ public class UserService {
 
         if (req.getPasswordHash() != null && !req.getPasswordHash().isBlank()) {
             u.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
+
+            int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
+            u.setTokenVersion(currentVersion + 1);
+
+            u.setMustChangePassword(false);
         }
 
         if (req.getRole() != null) {
@@ -85,6 +90,11 @@ public class UserService {
 
         if (req.getIsEnabled() != null) {
             u.setIsEnabled(req.getIsEnabled());
+
+            if (!Boolean.TRUE.equals(req.getIsEnabled())) {
+                int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
+                u.setTokenVersion(currentVersion + 1);
+            }
         }
 
         return toResponse(repo.save(u));
@@ -99,6 +109,11 @@ public class UserService {
         }
 
         u.setIsEnabled(isEnabled);
+
+        if (!Boolean.TRUE.equals(isEnabled)) {
+            int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
+            u.setTokenVersion(currentVersion + 1);
+        }
 
         return toAdminListResponse(repo.save(u));
     }
@@ -169,11 +184,22 @@ public class UserService {
             throw new IllegalArgumentException("password confirmation does not match");
         }
 
-        if (req.getNewPassword().length() < 6) {
-            throw new IllegalArgumentException("new password must contain at least 6 characters");
+        if (!isStrongPassword(req.getNewPassword())) {
+            throw new IllegalArgumentException(
+                    "new password must contain at least 8 characters, uppercase, lowercase, number and special character"
+            );
+        }
+
+        if (passwordEncoder.matches(req.getNewPassword(), u.getPasswordHash())) {
+            throw new IllegalArgumentException("new password must be different from current password");
         }
 
         u.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        u.setMustChangePassword(false);
+
+        int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
+        u.setTokenVersion(currentVersion + 1);
+
         repo.save(u);
     }
 
@@ -188,6 +214,16 @@ public class UserService {
     private User getOrThrow(Long id) {
         return repo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("user not found"));
+    }
+
+    private boolean isStrongPassword(String password) {
+        if (password == null) return false;
+
+        return password.length() >= 8
+                && Pattern.compile("[A-Z]").matcher(password).find()
+                && Pattern.compile("[a-z]").matcher(password).find()
+                && Pattern.compile("[0-9]").matcher(password).find()
+                && Pattern.compile("[^A-Za-z0-9]").matcher(password).find();
     }
 
     private UserResponse toResponse(User u) {

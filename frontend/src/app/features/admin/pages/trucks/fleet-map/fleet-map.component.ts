@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { RealtimeService, TruckLocationMsg } from '../../../../../services/realtime.service';
@@ -74,15 +75,17 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() snappedWaypoints: FleetMapRouteCoordinate[] = [];
   @Input() matrixSource: string | null = null;
   @Input() geometrySource: string | null = 'OSRM';
+
   private map?: L.Map;
   private trucksSub?: Subscription;
   private binsSub?: Subscription;
 
   private mahdiaPolygon?: L.LatLng[];
   private pendingAddMarker?: L.Marker;
+  private temporaryFocusMarker?: L.Marker;
 
   private truckMarkers = new Map<string, L.Marker>();
-  private binMarkers = new Map<number, L.Layer>();
+  private binMarkers = new Map<number | string, L.Layer>();
   private reportMarkers = new Map<number, L.Marker>();
 
   private missionMarkers = new Map<number, L.Layer>();
@@ -114,7 +117,9 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   constructor(
     private realtime: RealtimeService,
     private binService: BinService,
-    private mapFocusService: MapFocusService
+    private mapFocusService: MapFocusService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   ngAfterViewInit(): void {
@@ -141,6 +146,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
         if (this.allowAddBins) {
           this.enableAddBinClick();
+          this.activateAddModeFromQuery();
         }
 
         this.renderMissionBins();
@@ -252,6 +258,25 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           'Erreur lors de la création de la poubelle.';
       }
     });
+  }
+
+  private activateAddModeFromQuery(): void {
+    const pickBinLocation = this.route.snapshot.queryParamMap.get('pickBinLocation');
+
+    if (pickBinLocation === '1' && this.allowAddBins) {
+      this.addBinMode = true;
+
+      setTimeout(() => {
+        alert('Cliquez sur la carte pour choisir l’emplacement de la poubelle.');
+      }, 300);
+
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { pickBinLocation: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
   }
 
   private initMap(): void {
@@ -404,7 +429,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
           marker.addTo(map).bindPopup(`
             <div style="min-width:220px">
-              <div style="font-weight:700; margin-bottom:6px;">${bin.binCode}</div>
+              <div style="font-weight:700; margin-bottom:6px;">${bin.binCode ?? 'BIN'}</div>
               <div><b>Zone:</b> ${bin.zoneName ?? '—'}</div>
               <div><b>Fill:</b> ${bin.fillLevel ?? 0}%</div>
               <div><b>Battery:</b> ${bin.batteryLevel ?? 0}%</div>
@@ -412,10 +437,14 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
             </div>
           `);
 
-          this.binMarkers.set(bin.binId ?? bin.id, marker);
+          this.binMarkers.set(bin.binId ?? bin.id ?? bin.binCode, marker);
         });
 
         this.renderMissionBins();
+
+        setTimeout(() => {
+          this.applyPendingFocus();
+        }, 150);
       },
       error: (err) => {
         console.error('Error bins', err);
@@ -574,7 +603,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         color: '#2563eb',
         weight: 5,
         opacity: 0.9
-      }).addTo(this.map);
+      }).addTo(this.map!);
 
       boundsPoints.push(...realLatLngs);
     } else if (bins.length >= 2) {
@@ -585,14 +614,14 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         weight: 4,
         opacity: 0.85,
         dashArray: '8 6'
-      }).addTo(this.map);
+      }).addTo(this.map!);
 
       boundsPoints.push(...fallbackLatLngs);
     }
 
     if (boundsPoints.length) {
       const bounds = L.latLngBounds(boundsPoints as [number, number][]);
-      this.map.fitBounds(bounds, { padding: [30, 30] });
+      this.map!.fitBounds(bounds, { padding: [30, 30] });
     }
   }
 
@@ -630,21 +659,84 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     if (!this.map) return;
 
     const target = this.mapFocusService.getTarget();
-    if (!target || target.type !== 'report') return;
+    if (!target) return;
 
-    const marker = this.reportMarkers.get(target.id);
+    if (target.type === 'report') {
+      const marker = this.reportMarkers.get(target.id as number);
 
-    if (marker) {
-      this.map.setView([target.lat, target.lng], 17, { animate: true });
-      setTimeout(() => {
-        marker.openPopup();
-      }, 250);
-      this.mapFocusService.clearTarget();
+      if (marker) {
+        this.map.setView([target.lat, target.lng], 17, { animate: true });
+        setTimeout(() => {
+          marker.openPopup();
+        }, 250);
+        this.mapFocusService.clearTarget();
+        return;
+      }
+
+      if (this.isInsideMahdia(target.lat, target.lng)) {
+        this.map.setView([target.lat, target.lng], 17, { animate: true });
+        this.mapFocusService.clearTarget();
+      }
+
       return;
     }
 
-    if (this.isInsideMahdia(target.lat, target.lng)) {
+    if (target.type === 'bin') {
       this.map.setView([target.lat, target.lng], 17, { animate: true });
+
+      let matchedMarker: any = null;
+
+      for (const layer of this.binMarkers.values()) {
+        const marker: any = layer;
+
+        if (typeof marker.getLatLng === 'function') {
+          const pos = marker.getLatLng();
+
+          const samePoint =
+            Math.abs(pos.lat - target.lat) < 0.0001 &&
+            Math.abs(pos.lng - target.lng) < 0.0001;
+
+          if (samePoint) {
+            matchedMarker = marker;
+            break;
+          }
+        }
+      }
+
+      if (matchedMarker) {
+        setTimeout(() => {
+          if (typeof matchedMarker.openPopup === 'function') {
+            matchedMarker.openPopup();
+          }
+        }, 250);
+
+        this.mapFocusService.clearTarget();
+        return;
+      }
+
+      if (this.temporaryFocusMarker) {
+        this.temporaryFocusMarker.removeFrom(this.map);
+        this.temporaryFocusMarker = undefined;
+      }
+
+      this.temporaryFocusMarker = L.marker([target.lat, target.lng], {
+        zIndexOffset: 4000
+      }).addTo(this.map);
+
+      this.temporaryFocusMarker.bindPopup(`
+        <div style="min-width:220px">
+          <div style="font-weight:700; margin-bottom:6px;">${target.code ?? 'Poubelle sélectionnée'}</div>
+          <div><b>Zone:</b> ${target.zone ?? '—'}</div>
+          <div><b>Latitude:</b> ${target.lat.toFixed(6)}</div>
+          <div><b>Longitude:</b> ${target.lng.toFixed(6)}</div>
+        </div>
+      `);
+
+      setTimeout(() => {
+        this.temporaryFocusMarker?.openPopup();
+      }, 250);
+
+      this.mapFocusService.clearTarget();
     }
   }
 
@@ -861,6 +953,13 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         this.realtime.disconnect();
       }
     } catch {}
+
+    try {
+      if (this.temporaryFocusMarker && this.map) {
+        this.temporaryFocusMarker.removeFrom(this.map);
+      }
+    } catch {}
+
     try { this.map?.remove(); } catch {}
 
     this.truckMarkers.clear();

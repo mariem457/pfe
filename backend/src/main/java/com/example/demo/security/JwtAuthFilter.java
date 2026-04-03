@@ -1,5 +1,7 @@
 package com.example.demo.security;
 
+import com.example.demo.entity.User;
+import com.example.demo.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,16 +16,19 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final UserRepository userRepo;
 
-    public JwtAuthFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthFilter(JwtService jwtService, UserDetailsService userDetailsService, UserRepository userRepo) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.userRepo = userRepo;
     }
 
     @Override
@@ -31,7 +36,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
 
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
-                || path.startsWith("/api/auth/")
+                || "/api/auth/login".equals(path)
                 || path.startsWith("/actuator/");
     }
 
@@ -44,16 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // 🟡 Debug: no header
-        if (authHeader == null) {
-            System.out.println("JWT DEBUG: No Authorization header");
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // 🟡 Debug: wrong prefix
-        if (!authHeader.startsWith("Bearer ")) {
-            System.out.println("JWT DEBUG: Authorization header does not start with Bearer");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -62,17 +58,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             Claims claims = jwtService.extractClaims(token);
-
             String username = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            System.out.println("JWT DEBUG: Token parsed OK → user=" + username + ", role=" + role);
-
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                User user = userRepo.findByUsername(username)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+
+                boolean locked = user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now());
+
+                if (!Boolean.TRUE.equals(user.getIsEnabled()) || locked || !jwtService.isTokenValid(token, user)) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("Invalid or inactive account");
+                    return;
+                }
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                // ✅ Fix ROLE_ duplication
                 String normalizedRole =
                         (role != null && role.startsWith("ROLE_"))
                                 ? role
@@ -93,13 +97,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-
-                System.out.println("JWT DEBUG: Authentication set in SecurityContext");
             }
 
         } catch (Exception e) {
-            // 🔴 IMPORTANT: show why token failed
-            System.out.println("JWT DEBUG: Invalid or expired token → " + e.getMessage());
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Invalid or expired token");
+            return;
         }
 
         filterChain.doFilter(request, response);

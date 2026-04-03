@@ -3,7 +3,9 @@
 
     <h2>Paramètres</h2>
     <p class="subtitle">Gérez votre compte et les préférences de l'application</p>
-
+<div *ngIf="forcePasswordChange" class="message info-message">
+  Vous devez changer votre mot de passe avant de continuer.
+</div>
     <!-- Profile Settings -->
     <div class="card">
       <h3>Paramètres du Profil</h3>

@@ -1,4 +1,228 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
-body{
-    margin:0;
+
+:root {
+  --bg-color: #f3f6fb;
+  --card-color: #ffffff;
+  --text-color: #0f172a;
+  --muted-color: #64748b;
+  --border-color: #e2e8f0;
+  --sidebar-color: #ffffff;
+  --input-bg: #ffffff;
+  --hover-bg: #f8fafc;
+
+  /* extra vars for dashboard dark mode */
+  --soft-bg: #f8fafc;
+  --soft-hover-bg: #f1f5f9;
+  --overlay-bg: rgba(15, 23, 42, 0.35);
+  --chart-grid: rgba(15, 23, 42, 0.12);
+  --axis-base: rgba(15, 23, 42, 0.18);
+  --donut-track: #e5e7eb;
+
+  --strong-btn-bg: #0f172a;
+  --strong-btn-text: #ffffff;
+
+  --panel-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  --card-shadow: 0 6px 18px rgba(16, 24, 40, 0.05);
+}
+
+body.dark-mode {
+  --bg-color: #0f172a;
+  --card-color: #1e293b;
+  --text-color: #f8fafc;
+  --muted-color: #cbd5e1;
+  --border-color: #334155;
+  --sidebar-color: #111827;
+  --input-bg: #1e293b;
+  --hover-bg: #273449;
+
+  --soft-bg: #162033;
+  --soft-hover-bg: #1d2a40;
+  --overlay-bg: rgba(2, 6, 23, 0.72);
+  --chart-grid: rgba(226, 232, 240, 0.12);
+  --axis-base: rgba(226, 232, 240, 0.18);
+  --donut-track: #334155;
+
+  --strong-btn-bg: #e2e8f0;
+  --strong-btn-text: #0f172a;
+
+  --panel-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  --card-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg-color);
+  color: var(--text-color);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+body.dark-mode {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* admin/dashboard only */
+body.dark-mode .card,
+body.dark-mode .kpi-card,
+body.dark-mode .it-panel,
+body.dark-mode .mission-details,
+body.dark-mode .missions-list,
+body.dark-mode .public-report-card,
+body.dark-mode .it-statCard,
+body.dark-mode .it-tableWrap,
+body.dark-mode .it-stateBox,
+body.dark-mode .it-modal,
+body.dark-mode .it-filterBar,
+body.dark-mode .it-kpiCard,
+body.dark-mode .head-page,
+body.dark-mode .dashboard-card,
+body.dark-mode .table-card,
+body.dark-mode .content-card {
+  background: var(--card-color) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* admin sidebar only */
+body.dark-mode .sidebar,
+body.dark-mode .it-sidebar,
+body.dark-mode .layout-sidebar,
+body.dark-mode aside {
+  background: var(--sidebar-color) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* forms */
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  background: var(--input-bg) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+body.dark-mode select option {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+/* helper text */
+body.dark-mode .muted,
+body.dark-mode .it-muted,
+body.dark-mode .subtitle,
+body.dark-mode .card-subtitle {
+  color: var(--muted-color) !important;
+}
+
+mat-icon {
+  color: inherit;
+}
+
+body.dark-mode .landing-page {
+  background: linear-gradient(135deg, #08131f 0%, #0f172a 50%, #102235 100%) !important;
+}
+
+/* ===== FIX DARK MODE FOOTER ===== */
+body.dark-mode app-footer,
+body.dark-mode app-footer footer,
+body.dark-mode app-footer .footer {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+body.dark-mode app-footer h1,
+body.dark-mode app-footer h2,
+body.dark-mode app-footer h3,
+body.dark-mode app-footer h4,
+body.dark-mode app-footer p,
+body.dark-mode app-footer a,
+body.dark-mode app-footer span,
+body.dark-mode app-footer li {
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode app-footer input,
+body.dark-mode app-footer textarea {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+}
+
+body.dark-mode app-footer button {
+  color: #ffffff !important;
+}
+
+body.dark-mode app-footer hr {
+  border-color: #334155 !important;
+}
+/* ===== MUNICIPALITY / LAYOUT DARK MODE FINAL FIX ===== */
+
+body.dark-mode,
+body.dark-mode app-root,
+body.dark-mode .app-shell,
+body.dark-mode .layout,
+body.dark-mode .layout-shell,
+body.dark-mode .main-layout,
+body.dark-mode .dashboard-layout,
+body.dark-mode .page-layout,
+body.dark-mode .main-content,
+body.dark-mode .content,
+body.dark-mode .content-area,
+body.dark-mode .content-wrapper,
+body.dark-mode .page-content,
+body.dark-mode .router-container,
+body.dark-mode .municipality-content,
+body.dark-mode .municipality-page,
+body.dark-mode .dashboard-content,
+body.dark-mode .dashboard-page {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* page header / top shell */
+body.dark-mode .head-page,
+body.dark-mode .page-header,
+body.dark-mode .topbar,
+body.dark-mode .toolbar,
+body.dark-mode .header-bar,
+body.dark-mode .overview-bar,
+body.dark-mode .page-topbar {
+  background: var(--card-color) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+}
+
+/* titles inside parent layout */
+body.dark-mode .head-page h1,
+body.dark-mode .head-page h2,
+body.dark-mode .head-page h3,
+body.dark-mode .page-header h1,
+body.dark-mode .page-header h2,
+body.dark-mode .page-header h3,
+body.dark-mode .topbar h1,
+body.dark-mode .topbar h2,
+body.dark-mode .topbar h3,
+body.dark-mode .toolbar h1,
+body.dark-mode .toolbar h2,
+body.dark-mode .toolbar h3 {
+  color: var(--text-color) !important;
+}
+
+/* angular / material containers */
+body.dark-mode .mat-drawer-content,
+body.dark-mode .mat-sidenav-content,
+body.dark-mode .router-outlet-container,
+body.dark-mode .mat-app-background {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* optional: map zone around leaflet */
+body.dark-mode .leaflet-container {
+  background: #0b1220;
 }

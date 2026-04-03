@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+
 import java.time.OffsetDateTime;
 
 @Entity
@@ -40,7 +41,7 @@ public class MissionReassignment {
     @Column(name = "reason", nullable = false, length = 30)
     private ReassignmentReason reason;
 
-    @Column(name = "reassigned_at", nullable = false, updatable = false)
+    @Column(name = "reassigned_at", nullable = false)
     private OffsetDateTime reassignedAt;
 
     @Column(name = "algorithm_version", length = 50)

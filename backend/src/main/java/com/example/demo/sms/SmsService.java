@@ -30,4 +30,11 @@ public class SmsService {
                 + "Veuillez contacter l'administration pour plus d'informations.";
         smsSender.send(phone, msg);
     }
+
+    public void sendDriverResetCode(String phone, String code) {
+        String msg = "WiseTrash:\n"
+                + "Votre code de réinitialisation est: " + code + "\n"
+                + "Ce code expire dans 10 minutes.";
+        smsSender.send(phone, msg);
+    }
 }

@@ -1,4 +1,5 @@
 import { NgModule } from '@angular/core';
+
 import { RouterModule, Routes } from '@angular/router';
 
 import { AdminLayoutComponent } from './layout/admin-layout/admin-layout.component';

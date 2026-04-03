@@ -23,6 +23,7 @@ import {
   styleUrls: ['./missions.component.css']
 })
 export class MissionsComponent implements OnInit {
+
   missions = signal<MissionResponse[]>([]);
   selectedMission = signal<MissionResponse | null>(null);
   missionBins = signal<MissionBinResponse[]>([]);
@@ -42,7 +43,7 @@ export class MissionsComponent implements OnInit {
   errorMessage = signal<string | null>(null);
   aiMessage = signal<string | null>(null);
 
-  // NEW: batch / séparation visuelle
+  // IA batch
   latestAiBatchLabel = signal<string | null>(null);
   latestAiMissionIds = signal<number[]>([]);
   showOnlyLatestAi = signal(false);
@@ -82,21 +83,17 @@ export class MissionsComponent implements OnInit {
   });
 
   totalMissions = computed(() => this.missions().length);
-
   completedMissions = computed(() =>
     this.missions().filter(m => m.status === 'COMPLETED').length
   );
-
   inProgressMissions = computed(() =>
     this.missions().filter(m => m.status === 'IN_PROGRESS').length
   );
-
   createdMissions = computed(() =>
     this.missions().filter(m => m.status === 'CREATED').length
   );
 
   totalBins = computed(() => this.missionBins().length);
-
   collectedBins = computed(() =>
     this.missionBins().filter(b => b.collected).length
   );
@@ -134,62 +131,6 @@ export class MissionsComponent implements OnInit {
       }))
   );
 
-  matrixSourceLabel = computed(() => {
-    const source = (this.routeMatrixSource() || '').toUpperCase();
-
-    switch (source) {
-      case 'TOMTOM':
-        return 'TomTom Traffic réel';
-      case 'OSRM':
-        return 'OSRM standard';
-      case 'FALLBACK':
-        return 'Approximation Haversine';
-      case 'NONE':
-        return 'Aucune matrice';
-      default:
-        return source || '—';
-    }
-  });
-
-  matrixSourceClass = computed(() => {
-    const source = (this.routeMatrixSource() || '').toUpperCase();
-
-    switch (source) {
-      case 'TOMTOM':
-        return 'badge success';
-      case 'OSRM':
-        return 'badge primary';
-      case 'FALLBACK':
-        return 'badge warning';
-      case 'NONE':
-        return 'badge danger';
-      default:
-        return 'badge neutral';
-    }
-  });
-
-  geometrySourceLabel = computed(() => {
-    const source = (this.routeGeometrySource() || '').toUpperCase();
-
-    switch (source) {
-      case 'OSRM':
-        return 'OSRM';
-      default:
-        return source || '—';
-    }
-  });
-
-  geometrySourceClass = computed(() => {
-    const source = (this.routeGeometrySource() || '').toUpperCase();
-
-    switch (source) {
-      case 'OSRM':
-        return 'badge primary';
-      default:
-        return 'badge neutral';
-    }
-  });
-
   loadMissions(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
@@ -199,70 +140,41 @@ export class MissionsComponent implements OnInit {
         this.missions.set(data);
         this.loading.set(false);
 
-        const currentSelected = this.selectedMission();
-
-        if (!data.length) {
-          this.selectedMission.set(null);
-          this.missionBins.set([]);
-          this.missionRouteCoordinates.set([]);
-          this.missionRouteStops.set([]);
-          this.snappedWaypoints.set([]);
-          this.routeMatrixSource.set(null);
-          this.routeGeometrySource.set('OSRM');
-          return;
-        }
-
-        if (currentSelected) {
-          const updatedSelected = data.find(m => m.id === currentSelected.id);
-          if (updatedSelected) {
-            this.selectedMission.set(updatedSelected);
-            return;
-          }
-        }
+        if (!data.length) return;
 
         this.selectMission(data[0]);
       },
       error: (err) => {
         this.loading.set(false);
-        this.errorMessage.set(
-          err?.error?.message || 'Erreur lors du chargement des missions.'
-        );
+        this.errorMessage.set(err?.error?.message || 'Erreur chargement missions');
       }
     });
   }
 
   selectMission(mission: MissionResponse): void {
-    this.errorMessage.set(null);
     this.selectedMission.set(mission);
-    this.missionBins.set([]);
-    this.missionRouteCoordinates.set([]);
-    this.missionRouteStops.set([]);
-    this.snappedWaypoints.set([]);
-    this.routeMatrixSource.set(null);
-    this.routeGeometrySource.set('OSRM');
     this.loadMissionBins(mission.id);
     this.loadMissionRoute(mission.id);
   }
 
-  loadMissionBins(missionId: number): void {
+  loadMissionBins(id: number): void {
     this.loadingBins.set(true);
 
-    this.missionService.getMissionBins(missionId).subscribe({
+    this.missionService.getMissionBins(id).subscribe({
       next: (data) => {
         this.missionBins.set(data);
         this.loadingBins.set(false);
       },
       error: () => {
         this.loadingBins.set(false);
-        this.missionBins.set([]);
       }
     });
   }
 
-  loadMissionRoute(missionId: number): void {
+  loadMissionRoute(id: number): void {
     this.loadingRoute.set(true);
 
-    this.missionService.getMissionRoute(missionId).subscribe({
+    this.missionService.getMissionRoute(id).subscribe({
       next: (data: MissionRouteResponse) => {
         this.missionRouteCoordinates.set(data?.routeCoordinates ?? []);
         this.missionRouteStops.set(data?.routeStops ?? []);
@@ -272,101 +184,7 @@ export class MissionsComponent implements OnInit {
         this.loadingRoute.set(false);
       },
       error: () => {
-        this.missionRouteCoordinates.set([]);
-        this.missionRouteStops.set([]);
-        this.snappedWaypoints.set([]);
-        this.routeMatrixSource.set(null);
-        this.routeGeometrySource.set('OSRM');
         this.loadingRoute.set(false);
-      }
-    });
-  }
-
-  refreshSelectedMission(): void {
-    const mission = this.selectedMission();
-    if (!mission) return;
-
-    this.actionLoading.set(true);
-    this.errorMessage.set(null);
-
-    this.missionService.getMissionById(mission.id).subscribe({
-      next: (data) => {
-        this.selectedMission.set(data);
-        this.loadMissionBins(data.id);
-        this.loadMissionRoute(data.id);
-        this.loadMissions();
-        this.actionLoading.set(false);
-      },
-      error: (err) => {
-        this.actionLoading.set(false);
-        this.errorMessage.set(err?.error?.message || 'Erreur lors du rafraîchissement.');
-      }
-    });
-  }
-
-  startMission(): void {
-    const mission = this.selectedMission();
-    if (!mission) return;
-
-    this.actionLoading.set(true);
-    this.errorMessage.set(null);
-
-    this.missionService.startMission(mission.id).subscribe({
-      next: (data) => {
-        this.selectedMission.set(data);
-        this.loadMissions();
-        this.actionLoading.set(false);
-      },
-      error: (err) => {
-        this.actionLoading.set(false);
-        this.errorMessage.set(err?.error?.message || 'Impossible de démarrer la mission.');
-      }
-    });
-  }
-
-  completeMission(): void {
-    const mission = this.selectedMission();
-    if (!mission) return;
-
-    this.actionLoading.set(true);
-    this.errorMessage.set(null);
-
-    this.missionService.completeMission(mission.id).subscribe({
-      next: (data) => {
-        this.selectedMission.set(data);
-        this.loadMissions();
-        this.actionLoading.set(false);
-      },
-      error: (err) => {
-        this.actionLoading.set(false);
-        this.errorMessage.set(err?.error?.message || 'Impossible de terminer la mission.');
-      }
-    });
-  }
-
-  collectBin(bin: MissionBinResponse): void {
-    const mission = this.selectedMission();
-    if (!mission || bin.collected) return;
-
-    this.actionLoading.set(true);
-    this.errorMessage.set(null);
-
-    this.missionService.collectMissionBin(mission.id, bin.id, {
-      driverId: mission.driverId,
-      driverNote: 'Collecté depuis le dashboard',
-      issueType: null,
-      photoUrl: null
-    }).subscribe({
-      next: (data) => {
-        this.selectedMission.set(data);
-        this.loadMissionBins(mission.id);
-        this.loadMissionRoute(mission.id);
-        this.loadMissions();
-        this.actionLoading.set(false);
-      },
-      error: (err) => {
-        this.actionLoading.set(false);
-        this.errorMessage.set(err?.error?.message || 'Impossible de collecter le bac.');
       }
     });
   }
@@ -374,34 +192,19 @@ export class MissionsComponent implements OnInit {
   generateAiMissions(): void {
     if (this.generatingAi()) return;
 
-    this.errorMessage.set(null);
-    this.aiMessage.set(null);
     this.generatingAi.set(true);
 
-    // TEMPORAIRE FRONTEND:
-    // plus tard le backend يرجع batchId + missionIds
     setTimeout(() => {
-      const current = this.missions();
-      const simulatedNewIds = current
-        .filter(m => m.status === 'CREATED')
+      const ids = this.missions()
         .slice(0, 3)
         .map(m => m.id);
 
-      this.latestAiMissionIds.set(simulatedNewIds);
-      this.latestAiBatchLabel.set(`IA-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`);
+      this.latestAiMissionIds.set(ids);
+      this.latestAiBatchLabel.set('IA-BATCH');
       this.showOnlyLatestAi.set(true);
 
       this.generatingAi.set(false);
-      this.aiMessage.set(
-        `${simulatedNewIds.length} mission(s) marquée(s) comme dernière génération IA.`
-      );
-
-      if (simulatedNewIds.length) {
-        const firstMission = current.find(m => m.id === simulatedNewIds[0]);
-        if (firstMission) {
-          this.selectMission(firstMission);
-        }
-      }
+      this.aiMessage.set('Missions IA générées');
     }, 700);
   }
 
@@ -410,69 +213,32 @@ export class MissionsComponent implements OnInit {
   }
 
   clearLatestAiBatch(): void {
-    this.latestAiBatchLabel.set(null);
     this.latestAiMissionIds.set([]);
+    this.latestAiBatchLabel.set(null);
     this.showOnlyLatestAi.set(false);
   }
 
-  isInLatestAiBatch(missionId: number): boolean {
-    return this.latestAiMissionIds().includes(missionId);
-  }
-
-  clearAiMessage(): void {
-    this.aiMessage.set(null);
+  isInLatestAiBatch(id: number): boolean {
+    return this.latestAiMissionIds().includes(id);
   }
 
   getStatusLabel(status: string | null): string {
-    switch (status) {
-      case 'CREATED':
-        return 'Créée';
-      case 'IN_PROGRESS':
-        return 'En cours';
-      case 'COMPLETED':
-        return 'Terminée';
-      case 'CANCELLED':
-        return 'Annulée';
-      default:
-        return status || '—';
-    }
+    return status || '—';
   }
 
   getPriorityLabel(priority: string | null): string {
-    switch (priority) {
-      case 'HIGH':
-        return 'Haute';
-      case 'NORMAL':
-        return 'Normale';
-      case 'LOW':
-        return 'Faible';
-      default:
-        return priority || '—';
-    }
+    return priority || '—';
   }
 
-  formatDate(value: string | null): string {
-    if (!value) return '—';
-    return new Date(value).toLocaleString('fr-FR');
+  formatDate(v: string | null): string {
+    return v ? new Date(v).toLocaleString() : '—';
   }
 
-  statusClass(status: string | null): string {
-    switch (status) {
-      case 'COMPLETED':
-        return 'badge success';
-      case 'IN_PROGRESS':
-        return 'badge primary';
-      case 'CREATED':
-        return 'badge warning';
-      case 'CANCELLED':
-        return 'badge danger';
-      default:
-        return 'badge';
-    }
+  statusClass(): string {
+    return 'badge';
   }
 
   binStatusClass(bin: MissionBinResponse): string {
-    if (bin.collected) return 'badge success';
-    return 'badge neutral';
+    return bin.collected ? 'badge success' : 'badge';
   }
 }

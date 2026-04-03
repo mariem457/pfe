@@ -1,12 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.ChangePasswordRequest;
-import com.example.demo.dto.SettingsProfileResponse;
-import com.example.demo.dto.UpdateSettingsProfileRequest;
-import com.example.demo.dto.UpdateUserRequest;
-import com.example.demo.dto.UserAdminListResponse;
-import com.example.demo.dto.UserResponse;
-import com.example.demo.dto.UserStatsResponse;
+import com.example.demo.dto.*;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;

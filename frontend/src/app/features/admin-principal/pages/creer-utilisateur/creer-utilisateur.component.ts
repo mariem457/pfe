@@ -82,18 +82,28 @@ export class CreerUtilisateurComponent {
       this.userService.createDriver(payload).subscribe({
         next: () => {
           this.loading = false;
+<<<<<<< HEAD
           this.successMessage =
             'Chauffeur créé avec succès. Les identifiants ont été envoyés par SMS.';
 
           setTimeout(() => {
             this.router.navigate(['/admin/gestion-utilisateurs']);
+=======
+          this.successMessage = 'Chauffeur créé avec succès. Les identifiants ont été envoyés par SMS.';
+          setTimeout(() => {
+            this.router.navigate(['/admin/users']);
+>>>>>>> modele_1_final
           }, 1200);
         },
         error: (err: any) => {
           console.error('Erreur création chauffeur', err);
           this.loading = false;
+<<<<<<< HEAD
           this.errorMessage =
             err?.error?.message || 'Impossible de créer le chauffeur';
+=======
+          this.errorMessage = err?.error?.message || 'Impossible de créer le chauffeur';
+>>>>>>> modele_1_final
         }
       });
 
@@ -113,21 +123,34 @@ export class CreerUtilisateurComponent {
       next: () => {
         this.loading = false;
         this.successMessage = 'Utilisateur créé avec succès.';
+<<<<<<< HEAD
 
         setTimeout(() => {
           this.router.navigate(['/admin/gestion-utilisateurs']);
+=======
+        setTimeout(() => {
+          this.router.navigate(['/admin/users']);
+>>>>>>> modele_1_final
         }, 1200);
       },
       error: (err: any) => {
         console.error('Erreur création utilisateur', err);
         this.loading = false;
+<<<<<<< HEAD
         this.errorMessage =
           err?.error?.message || 'Impossible de créer l’utilisateur';
+=======
+        this.errorMessage = err?.error?.message || 'Impossible de créer l’utilisateur';
+>>>>>>> modele_1_final
       }
     });
   }
 
   annuler(): void {
+<<<<<<< HEAD
     this.router.navigate(['/admin/gestion-utilisateurs']);
+=======
+    this.router.navigate(['/admin/users']);
+>>>>>>> modele_1_final
   }
 }

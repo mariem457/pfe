@@ -23,7 +23,9 @@ public class TelemetryController {
                 req.getBatteryLevel(),
                 req.getWeightKg(),
                 req.getStatus(),
-                req.getSource()
+                req.getSource(),
+                req.getRssi(),
+                req.getCollected()
         );
     }
 }

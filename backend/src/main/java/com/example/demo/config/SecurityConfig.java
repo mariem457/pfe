@@ -65,11 +65,20 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/security/**").hasRole("ADMIN")
+
                         .requestMatchers("/api/telemetry/**").permitAll()
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
+
+                   
+                        .requestMatchers("/api/telemetry/**").permitAll()
+                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+
                         .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
@@ -77,10 +86,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/uploads/**").permitAll()
 
+
                         .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-locations/**").permitAll()
+
+
+                        // MISSIONS
+                        .requestMatchers("/api/missions/**")
+                        .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/truck-locations/**").permitAll()
+                        
+
                         .requestMatchers("/api/truck-locations").permitAll()
 
                         .requestMatchers("/ws/**").permitAll()

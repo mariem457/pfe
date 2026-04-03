@@ -13,10 +13,12 @@ export const routes: Routes = [
   { path: '', component: LandingPageComponent },
   { path: 'login', component: LoginPageComponent },
   { path: 'rapport-user', component: RapportUserComponent },
+
   { path: 'admin/users', component: GestionUtilisateursComponent },
   { path: 'admin/users/create', component: CreerUtilisateurComponent },
+
   { path: 'forgot-password', component: ForgotPasswordComponent },
-{ path: 'reset-password', component: ResetPasswordComponent },
+  { path: 'reset-password', component: ResetPasswordComponent },
 
   {
     path: 'maintenance',

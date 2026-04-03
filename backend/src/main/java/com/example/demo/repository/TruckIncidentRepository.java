@@ -1,10 +1,15 @@
 package com.example.demo.repository;
 
+
 import com.example.demo.entity.Mission;
+
 import com.example.demo.entity.Truck;
 import com.example.demo.entity.TruckIncident;
 import com.example.demo.entity.TruckIncident.IncidentStatus;
 import com.example.demo.entity.TruckIncident.IncidentType;
+
+import com.example.demo.entity.Mission;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -17,7 +22,9 @@ public interface TruckIncidentRepository extends JpaRepository<TruckIncident, Lo
 
     List<TruckIncident> findByStatus(IncidentStatus status);
 
+
     List<TruckIncident> findByStatusIn(List<IncidentStatus> statuses);
+
 
     List<TruckIncident> findByTruckAndStatus(Truck truck, IncidentStatus status);
 

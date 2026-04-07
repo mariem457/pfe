@@ -14,6 +14,16 @@ class RoutingBinDto(BaseModel):
     fillLevel: float
     predictedPriority: float
     estimatedLoadKg: float
+    predictedHoursToFull: Optional[float] = None
+    mandatory: Optional[bool] = None
+
+    # Phase B fields
+    decisionCategory: Optional[str] = None
+    decisionReason: Optional[str] = None
+    feedbackScore: Optional[float] = None
+    postponementCount: Optional[int] = None
+    opportunistic: Optional[bool] = None
+    reportable: Optional[bool] = None
 
 
 class RoutingTruckDto(BaseModel):
@@ -21,7 +31,7 @@ class RoutingTruckDto(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     remainingCapacityKg: float
-    fuelLevelLiters: float
+    fuelLevelLiters: Optional[float] = None
     fuelConsumptionPerKm: Optional[float] = None
     status: Optional[str] = None
 
@@ -84,3 +94,4 @@ class RoutingResponseDto(BaseModel):
     excludedTrucks: List[ExcludedTruckDto] = Field(default_factory=list)
     warningTrucks: List[WarningTruckDto] = Field(default_factory=list)
     recommendedFuelStations: List[RecommendedFuelStationDto] = Field(default_factory=list)
+    droppedBinIds: List[int] = Field(default_factory=list)

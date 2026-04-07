@@ -9,10 +9,100 @@ from models.routing_models import (
     RoutingStopDto,
     RouteCoordinateDto
 )
-from services.fuel_service import compute_max_distance_from_fuel
 from services.incident_service import filter_eligible_trucks
 from services.matrix_service import create_matrices
 from services.osrm_service import call_osrm_route
+
+
+DEFAULT_BIN_DROPOUT_PENALTY = 10000
+MANDATORY_BASE_PENALTY = 100000
+OPPORTUNISTIC_BASE_PENALTY = 30000
+REPORTABLE_BASE_PENALTY = 8000
+
+
+def normalize_category(bin_dto) -> str:
+    category = (bin_dto.decisionCategory or "").upper()
+
+    if category in {"MANDATORY", "OPPORTUNISTIC", "REPORTABLE"}:
+        return category
+
+    if bool(bin_dto.mandatory):
+        return "MANDATORY"
+
+    if bool(bin_dto.opportunistic):
+        return "OPPORTUNISTIC"
+
+    if bool(bin_dto.reportable):
+        return "REPORTABLE"
+
+    return "UNKNOWN"
+
+
+def compute_drop_penalty(bin_dto) -> int:
+    priority = float(bin_dto.predictedPriority or 0.0)
+    predicted_hours = bin_dto.predictedHoursToFull
+    feedback_score = float(bin_dto.feedbackScore or 0.0)
+    postponement_count = int(bin_dto.postponementCount or 0)
+    category = normalize_category(bin_dto)
+
+    # 1) Mandatory bins: extremely expensive to drop
+    if category == "MANDATORY":
+        penalty = MANDATORY_BASE_PENALTY
+
+        penalty += int(priority * 10000)
+        penalty += int(feedback_score * 3000)
+        penalty += postponement_count * 1500
+
+        if predicted_hours is not None:
+            if predicted_hours <= 6:
+                penalty += 30000
+            elif predicted_hours <= 12:
+                penalty += 15000
+
+        return penalty
+
+    # 2) Opportunistic bins: medium penalty
+    if category == "OPPORTUNISTIC":
+        penalty = OPPORTUNISTIC_BASE_PENALTY
+        penalty += int(priority * 12000)
+        penalty += int(feedback_score * 1500)
+        penalty += postponement_count * 800
+
+        if predicted_hours is not None:
+            if predicted_hours <= 12:
+                penalty += 10000
+            elif predicted_hours <= 24:
+                penalty += 5000
+
+        return penalty
+
+    # 3) Reportable bins: lower penalty
+    if category == "REPORTABLE":
+        penalty = REPORTABLE_BASE_PENALTY
+        penalty += int(priority * 5000)
+        penalty += int(feedback_score * 500)
+        penalty += postponement_count * 300
+        return penalty
+
+    # 4) Fallback old behavior
+    mandatory = bool(bin_dto.mandatory) if bin_dto.mandatory is not None else False
+
+    if mandatory:
+        return 100000
+
+    base_penalty = DEFAULT_BIN_DROPOUT_PENALTY + int(priority * 20000)
+
+    if predicted_hours is None:
+        return base_penalty
+
+    if predicted_hours <= 6:
+        return base_penalty + 40000
+    if predicted_hours <= 12:
+        return base_penalty + 25000
+    if predicted_hours <= 24:
+        return base_penalty + 10000
+
+    return base_penalty
 
 
 def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
@@ -30,7 +120,7 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         request.activeIncidents
     )
 
-    print(f"Eligible trucks after fuel/status/incident filtering: {len(eligible_trucks)}", flush=True)
+    print(f"Eligible trucks after status/incident filtering: {len(eligible_trucks)}", flush=True)
     print(f"Excluded trucks count: {len(excluded_trucks)}", flush=True)
     print(f"Warning trucks count: {len(warning_trucks)}", flush=True)
 
@@ -41,30 +131,15 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             matrixSource="NONE",
             excludedTrucks=excluded_trucks,
             warningTrucks=warning_trucks,
-            recommendedFuelStations=[]
+            recommendedFuelStations=[],
+            droppedBinIds=[]
         )
 
     distance_matrix, duration_matrix, matrix_source = create_matrices(request)
 
-    if len(distance_matrix) > 1 and len(distance_matrix[0]) > 1:
-        print(f"Distance depot -> first point (m): {distance_matrix[0][1]}", flush=True)
-        print(f"Duration depot -> first point (min): {duration_matrix[0][1]}", flush=True)
-
-    for b in request.bins:
-        print(
-            f"Bin {b.id} -> fillLevel={b.fillLevel}, estimatedLoadKg={b.estimatedLoadKg}",
-            flush=True
-        )
-
     demands = [0] + [max(1, int(round(b.estimatedLoadKg or 0))) for b in request.bins]
     capacities = [int(t.remainingCapacityKg) for t in eligible_trucks]
-    max_distances = [compute_max_distance_from_fuel(t) for t in eligible_trucks]
     max_route_minutes = [DEFAULT_MAX_ROUTE_MINUTES for _ in eligible_trucks]
-
-    print(f"Demands: {demands}", flush=True)
-    print(f"Vehicle capacities: {capacities}", flush=True)
-    print(f"Max distances from fuel (m): {max_distances}", flush=True)
-    print(f"Max route durations (min): {max_route_minutes}", flush=True)
 
     manager = pywrapcp.RoutingIndexManager(
         len(distance_matrix),
@@ -91,7 +166,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         node = manager.IndexToNode(from_i)
         return 0 if node == 0 else 1
 
-    distance_transit = routing.RegisterTransitCallback(distance_callback)
     duration_transit = routing.RegisterTransitCallback(duration_callback)
     demand = routing.RegisterUnaryTransitCallback(demand_callback)
     stop_transit = routing.RegisterUnaryTransitCallback(stop_callback)
@@ -104,14 +178,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         capacities,
         True,
         "Capacity"
-    )
-
-    routing.AddDimensionWithVehicleCapacity(
-        distance_transit,
-        0,
-        max_distances,
-        True,
-        "Distance"
     )
 
     routing.AddDimensionWithVehicleCapacity(
@@ -140,11 +206,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     target_stops_per_truck = math.ceil(len(request.bins) / len(eligible_trucks))
     soft_upper_bound = target_stops_per_truck + 1
 
-    print(
-        f"Balancing target -> targetStopsPerTruck={target_stops_per_truck}, softUpperBound={soft_upper_bound}",
-        flush=True
-    )
-
     for v in range(len(eligible_trucks)):
         end_index = routing.End(v)
 
@@ -156,6 +217,28 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
         routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(end_index))
         routing.AddVariableMinimizedByFinalizer(stops_dimension.CumulVar(end_index))
+
+    for node in range(1, len(distance_matrix)):
+        bin_dto = request.bins[node - 1]
+        penalty = compute_drop_penalty(bin_dto)
+        category = normalize_category(bin_dto)
+
+        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+
+        print(
+            f"Optional bin configured -> "
+            f"binId={bin_dto.id}, "
+            f"node={node}, "
+            f"category={category}, "
+            f"reason={bin_dto.decisionReason}, "
+            f"priority={bin_dto.predictedPriority}, "
+            f"predictedHoursToFull={bin_dto.predictedHoursToFull}, "
+            f"feedbackScore={bin_dto.feedbackScore}, "
+            f"postponementCount={bin_dto.postponementCount}, "
+            f"mandatory={bin_dto.mandatory}, "
+            f"dropPenalty={penalty}",
+            flush=True
+        )
 
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
@@ -172,10 +255,12 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             matrixSource=matrix_source,
             excludedTrucks=excluded_trucks,
             warningTrucks=warning_trucks,
-            recommendedFuelStations=[]
+            recommendedFuelStations=[],
+            droppedBinIds=[b.id for b in request.bins]
         )
 
     missions = []
+    served_bin_ids = set()
 
     for v in range(len(eligible_trucks)):
         index = routing.Start(v)
@@ -193,6 +278,7 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
             if to_node != 0:
                 selected_bin = request.bins[to_node - 1]
+                served_bin_ids.add(selected_bin.id)
 
                 stops.append(
                     RoutingStopDto(
@@ -205,7 +291,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
             total_dist += distance_matrix[from_node][to_node]
             total_time += duration_matrix[from_node][to_node]
-
             index = next_index
 
         if stops:
@@ -218,10 +303,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
                     RouteCoordinateDto(lat=p["lat"], lng=p["lng"])
                     for p in raw_route
                 ]
-                print(
-                    f"Route geometry loaded for truck {eligible_trucks[v].id}: {len(route_coordinates)} points",
-                    flush=True
-                )
             except Exception as e:
                 print(
                     f"OSRM route geometry failed for truck {eligible_trucks[v].id}: {e}",
@@ -237,20 +318,19 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             )
             missions.append(mission)
 
-            print(
-                f"Mission created for truck {eligible_trucks[v].id}: "
-                f"distance={mission.totalDistanceKm} km, "
-                f"duration={mission.totalDurationMinutes} min, "
-                f"stops={len(mission.stops)}, "
-                f"geometryPoints={len(mission.routeCoordinates)}",
-                flush=True
-            )
+    all_bin_ids = {b.id for b in request.bins}
+    dropped_bin_ids = sorted(all_bin_ids - served_bin_ids)
 
     print(f"Returned missions: {len(missions)}", flush=True)
+    print(f"Served bins count: {len(served_bin_ids)}", flush=True)
+    print(f"Dropped bins count: {len(dropped_bin_ids)}", flush=True)
+    print(f"Dropped bin ids: {dropped_bin_ids}", flush=True)
+
     return RoutingResponseDto(
         missions=missions,
         matrixSource=matrix_source,
         excludedTrucks=excluded_trucks,
         warningTrucks=warning_trucks,
-        recommendedFuelStations=[]
+        recommendedFuelStations=[],
+        droppedBinIds=dropped_bin_ids
     )

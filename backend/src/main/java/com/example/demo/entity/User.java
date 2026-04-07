@@ -21,7 +21,11 @@ public class User {
     private String passwordHash;
 
     @Column(length = 20, nullable = false)
-    private String role; // ADMIN / MUNICIPALITY / DRIVER
+    private String role;
+
+    @Column(name = "account_status", length = 20, nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AccountStatus accountStatus = AccountStatus.APPROVED;
 
     @Column(name = "is_enabled", nullable = false)
     private Boolean isEnabled = true;
@@ -46,6 +50,7 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
     @Column(name = "must_change_password", nullable = false)
     private Boolean mustChangePassword = false;
 
@@ -57,17 +62,17 @@ public class User {
 
     @Column(name = "token_version", nullable = false)
     private Integer tokenVersion = 0;
-   
 
     @PrePersist
     public void prePersist() {
-        var now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
         if (this.isEnabled == null) this.isEnabled = true;
         if (this.mustChangePassword == null) this.mustChangePassword = false;
         if (this.failedLoginAttempts == null) this.failedLoginAttempts = 0;
         if (this.tokenVersion == null) this.tokenVersion = 0;
+        if (this.accountStatus == null) this.accountStatus = AccountStatus.APPROVED;
     }
 
     @PreUpdate
@@ -89,6 +94,9 @@ public class User {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public AccountStatus getAccountStatus() { return accountStatus; }
+    public void setAccountStatus(AccountStatus accountStatus) { this.accountStatus = accountStatus; }
 
     public Boolean getIsEnabled() { return isEnabled; }
     public void setIsEnabled(Boolean enabled) { isEnabled = enabled; }
@@ -113,6 +121,7 @@ public class User {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     public Boolean getMustChangePassword() { return mustChangePassword; }
     public void setMustChangePassword(Boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
 
@@ -123,5 +132,5 @@ public class User {
     public void setLockedUntil(OffsetDateTime lockedUntil) { this.lockedUntil = lockedUntil; }
 
     public Integer getTokenVersion() { return tokenVersion; }
-    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }}
-  
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
+}

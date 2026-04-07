@@ -10,14 +10,17 @@
 
     <form (ngSubmit)="login()">
 
-      <label>Email ou Username</label>
+      <label>Email</label>
       <div class="input-group">
         <span class="material-icons">person</span>
         <input
-          type="text"
-          name="usernameOrEmail"
-          [(ngModel)]="usernameOrEmail"
-          placeholder="admin@ville.gov ou admin"
+          type="email"
+          name="email"
+          [ngModel]="email"
+          (ngModelChange)="email = $event"
+          (input)="email = $any($event.target).value"
+          placeholder="admin@ville.gov"
+          autocomplete="email"
           required
         />
       </div>
@@ -29,8 +32,11 @@
         <input
           [type]="showPassword ? 'text' : 'password'"
           name="password"
-          [(ngModel)]="password"
+          [ngModel]="password"
+          (ngModelChange)="password = $event"
+          (input)="password = $any($event.target).value"
           placeholder="•••••••"
+          autocomplete="current-password"
           required
         />
 
@@ -51,7 +57,8 @@
           <input
             type="checkbox"
             name="rememberMe"
-            [(ngModel)]="rememberMe"
+            [ngModel]="rememberMe"
+            (ngModelChange)="rememberMe = $event"
           />
           <span>Se souvenir de moi</span>
         </label>

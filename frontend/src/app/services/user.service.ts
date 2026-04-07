@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
+export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface UserAdminListResponse {
   id: number;
   username: string;
@@ -12,6 +14,7 @@ export interface UserAdminListResponse {
   role: string;
   isEnabled: boolean;
   lastLoginAt?: string;
+  accountStatus?: AccountStatus;
 }
 
 export interface UserStatsResponse {
@@ -27,6 +30,7 @@ export interface CreateDriverRequest {
   email: string;
   phone: string;
   vehicleCode: string;
+  password: string;
 }
 
 export interface CreateDriverResponse {
@@ -34,7 +38,7 @@ export interface CreateDriverResponse {
   driverId: number;
   username: string;
   role: string;
-  tempPassword: string;
+  accountStatus: string;
 }
 
 export interface CreateUserRequest {
@@ -52,6 +56,7 @@ export interface CreateUserRequest {
 export class UserService {
   private baseUrl = `${environment.apiUrl}/api/users`;
   private driversUrl = `${environment.apiUrl}/api/drivers`;
+  private authUrl = `${environment.apiUrl}/api/auth`;
 
   constructor(private http: HttpClient) {}
 
@@ -69,6 +74,14 @@ export class UserService {
 
   createUser(payload: CreateUserRequest): Observable<any> {
     return this.http.post<any>(this.baseUrl, payload);
+  }
+
+  approveDriver(userId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/approve-driver`, { userId });
+  }
+
+  rejectDriver(userId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/reject-driver`, { userId });
   }
 
   updateStatus(id: number, isEnabled: boolean): Observable<UserAdminListResponse> {

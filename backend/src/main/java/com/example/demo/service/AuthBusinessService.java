@@ -1,10 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AuthResponse;
+import com.example.demo.dto.DriverRegisterRequest;
 import com.example.demo.dto.ForgotPasswordRequest;
 import com.example.demo.dto.ResetPasswordByCodeRequest;
 import com.example.demo.dto.ResetPasswordRequest;
 import com.example.demo.dto.VerifyResetCodeRequest;
+import com.example.demo.entity.AccountStatus;
 import com.example.demo.entity.Driver;
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.entity.RefreshToken;
@@ -54,6 +56,72 @@ public class AuthBusinessService {
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.smsService = smsService;
+    }
+
+    public void registerDriver(DriverRegisterRequest request) {
+        if (userRepo.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Nom d'utilisateur déjà utilisé.");
+        }
+
+        if (userRepo.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email déjà utilisé.");
+        }
+
+        User user = new User();
+        user.setUsername(request.getUsername().trim());
+        user.setEmail(request.getEmail().trim());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole("DRIVER");
+        user.setMustChangePassword(false);
+        user.setIsEnabled(true);
+        user.setAccountStatus(AccountStatus.PENDING);
+
+        User savedUser = userRepo.save(user);
+
+        Driver driver = new Driver();
+        driver.setUser(savedUser);
+        driver.setFullName(request.getFullName().trim());
+        driver.setPhone(request.getPhone().trim());
+
+        driverRepository.save(driver);
+    }
+
+    public void approveDriver(Long userId) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
+
+        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("Cet utilisateur n'est pas un chauffeur.");
+        }
+
+        user.setAccountStatus(AccountStatus.APPROVED);
+        userRepo.save(user);
+
+        Driver driver = driverRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
+
+        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
+            smsService.sendAccountApproved(driver.getPhone());
+        }
+    }
+
+    public void rejectDriver(Long userId) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
+
+        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("Cet utilisateur n'est pas un chauffeur.");
+        }
+
+        user.setAccountStatus(AccountStatus.REJECTED);
+        userRepo.save(user);
+
+        Driver driver = driverRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
+
+        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
+            smsService.sendAccountRejected(driver.getPhone());
+        }
     }
 
     public RefreshToken createRefreshToken(User user, boolean rememberMe) {
@@ -112,7 +180,7 @@ public class AuthBusinessService {
 
         passwordResetTokenRepository.deleteByUser(user);
 
-        if (user.getRole() != null && "DRIVER".equals(user.getRole().toString())) {
+        if ("DRIVER".equalsIgnoreCase(user.getRole())) {
             Driver driver = driverRepository.findByUser_Id(user.getId()).orElse(null);
 
             if (driver == null || driver.getPhone() == null || driver.getPhone().isBlank()) {
@@ -157,7 +225,7 @@ public class AuthBusinessService {
 
         User user = resetCode.getUser();
 
-        if (user.getRole() == null || !"DRIVER".equals(user.getRole().toString())) {
+        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
             throw new RuntimeException("Réinitialisation par code non autorisée pour ce compte.");
         }
 
@@ -201,7 +269,7 @@ public class AuthBusinessService {
 
         User user = resetCode.getUser();
 
-        if (user.getRole() == null || !"DRIVER".equals(user.getRole().toString())) {
+        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
             throw new RuntimeException("Réinitialisation par code non autorisée pour ce compte.");
         }
 

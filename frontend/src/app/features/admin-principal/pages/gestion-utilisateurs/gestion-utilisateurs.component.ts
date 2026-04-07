@@ -1,8 +1,13 @@
 import { Component, OnInit } from '@angular/core';
-import { UserAdminListResponse, UserService, UserStatsResponse } from '../../../../services/user.service';
+import {
+  AccountStatus,
+  UserAdminListResponse,
+  UserService,
+  UserStatsResponse
+} from '../../../../services/user.service';
 
-type FiltreUtilisateur = 'Tous' | 'Actifs' | 'Inactifs' | 'Chauffeurs';
-type StatutUtilisateur = 'Actif' | 'Inactif';
+type FiltreUtilisateur = 'Tous' | 'Actifs' | 'Inactifs' | 'Chauffeurs' | 'En attente';
+type StatutUtilisateur = 'Actif' | 'Inactif' | 'En attente' | 'Refusé';
 type RoleUtilisateur = 'Administrateur' | 'Chauffeur' | 'Superviseur' | 'Observateur';
 
 interface Utilisateur {
@@ -14,6 +19,8 @@ interface Utilisateur {
   statut: StatutUtilisateur;
   role: RoleUtilisateur;
   derniereActivite: string;
+  accountStatus?: AccountStatus;
+  isEnabled: boolean;
 }
 
 @Component({
@@ -25,11 +32,12 @@ export class GestionUtilisateursComponent implements OnInit {
   termeRecherche: string = '';
   filtreSelectionne: FiltreUtilisateur = 'Tous';
 
-  filtres: FiltreUtilisateur[] = ['Tous', 'Actifs', 'Inactifs', 'Chauffeurs'];
+  filtres: FiltreUtilisateur[] = ['Tous', 'Actifs', 'Inactifs', 'Chauffeurs', 'En attente'];
 
   utilisateurs: Utilisateur[] = [];
   loading = false;
   errorMessage = '';
+  actionLoadingId: number | null = null;
 
   stats: UserStatsResponse = {
     totalUsers: 0,
@@ -80,10 +88,26 @@ export class GestionUtilisateursComponent implements OnInit {
       nom: user.fullName || user.username || 'Utilisateur',
       courriel: user.email || '--',
       telephone: user.phone || '--',
-      statut: user.isEnabled ? 'Actif' : 'Inactif',
+      statut: this.mapStatut(user),
       role: this.mapRole(user.role),
-      derniereActivite: this.formatDerniereActivite(user.lastLoginAt)
+      derniereActivite: this.formatDerniereActivite(user.lastLoginAt),
+      accountStatus: user.accountStatus,
+      isEnabled: user.isEnabled
     };
+  }
+
+  private mapStatut(user: UserAdminListResponse): StatutUtilisateur {
+    const role = (user.role || '').toUpperCase();
+    const accountStatus = (user.accountStatus || '').toUpperCase();
+
+    if (role === 'DRIVER') {
+      if (accountStatus === 'PENDING') return 'En attente';
+      if (accountStatus === 'REJECTED') return 'Refusé';
+      if (accountStatus === 'APPROVED' && user.isEnabled) return 'Actif';
+      return 'Inactif';
+    }
+
+    return user.isEnabled ? 'Actif' : 'Inactif';
   }
 
   private getInitiales(nom: string): string {
@@ -132,6 +156,62 @@ export class GestionUtilisateursComponent implements OnInit {
     this.filtreSelectionne = filtre;
   }
 
+  approveDriver(utilisateur: Utilisateur): void {
+    if (!this.peutEtreValide(utilisateur)) {
+      return;
+    }
+
+    this.actionLoadingId = utilisateur.id;
+    this.errorMessage = '';
+
+    this.userService.approveDriver(utilisateur.id).subscribe({
+      next: () => {
+        this.actionLoadingId = null;
+        this.chargerUtilisateurs();
+        this.chargerStats();
+      },
+      error: (err) => {
+        console.error('Erreur approve driver', err);
+        this.errorMessage = 'Impossible de valider ce chauffeur.';
+        this.actionLoadingId = null;
+      }
+    });
+  }
+
+  rejectDriver(utilisateur: Utilisateur): void {
+    if (!this.peutEtreRefuse(utilisateur)) {
+      return;
+    }
+
+    this.actionLoadingId = utilisateur.id;
+    this.errorMessage = '';
+
+    this.userService.rejectDriver(utilisateur.id).subscribe({
+      next: () => {
+        this.actionLoadingId = null;
+        this.chargerUtilisateurs();
+        this.chargerStats();
+      },
+      error: (err) => {
+        console.error('Erreur reject driver', err);
+        this.errorMessage = 'Impossible de refuser ce chauffeur.';
+        this.actionLoadingId = null;
+      }
+    });
+  }
+
+  peutEtreValide(utilisateur: Utilisateur): boolean {
+    return utilisateur.role === 'Chauffeur' && utilisateur.accountStatus === 'PENDING';
+  }
+
+  peutEtreRefuse(utilisateur: Utilisateur): boolean {
+    return utilisateur.role === 'Chauffeur' && utilisateur.accountStatus === 'PENDING';
+  }
+
+  estEnCoursAction(utilisateur: Utilisateur): boolean {
+    return this.actionLoadingId === utilisateur.id;
+  }
+
   get nombreTotalUtilisateurs(): number {
     return this.stats.totalUsers;
   }
@@ -163,13 +243,18 @@ export class GestionUtilisateursComponent implements OnInit {
       resultat = resultat.filter(utilisateur => utilisateur.role === 'Chauffeur');
     }
 
+    if (this.filtreSelectionne === 'En attente') {
+      resultat = resultat.filter(utilisateur => utilisateur.statut === 'En attente');
+    }
+
     if (this.termeRecherche.trim()) {
       const terme = this.termeRecherche.toLowerCase();
       resultat = resultat.filter(utilisateur =>
         utilisateur.nom.toLowerCase().includes(terme) ||
         utilisateur.courriel.toLowerCase().includes(terme) ||
         utilisateur.telephone.toLowerCase().includes(terme) ||
-        utilisateur.role.toLowerCase().includes(terme)
+        utilisateur.role.toLowerCase().includes(terme) ||
+        utilisateur.statut.toLowerCase().includes(terme)
       );
     }
 
@@ -184,6 +269,9 @@ export class GestionUtilisateursComponent implements OnInit {
   }
 
   obtenirClasseStatut(statut: StatutUtilisateur): string {
-    return statut === 'Actif' ? 'statut-actif' : 'statut-inactif';
+    if (statut === 'Actif') return 'statut-actif';
+    if (statut === 'En attente') return 'statut-en-attente';
+    if (statut === 'Refusé') return 'statut-refuse';
+    return 'statut-inactif';
   }
 }

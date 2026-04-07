@@ -227,14 +227,16 @@ public class BinService {
         telemetry.setSource(src);
 
         BinTelemetry saved = binTelemetryRepository.save(telemetry);
+        binTelemetryRepository.flush();
+
         System.out.println("Telemetry saved in DB id=" + saved.getId());
 
         BinTelemetry previousTelemetry = previousOpt.orElse(null);
 
         BinTelemetry secondPreviousTelemetry = previousTelemetry != null
                 ? binTelemetryRepository
-                        .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
-                        .orElse(null)
+                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
+                .orElse(null)
                 : null;
 
         double hour = saved.getTimestamp()
@@ -289,7 +291,7 @@ public class BinService {
 
             binPriorityService.predictAndSave(
                     bin.getId(),
-                    saved.getId(),
+                    saved,
                     hour,
                     saved.getFillLevel(),
                     fillDelta,

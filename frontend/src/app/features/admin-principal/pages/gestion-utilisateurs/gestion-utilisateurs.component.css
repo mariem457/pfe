@@ -557,3 +557,92 @@ body.dark-mode .role-observateur {
     gap: 8px;
   }
 }
+.bloc-actions {
+  display: flex;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.btn-approve,
+.btn-reject {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-approve {
+  background: #22c55e;
+  color: white;
+}
+
+.btn-reject {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.statut-en-attente {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.statut-refuse {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.bloc-actions {
+  display: flex;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.btn-approve,
+.btn-reject {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.btn-approve {
+  background: #22c55e;
+  color: white;
+}
+
+.btn-approve:hover {
+  background: #16a34a;
+}
+
+.btn-reject {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-reject:hover {
+  background: #dc2626;
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.statut-en-attente {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.statut-refuse {
+  background: #fee2e2;
+  color: #b91c1c;
+}

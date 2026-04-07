@@ -53,10 +53,6 @@
     </div>
 
     <div class="zone-recherche">
-      <button class="bouton-ajout" routerLink="/admin/users/create">
-        + Ajouter un utilisateur
-      </button>
-
       <div class="champ-recherche">
         <span class="icone-recherche">⌕</span>
         <input
@@ -122,6 +118,24 @@
           <span class="derniere-activite">
             {{ utilisateur.derniereActivite }}
           </span>
+        </div>
+
+        <div class="bloc-actions" *ngIf="utilisateur.role === 'Chauffeur'">
+          <button
+            class="btn-approve"
+            *ngIf="peutEtreValide(utilisateur)"
+            (click)="approveDriver(utilisateur)"
+            [disabled]="estEnCoursAction(utilisateur)">
+            {{ estEnCoursAction(utilisateur) ? '...' : 'Approuver' }}
+          </button>
+
+          <button
+            class="btn-reject"
+            *ngIf="peutEtreRefuse(utilisateur)"
+            (click)="rejectDriver(utilisateur)"
+            [disabled]="estEnCoursAction(utilisateur)">
+            {{ estEnCoursAction(utilisateur) ? '...' : 'Refuser' }}
+          </button>
         </div>
 
         <button class="bouton-menu">

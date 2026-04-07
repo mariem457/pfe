@@ -58,15 +58,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             Claims claims = jwtService.extractClaims(token);
-            String username = claims.getSubject();
+            String email = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                User user = userRepo.findByUsername(username)
+                User user = userRepo.findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("User not found"));
 
-                boolean locked = user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now());
+                boolean locked = user.getLockedUntil() != null
+                        && user.getLockedUntil().isAfter(OffsetDateTime.now());
 
                 if (!Boolean.TRUE.equals(user.getIsEnabled()) || locked || !jwtService.isTokenValid(token, user)) {
                     SecurityContextHolder.clearContext();
@@ -75,7 +76,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 String normalizedRole =
                         (role != null && role.startsWith("ROLE_"))

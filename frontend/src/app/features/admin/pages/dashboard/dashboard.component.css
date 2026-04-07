@@ -22,6 +22,10 @@
   color: var(--text-color);
 }
 
+.it-overviewTitle--small {
+  font-size: 26px;
+}
+
 .it-overviewSub {
   margin-top: 8px;
   color: var(--muted-color);
@@ -542,7 +546,6 @@
   flex-wrap: wrap;
 }
 
-/* line chart */
 .it-gridLines line {
   stroke: var(--chart-grid);
   stroke-width: 1;
@@ -570,7 +573,6 @@
   font-weight: 600;
 }
 
-/* bar chart */
 .it-axisBase {
   stroke: var(--axis-base);
   stroke-width: 1;
@@ -587,7 +589,6 @@
   fill: var(--text-color);
 }
 
-/* donut */
 .it-donutRings {
   transform: rotate(-90deg);
   transform-origin: 110px 110px;
@@ -648,6 +649,206 @@
   line-height: 1.4;
 }
 
+/* ================= SMART ROUTING ================= */
+.it-srSection {
+  display: grid;
+  gap: 18px;
+}
+
+.it-srKpiRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.it-srCard {
+  min-height: 132px;
+}
+
+.it-srCard__label {
+  color: var(--muted-color);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.it-srCard__value {
+  margin-top: 16px;
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--text-color);
+  line-height: 1;
+}
+
+.it-srCard__badgeWrap {
+  margin-top: 18px;
+}
+
+.it-srGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.it-srDecisionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.it-srInfoCard {
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.it-srInfoLabel {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-color);
+}
+
+.it-srInfoValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-color);
+  line-height: 1.45;
+}
+
+.it-srStrategy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.it-srStrategy--full {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.it-srStrategy--mandatory {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.it-srStrategy--refuel {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.it-srStrategy--skip {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.it-srStrategy--default {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.it-srListCard {
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 15px;
+  margin-top: 12px;
+}
+
+.it-srListCard__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.it-srListCard__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.it-srListCard__score {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.it-srListCard__meta {
+  margin-top: 10px;
+  color: var(--muted-color);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.it-srTableWrap,
+.it-srMiniTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.it-srTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+.it-srTable--compact {
+  min-width: 520px;
+}
+
+.it-srTable thead th {
+  text-align: left;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted-color);
+}
+
+.it-srTable tbody td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+  color: var(--text-color);
+  vertical-align: middle;
+}
+
+.it-srTinyBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.it-srTinyBadge.yes {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.it-srTinyBadge.no {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
 /* ================= ICONS ================= */
 .it-mi {
   font-size: 26px;
@@ -683,6 +884,14 @@
   .it-chartsRow {
     grid-template-columns: 1fr;
   }
+
+  .it-srKpiRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .it-srGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -697,10 +906,18 @@
   .it-detailItem--full {
     grid-column: auto;
   }
+
+  .it-srDecisionGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
   .it-kpiRow {
+    grid-template-columns: 1fr;
+  }
+
+  .it-srKpiRow {
     grid-template-columns: 1fr;
   }
 
@@ -724,5 +941,226 @@
   .it-primaryBtn {
     width: 100%;
     justify-content: center;
+  }
+}
+/* ================= SMART ROUTING ================= */
+.it-srSection {
+  display: grid;
+  gap: 18px;
+}
+
+.it-srKpiRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.it-srCard {
+  min-height: 132px;
+}
+
+.it-srCard__label {
+  color: var(--muted-color);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.it-srCard__value {
+  margin-top: 16px;
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--text-color);
+  line-height: 1;
+}
+
+.it-srCard__badgeWrap {
+  margin-top: 18px;
+}
+
+.it-srGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.it-srDecisionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.it-srInfoCard {
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.it-srInfoLabel {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-color);
+}
+
+.it-srInfoValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-color);
+  line-height: 1.45;
+}
+
+.it-srStrategy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.it-srStrategy--full {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.it-srStrategy--mandatory {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.it-srStrategy--refuel {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.it-srStrategy--skip {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.it-srStrategy--default {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.it-srListCard {
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 15px;
+  margin-top: 12px;
+}
+
+.it-srListCard__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.it-srListCard__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.it-srListCard__score {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.it-srListCard__meta {
+  margin-top: 10px;
+  color: var(--muted-color);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.it-srTableWrap,
+.it-srMiniTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.it-srTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+.it-srTable--compact {
+  min-width: 520px;
+}
+
+.it-srTable thead th {
+  text-align: left;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted-color);
+}
+
+.it-srTable tbody td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+  color: var(--text-color);
+  vertical-align: middle;
+}
+
+.it-srTinyBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.it-srTinyBadge.yes {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.it-srTinyBadge.no {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+@media (max-width: 1300px) {
+  .it-srKpiRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .it-srGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .it-srDecisionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .it-srKpiRow {
+    grid-template-columns: 1fr;
   }
 }

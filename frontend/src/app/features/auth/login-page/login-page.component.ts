@@ -12,7 +12,7 @@ import { AuthService } from '../../../services/auth.service';
   styleUrl: './login-page.component.css'
 })
 export class LoginPageComponent {
-  usernameOrEmail = '';
+  email = '';
   password = '';
   rememberMe = true;
   showPassword = false;
@@ -34,8 +34,21 @@ export class LoginPageComponent {
   login(): void {
     this.errorMessage = '';
 
+    console.log('email =', this.email);
+    console.log('password =', this.password);
+
+    if (!this.email || !this.email.trim()) {
+      this.errorMessage = "L'email est obligatoire.";
+      return;
+    }
+
+    if (!this.password || !this.password.trim()) {
+      this.errorMessage = 'Le mot de passe est obligatoire.';
+      return;
+    }
+
     this.authService.login(
-      this.usernameOrEmail.trim(),
+      this.email.trim(),
       this.password,
       this.rememberMe
     ).subscribe({
@@ -85,8 +98,9 @@ export class LoginPageComponent {
         }
       },
       error: (err) => {
+        console.error('Login error:', err);
         this.errorMessage =
-          err?.error?.message || 'Login failed. Vérifiez vos identifiants.';
+          err?.error?.message || 'Login failed. Vérifiez votre email et votre mot de passe.';
       }
     });
   }

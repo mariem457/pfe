@@ -43,67 +43,46 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/error").permitAll()
-
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/refresh",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
-                                "/api/auth/reset-password-by-code",
-                                "/api/auth/verify-reset-code"
-                        ).permitAll()
-
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register-driver").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password-by-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/verify-reset-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/approve-driver").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/auth/reject-driver").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
 
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/truck-locations/**").permitAll()
+                        .requestMatchers("/api/truck-locations").permitAll()
+                        .requestMatchers("/api/telemetry/**").permitAll()
+                        .requestMatchers("/api/public-reports").permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/api/users/municipality").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/users/maintenance").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
-
-                        .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/security/**").hasRole("ADMIN")
 
-                        .requestMatchers("/api/telemetry/**").permitAll()
+                        .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+
                         .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
-
-                   
-                        .requestMatchers("/api/telemetry/**").permitAll()
-                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-
                         .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers(HttpMethod.DELETE, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/public-reports").permitAll()
-                        .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/uploads/**").permitAll()
-
 
                         .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
-                        .requestMatchers("/api/truck-locations/**").permitAll()
-
-
-                        // MISSIONS
-                        .requestMatchers("/api/missions/**")
-                        .hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
-                        .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/truck-locations/**").permitAll()
-                        
-
-                        .requestMatchers("/api/truck-locations").permitAll()
-
-                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
 
                         .anyRequest().authenticated()

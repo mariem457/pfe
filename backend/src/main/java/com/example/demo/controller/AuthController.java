@@ -1,11 +1,15 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.ApproveDriverRequest;
 import com.example.demo.dto.AuthResponse;
+import com.example.demo.dto.DriverRegisterRequest;
 import com.example.demo.dto.ForgotPasswordRequest;
 import com.example.demo.dto.LoginRequest;
+import com.example.demo.dto.RejectDriverRequest;
 import com.example.demo.dto.ResetPasswordByCodeRequest;
 import com.example.demo.dto.ResetPasswordRequest;
 import com.example.demo.dto.VerifyResetCodeRequest;
+import com.example.demo.entity.AccountStatus;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
@@ -55,9 +59,36 @@ public class AuthController {
         this.authBusinessService = authBusinessService;
     }
 
+    @PostMapping("/register-driver")
+    public ResponseEntity<?> registerDriver(@Valid @RequestBody DriverRegisterRequest request) {
+        authBusinessService.registerDriver(request);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Votre demande d'inscription a été envoyée. Elle sera validée par l'administrateur."
+        ));
+    }
+
+    @PostMapping("/approve-driver")
+    public ResponseEntity<?> approveDriver(@Valid @RequestBody ApproveDriverRequest request) {
+        authBusinessService.approveDriver(request.getUserId());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Compte chauffeur validé avec succès."
+        ));
+    }
+
+    @PostMapping("/reject-driver")
+    public ResponseEntity<?> rejectDriver(@Valid @RequestBody RejectDriverRequest request) {
+        authBusinessService.rejectDriver(request.getUserId());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Compte chauffeur refusé avec succès."
+        ));
+    }
+
     @PostMapping("/login")
     public AuthResponse login(
-            @RequestBody LoginRequest req,
+            @Valid @RequestBody LoginRequest req,
             HttpServletRequest request,
             HttpServletResponse response
     ) {
@@ -70,16 +101,23 @@ public class AuthController {
         try {
             Authentication auth = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            req.getUsernameOrEmail(),
+                            req.getEmail(),
                             req.getPassword()
                     )
             );
 
             String principal = auth.getName();
 
-            User user = userRepo.findByUsername(principal)
-                    .or(() -> userRepo.findByEmail(principal))
+            User user = userRepo.findByEmail(principal)
                     .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (user.getAccountStatus() == AccountStatus.PENDING) {
+                throw new RuntimeException("Votre compte est en attente de validation par l'administrateur.");
+            }
+
+            if (user.getAccountStatus() == AccountStatus.REJECTED) {
+                throw new RuntimeException("Votre compte a été refusé. Veuillez contacter l'administrateur.");
+            }
 
             user.setLastLoginAt(OffsetDateTime.now());
             userRepo.save(user);
@@ -88,14 +126,14 @@ public class AuthController {
                     "LOGIN_SUCCESS",
                     "Connexion",
                     "SUCCESS",
-                    user.getUsername(),
+                    user.getEmail(),
                     device,
                     ip,
                     "Localisation inconnue"
             );
 
             String token = jwtService.generateToken(
-                    user.getUsername(),
+                    user.getEmail(),
                     user.getRole(),
                     user.getTokenVersion()
             );
@@ -107,7 +145,7 @@ public class AuthController {
 
             Cookie cookie = new Cookie("refresh_token", refreshToken.getToken());
             cookie.setHttpOnly(true);
-            cookie.setSecure(false); // mettre true en production avec HTTPS
+            cookie.setSecure(false);
             cookie.setPath("/api/auth");
             cookie.setMaxAge(req.isRememberMe() ? 30 * 24 * 60 * 60 : 24 * 60 * 60);
             response.addCookie(cookie);
@@ -116,7 +154,7 @@ public class AuthController {
                     token,
                     user.getRole(),
                     user.getId(),
-                    user.getUsername(),
+                    user.getEmail(),
                     user.getMustChangePassword()
             );
 
@@ -125,7 +163,7 @@ public class AuthController {
                     "LOGIN_FAILED",
                     "Échec de connexion",
                     "FAILED",
-                    req.getUsernameOrEmail(),
+                    req.getEmail(),
                     device,
                     ip,
                     "Localisation inconnue"

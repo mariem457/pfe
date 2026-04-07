@@ -8,7 +8,6 @@ import com.example.demo.repository.BinPredictionRepository;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -63,10 +62,10 @@ public class BinPriorityServiceImpl implements BinPriorityService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public BinPrediction predictAndSave(
             Long binId,
-            Long telemetryId,
+            BinTelemetry telemetry,
             double hour,
             double fillLevel,
             double fillRate,
@@ -97,9 +96,11 @@ public class BinPriorityServiceImpl implements BinPriorityService {
 
         BinPrediction prediction = new BinPrediction();
         prediction.setBinId(binId);
-        prediction.setTelemetryId(telemetryId);
+        prediction.setTelemetry(telemetry);
         prediction.setPredictedFillNext(BigDecimal.valueOf(result.getPredictedFillNext()));
         prediction.setAlertStatus(result.getAlertStatus());
+        prediction.setPriorityScore(BigDecimal.valueOf(result.getPriorityScore()));
+        prediction.setShouldCollect(result.isShouldCollect());
         prediction.setActualFillNext(null);
         prediction.setErrorValue(null);
         prediction.setCreatedAt(OffsetDateTime.now());

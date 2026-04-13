@@ -1,5 +1,8 @@
 package com.example.demo.dto.routing;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class RoutingTruckDto {
 
     private Long id;
@@ -9,6 +12,7 @@ public class RoutingTruckDto {
     private Double fuelLevelLiters;
     private Double fuelConsumptionPerKm;
     private String status;
+    private List<String> supportedWasteTypes = new ArrayList<>();
 
     public RoutingTruckDto() {
     }
@@ -67,5 +71,13 @@ public class RoutingTruckDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public List<String> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<String> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes;
     }
 }

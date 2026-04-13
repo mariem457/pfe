@@ -6,6 +6,7 @@ public class RoutingRequestDto {
 
     private RoutingDepotDto depot;
     private String trafficMode;
+    private String currentRun;
     private List<RoutingBinDto> bins;
     private List<RoutingTruckDto> trucks;
     private List<RoutingIncidentDto> activeIncidents;
@@ -27,6 +28,14 @@ public class RoutingRequestDto {
 
     public void setTrafficMode(String trafficMode) {
         this.trafficMode = trafficMode;
+    }
+
+    public String getCurrentRun() {
+        return currentRun;
+    }
+
+    public void setCurrentRun(String currentRun) {
+        this.currentRun = currentRun;
     }
 
     public List<RoutingBinDto> getBins() {

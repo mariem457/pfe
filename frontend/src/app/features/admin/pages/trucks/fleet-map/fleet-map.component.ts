@@ -80,7 +80,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private trucksSub?: Subscription;
   private binsSub?: Subscription;
 
-  private mahdiaPolygon?: L.LatLng[];
+  private parisPolygon?: L.LatLng[];
   private pendingAddMarker?: L.Marker;
   private temporaryFocusMarker?: L.Marker;
 
@@ -123,38 +123,45 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   ) {}
 
   ngAfterViewInit(): void {
-    this.initMap();
+    setTimeout(() => {
+      this.initMap();
 
-    this.loadMahdiaBoundary()
-      .then(() => {
-        this.fitToMahdia();
-        this.lockMapToMahdia();
-      })
-      .catch((e) => console.error('GeoJSON error:', e))
-      .finally(() => {
-        if (this.showBins) {
-          this.loadBins();
-        }
+      this.loadParisBoundary()
+        .then(() => {
+          this.fitToParis();
+          this.lockMapToParis();
+        })
+        .catch((e) => console.error('GeoJSON error:', e))
+        .finally(() => {
+          if (this.showBins) {
+            this.loadBins();
+          }
 
-        if (this.showReports) {
-          this.loadReportsOnMap();
-        }
+          if (this.showReports) {
+            this.loadReportsOnMap();
+          }
 
-        if (this.showTrucks) {
-          this.startRealtime();
-        }
+          if (this.showTrucks) {
+            this.startRealtime();
+          }
 
-        if (this.allowAddBins) {
-          this.enableAddBinClick();
-          this.activateAddModeFromQuery();
-        }
+          if (this.allowAddBins) {
+            this.enableAddBinClick();
+            this.activateAddModeFromQuery();
+          }
 
-        this.renderMissionBins();
+          this.renderMissionBins();
 
-        setTimeout(() => {
-          this.applyPendingFocus();
-        }, 300);
-      });
+          setTimeout(() => {
+            this.applyPendingFocus();
+            this.map?.invalidateSize();
+          }, 300);
+        });
+
+      setTimeout(() => {
+        this.map?.invalidateSize();
+      }, 300);
+    }, 0);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -280,8 +287,20 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   }
 
   private initMap(): void {
+    const container = document.getElementById('fleetMap');
+
+    if (!container) {
+      console.error('Map container #fleetMap not found');
+      return;
+    }
+
+    if (this.map) {
+      this.map.remove();
+      this.map = undefined;
+    }
+
     this.map = L.map('fleetMap', {
-      center: [35.505, 11.062],
+      center: [48.840, 2.300],
       zoom: 13,
       minZoom: 12,
       maxZoom: 19
@@ -292,8 +311,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }).addTo(this.map);
   }
 
-  private async loadMahdiaBoundary(): Promise<void> {
-    const res = await fetch('geo/mahdia.geojson');
+  private async loadParisBoundary(): Promise<void> {
+    const res = await fetch('geo/paris-15.geojson');
     if (!res.ok) {
       throw new Error(`GeoJSON fetch failed ${res.status}`);
     }
@@ -310,7 +329,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       })
     }).addTo(this.map);
 
-    this.mahdiaPolygon = this.extractPolygonLatLngs(geojson);
+    this.parisPolygon = this.extractPolygonLatLngs(geojson);
   }
 
   private extractPolygonLatLngs(geojson: any): L.LatLng[] | undefined {
@@ -334,16 +353,16 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     return;
   }
 
-  private fitToMahdia(): void {
-    if (!this.map || !this.mahdiaPolygon?.length) return;
-    const bounds = L.latLngBounds(this.mahdiaPolygon);
+  private fitToParis(): void {
+    if (!this.map || !this.parisPolygon?.length) return;
+    const bounds = L.latLngBounds(this.parisPolygon);
     this.map.fitBounds(bounds, { padding: [20, 20] });
   }
 
-  private lockMapToMahdia(): void {
-    if (!this.map || !this.mahdiaPolygon?.length) return;
+  private lockMapToParis(): void {
+    if (!this.map || !this.parisPolygon?.length) return;
 
-    const bounds = L.latLngBounds(this.mahdiaPolygon);
+    const bounds = L.latLngBounds(this.parisPolygon);
     this.map.setMaxBounds(bounds.pad(0.02));
 
     const fittedZoom = this.map.getZoom();
@@ -363,8 +382,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
-      if (!this.isInsideMahdia(lat, lng)) {
-        alert('Choisis un point à l’intérieur de Mahdia');
+      if (!this.isInsideParis(lat, lng)) {
+        alert('Choisis un point à l’intérieur de Paris');
         return;
       }
 
@@ -416,6 +435,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
         bins.forEach((bin) => {
           if (bin.lat == null || bin.lng == null) return;
+          if (!this.isInsideParis(bin.lat, bin.lng)) return;
 
           const color = this.getBinColor(bin);
 
@@ -633,7 +653,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
     (this.reports || []).forEach((report) => {
       if (report.lat == null || report.lng == null) return;
-      if (!this.isInsideMahdia(report.lat, report.lng)) return;
+      if (!this.isInsideParis(report.lat, report.lng)) return;
 
       const marker = L.marker([report.lat, report.lng], {
         icon: this.makeReportIcon(report),
@@ -673,7 +693,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         return;
       }
 
-      if (this.isInsideMahdia(target.lat, target.lng)) {
+      if (this.isInsideParis(target.lat, target.lng)) {
         this.map.setView([target.lat, target.lng], 17, { animate: true });
         this.mapFocusService.clearTarget();
       }
@@ -862,7 +882,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       for (const [id, payload] of trucks.entries()) {
         const pos = this.extractLatLng(payload);
         if (!pos) continue;
-        if (!this.isInsideMahdia(pos.lat, pos.lng)) continue;
+        if (!this.isInsideParis(pos.lat, pos.lng)) continue;
 
         keep.add(id);
         this.upsertTruckMarker(id, pos);
@@ -880,8 +900,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     return { lat, lng };
   }
 
-  private isInsideMahdia(lat: number, lng: number): boolean {
-    const poly = this.mahdiaPolygon;
+  private isInsideParis(lat: number, lng: number): boolean {
+    const poly = this.parisPolygon;
     if (!poly || poly.length < 3) return true;
 
     let inside = false;
@@ -957,6 +977,12 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     try {
       if (this.temporaryFocusMarker && this.map) {
         this.temporaryFocusMarker.removeFrom(this.map);
+      }
+    } catch {}
+
+    try {
+      if (this.pendingAddMarker && this.map) {
+        this.pendingAddMarker.removeFrom(this.map);
       }
     } catch {}
 

@@ -1,6 +1,7 @@
 package com.example.demo.dto.routing;
 
 public class RoutingBinDto {
+
     private Long id;
     private Double lat;
     private Double lng;
@@ -10,13 +11,22 @@ public class RoutingBinDto {
     private Double predictedHoursToFull;
     private Boolean mandatory;
 
-    // new fields for Phase A
+    private String wasteType;
+
     private String decisionCategory;
     private String decisionReason;
     private Double feedbackScore;
     private Long postponementCount;
     private Boolean opportunistic;
     private Boolean reportable;
+    private Double opportunisticScore;
+
+    private Boolean collectionAllowedNow;
+    private String collectionWindowExplanation;
+
+    // NEW — time windows in minutes from start of day
+    private Integer windowStartMinutes;
+    private Integer windowEndMinutes;
 
     public RoutingBinDto() {
     }
@@ -85,6 +95,14 @@ public class RoutingBinDto {
         this.mandatory = mandatory;
     }
 
+    public String getWasteType() {
+        return wasteType;
+    }
+
+    public void setWasteType(String wasteType) {
+        this.wasteType = wasteType;
+    }
+
     public String getDecisionCategory() {
         return decisionCategory;
     }
@@ -131,5 +149,45 @@ public class RoutingBinDto {
 
     public void setReportable(Boolean reportable) {
         this.reportable = reportable;
+    }
+
+    public Double getOpportunisticScore() {
+        return opportunisticScore;
+    }
+
+    public void setOpportunisticScore(Double opportunisticScore) {
+        this.opportunisticScore = opportunisticScore;
+    }
+
+    public Boolean getCollectionAllowedNow() {
+        return collectionAllowedNow;
+    }
+
+    public void setCollectionAllowedNow(Boolean collectionAllowedNow) {
+        this.collectionAllowedNow = collectionAllowedNow;
+    }
+
+    public String getCollectionWindowExplanation() {
+        return collectionWindowExplanation;
+    }
+
+    public void setCollectionWindowExplanation(String collectionWindowExplanation) {
+        this.collectionWindowExplanation = collectionWindowExplanation;
+    }
+
+    public Integer getWindowStartMinutes() {
+        return windowStartMinutes;
+    }
+
+    public void setWindowStartMinutes(Integer windowStartMinutes) {
+        this.windowStartMinutes = windowStartMinutes;
+    }
+
+    public Integer getWindowEndMinutes() {
+        return windowEndMinutes;
+    }
+
+    public void setWindowEndMinutes(Integer windowEndMinutes) {
+        this.windowEndMinutes = windowEndMinutes;
     }
 }

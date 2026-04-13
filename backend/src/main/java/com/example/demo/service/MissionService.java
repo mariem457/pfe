@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.MissionBinActionRequest;
 import com.example.demo.dto.MissionBinResponse;
+import com.example.demo.dto.MissionFuelStatusResponse;
 import com.example.demo.dto.MissionResponse;
 import com.example.demo.dto.MissionRouteResponse;
 
@@ -20,5 +21,10 @@ public interface MissionService {
     MissionResponse getMissionById(Long missionId);
 
     List<MissionBinResponse> getMissionBins(Long missionId);
+
     MissionRouteResponse getMissionRoute(Long missionId);
+
+    MissionFuelStatusResponse getMissionFuelStatus(Long missionId);
+
+    MissionFuelStatusResponse insertRefuelStop(Long missionId);
 }

@@ -1,0 +1,9 @@
+ALTER TABLE bins
+ADD COLUMN IF NOT EXISTS waste_type VARCHAR(50);
+
+UPDATE bins
+SET waste_type = 'GRAY'
+WHERE waste_type IS NULL;
+
+ALTER TABLE bins
+ALTER COLUMN waste_type SET NOT NULL;

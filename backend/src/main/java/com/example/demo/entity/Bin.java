@@ -51,7 +51,24 @@ public class Bin {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+    public enum WasteType {
+        GRAY,
+        GREEN,
+        YELLOW,
+        WHITE
+    }
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "waste_type", length = 20)
+    private WasteType wasteType;
+
+    public WasteType getWasteType() {
+        return wasteType;
+    }
+
+    public void setWasteType(WasteType wasteType) {
+        this.wasteType = wasteType;
+    }
     @PrePersist
     void prePersist() {
         OffsetDateTime now = OffsetDateTime.now();

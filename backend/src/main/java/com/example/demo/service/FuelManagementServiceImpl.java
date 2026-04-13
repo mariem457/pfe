@@ -10,8 +10,8 @@ import java.math.RoundingMode;
 public class FuelManagementServiceImpl implements FuelManagementService {
 
     private static final double CRITICAL_FUEL_THRESHOLD_LITERS = 10.0;
+    private static final double REFUEL_ALERT_AUTONOMY_THRESHOLD_KM = 15.0;
 
-    // نفس الفكرة اللي في Python
     private static final BigDecimal MIN_FUEL_RESERVE_LITERS = BigDecimal.valueOf(5.0);
     private static final BigDecimal FUEL_SAFETY_FACTOR = BigDecimal.valueOf(0.8);
 
@@ -54,5 +54,20 @@ public class FuelManagementServiceImpl implements FuelManagementService {
     @Override
     public boolean canCompleteDistance(Truck truck, double distanceKm) {
         return calculateEstimatedAutonomyKm(truck) >= distanceKm;
+    }
+
+    @Override
+    public boolean isRefuelRecommended(Truck truck) {
+        return calculateEstimatedAutonomyKm(truck) <= REFUEL_ALERT_AUTONOMY_THRESHOLD_KM;
+    }
+
+    @Override
+    public double getRefuelAlertAutonomyThresholdKm() {
+        return REFUEL_ALERT_AUTONOMY_THRESHOLD_KM;
+    }
+
+    @Override
+    public double getCriticalFuelThresholdLiters() {
+        return CRITICAL_FUEL_THRESHOLD_LITERS;
     }
 }

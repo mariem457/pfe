@@ -82,6 +82,22 @@ public class Truck {
 
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<RoutePlan> routePlans = new ArrayList<>();
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "truck_supported_waste_types",
+            joinColumns = @JoinColumn(name = "truck_id")
+    )
+    @Column(name = "waste_type", length = 20)
+    @Enumerated(EnumType.STRING)
+    private List<Bin.WasteType> supportedWasteTypes = new ArrayList<>();
+
+    public List<Bin.WasteType> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes;
+    }
 
     @PrePersist
     public void prePersist() {

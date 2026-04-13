@@ -17,13 +17,19 @@ class RoutingBinDto(BaseModel):
     predictedHoursToFull: Optional[float] = None
     mandatory: Optional[bool] = None
 
-    # Phase B fields
+    wasteType: Optional[str] = None
+
     decisionCategory: Optional[str] = None
     decisionReason: Optional[str] = None
     feedbackScore: Optional[float] = None
     postponementCount: Optional[int] = None
     opportunistic: Optional[bool] = None
     reportable: Optional[bool] = None
+    opportunisticScore: Optional[float] = None
+
+    # NEW — time windows in minutes from start of day
+    windowStartMinutes: Optional[int] = None
+    windowEndMinutes: Optional[int] = None
 
 
 class RoutingTruckDto(BaseModel):
@@ -34,6 +40,7 @@ class RoutingTruckDto(BaseModel):
     fuelLevelLiters: Optional[float] = None
     fuelConsumptionPerKm: Optional[float] = None
     status: Optional[str] = None
+    supportedWasteTypes: Optional[List[str]] = []
 
 
 class RoutingIncidentDto(BaseModel):
@@ -47,6 +54,7 @@ class RoutingIncidentDto(BaseModel):
 class RoutingRequestDto(BaseModel):
     depot: RoutingDepotDto
     trafficMode: str = "NORMAL"
+    currentRun: Optional[str] = None
     bins: List[RoutingBinDto]
     trucks: List[RoutingTruckDto]
     activeIncidents: List[RoutingIncidentDto] = Field(default_factory=list)

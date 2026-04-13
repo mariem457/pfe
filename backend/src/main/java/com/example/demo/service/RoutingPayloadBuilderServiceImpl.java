@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.routing.BinDecisionCategory;
 import com.example.demo.dto.routing.MandatoryBinInsightDto;
 import com.example.demo.dto.routing.RecommendedFuelStationDto;
 import com.example.demo.dto.routing.RoutingBinDto;
@@ -18,14 +19,15 @@ import com.example.demo.repository.PostponedBinRepository;
 import com.example.demo.repository.TruckIncidentRepository;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderService {
@@ -47,9 +49,12 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private static final double OPPORTUNISTIC_FILL_THRESHOLD = 75.0;
     private static final double OPPORTUNISTIC_HOURS_THRESHOLD = 24.0;
     private static final double OPPORTUNISTIC_FEEDBACK_THRESHOLD = 3.0;
+    private static final double OPPORTUNISTIC_BUFFER_HOURS = 6.0;
 
-    private static final int WORKDAY_START_HOUR = 6;
-    private static final int WORKDAY_END_HOUR = 14;
+    private static final int MORNING_START_HOUR = 6;
+    private static final int MORNING_END_HOUR = 12;
+    private static final int EVENING_START_HOUR = 17;
+    private static final int EVENING_END_HOUR = 23;
 
     private final BinPriorityService binPriorityService;
     private final TruckIncidentRepository truckIncidentRepository;
@@ -57,8 +62,15 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private final FuelStationService fuelStationService;
     private final BinTimePredictionRepository binTimePredictionRepository;
     private final PostponedBinRepository postponedBinRepository;
+    private final CollectionScheduleService collectionScheduleService;
+    private final TruckWasteCompatibilityService truckWasteCompatibilityService;
 
     private final List<RecommendedFuelStationDto> lastRecommendedFuelStations = new ArrayList<>();
+
+    private enum RoutingRun {
+        MORNING,
+        EVENING
+    }
 
     public RoutingPayloadBuilderServiceImpl(
             BinPriorityService binPriorityService,
@@ -66,7 +78,9 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             FuelManagementService fuelManagementService,
             FuelStationService fuelStationService,
             BinTimePredictionRepository binTimePredictionRepository,
-            PostponedBinRepository postponedBinRepository
+            PostponedBinRepository postponedBinRepository,
+            CollectionScheduleService collectionScheduleService,
+            TruckWasteCompatibilityService truckWasteCompatibilityService
     ) {
         this.binPriorityService = binPriorityService;
         this.truckIncidentRepository = truckIncidentRepository;
@@ -74,6 +88,8 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
         this.fuelStationService = fuelStationService;
         this.binTimePredictionRepository = binTimePredictionRepository;
         this.postponedBinRepository = postponedBinRepository;
+        this.collectionScheduleService = collectionScheduleService;
+        this.truckWasteCompatibilityService = truckWasteCompatibilityService;
     }
 
     @Override
@@ -85,19 +101,24 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     public RoutingRequestDto buildRoutingRequest(List<Truck> trucks, RoutingDecision decision) {
         lastRecommendedFuelStations.clear();
 
+        RoutingRun currentRun = resolveCurrentRun();
+        List<RoutingTruckDto> routingTrucks = buildTrucks(trucks);
+
         RoutingRequestDto request = new RoutingRequestDto();
         request.setDepot(buildDefaultDepot());
         request.setTrafficMode("NORMAL");
-        request.setBins(buildRoutingBins(decision));
-        request.setTrucks(buildTrucks(trucks));
+        request.setCurrentRun(currentRun.name());
+        request.setTrucks(routingTrucks);
+        request.setBins(buildRoutingBins(decision, routingTrucks));
         request.setActiveIncidents(buildActiveIncidents(trucks));
 
         System.out.println(
-                "Routing payload built | strategy=" + (decision != null ? decision.getStrategy() : null)
-                        + " | trucks=" + request.getTrucks().size()
-                        + " | bins=" + request.getBins().size()
-                        + " | activeIncidents=" + request.getActiveIncidents().size()
-                        + " | recommendedFuelStations=" + lastRecommendedFuelStations.size()
+                "Routing payload built — strategy=" + (decision != null ? decision.getStrategy() : null)
+                        + " — currentRun=" + request.getCurrentRun()
+                        + " — trucks=" + request.getTrucks().size()
+                        + " — bins=" + request.getBins().size()
+                        + " — activeIncidents=" + request.getActiveIncidents().size()
+                        + " — recommendedFuelStations=" + lastRecommendedFuelStations.size()
         );
 
         return request;
@@ -107,11 +128,15 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     public RoutingRequestDto buildReplanRequest(List<Truck> trucks, List<MissionBin> remainingMissionBins) {
         lastRecommendedFuelStations.clear();
 
+        RoutingRun currentRun = resolveCurrentRun();
+        List<RoutingTruckDto> routingTrucks = buildTrucks(trucks);
+
         RoutingRequestDto request = new RoutingRequestDto();
         request.setDepot(buildDefaultDepot());
         request.setTrafficMode("NORMAL");
-        request.setBins(buildRoutingBinsFromMissionBins(remainingMissionBins));
-        request.setTrucks(buildTrucks(trucks));
+        request.setCurrentRun(currentRun.name());
+        request.setTrucks(routingTrucks);
+        request.setBins(buildRoutingBinsFromMissionBins(remainingMissionBins, routingTrucks));
         request.setActiveIncidents(buildActiveIncidents(trucks));
 
         return request;
@@ -125,7 +150,6 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     @Override
     public List<MandatoryBinInsightDto> getMandatoryBinInsights() {
         List<RoutingBinDto> bins = binPriorityService.getPriorityBinsForRouting();
-
         if (bins == null) {
             return new ArrayList<>();
         }
@@ -134,34 +158,232 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
 
         for (RoutingBinDto bin : bins) {
             enrichRoutingBin(bin);
-            applyDecisionClassification(bin);
+            initializeCollectionMetadata(bin);
 
             boolean mandatoryByUrgency = isDecisionReasonUrgency(bin.getDecisionReason());
             boolean mandatoryByFeedback = "MANDATORY_BY_FEEDBACK_SCORE".equals(bin.getDecisionReason());
 
-            insights.add(toMandatoryInsight(
-                    bin,
-                    Boolean.TRUE.equals(bin.getMandatory()),
-                    mandatoryByUrgency,
-                    mandatoryByFeedback,
-                    bin.getPostponementCount() != null ? bin.getPostponementCount() : 0L,
-                    bin.getFeedbackScore() != null ? bin.getFeedbackScore() : 0.0
-            ));
+            insights.add(
+                    toMandatoryInsight(
+                            bin,
+                            Boolean.TRUE.equals(bin.getMandatory()),
+                            mandatoryByUrgency,
+                            mandatoryByFeedback,
+                            bin.getPostponementCount() != null ? bin.getPostponementCount() : 0L,
+                            bin.getFeedbackScore() != null ? bin.getFeedbackScore() : 0.0
+                    )
+            );
         }
 
         return insights;
     }
 
+    private List<RoutingBinDto> buildRoutingBins(RoutingDecision decision, List<RoutingTruckDto> routingTrucks) {
+        List<RoutingBinDto> sourceBins = binPriorityService.getPriorityBinsForRouting();
+        List<RoutingBinDto> result = new ArrayList<>();
+
+        if (sourceBins == null) {
+            return result;
+        }
+
+        for (RoutingBinDto bin : sourceBins) {
+            enrichRoutingBin(bin);
+            initializeCollectionMetadata(bin);
+
+            System.out.println(
+                    "BIN DEBUG => id=" + bin.getId()
+                            + ", wasteType=" + bin.getWasteType()
+                            + ", allowedNow=" + bin.getCollectionAllowedNow()
+                            + ", windowStart=" + bin.getWindowStartMinutes()
+                            + ", windowEnd=" + bin.getWindowEndMinutes()
+                            + ", decisionCategory=" + bin.getDecisionCategory()
+                            + ", decisionReason=" + bin.getDecisionReason()
+            );
+
+            if (!Boolean.TRUE.equals(bin.getCollectionAllowedNow())) {
+                continue;
+            }
+
+            if (!truckWasteCompatibilityService.hasAtLeastOneCompatibleTruck(routingTrucks, bin)) {
+                bin.setMandatory(false);
+                bin.setOpportunistic(false);
+                bin.setReportable(true);
+                bin.setDecisionCategory("NO_COMPATIBLE_TRUCK");
+                bin.setDecisionReason("Aucun camion compatible n'est disponible pour ce type de bac.");
+                bin.setOpportunisticScore(0.0);
+                continue;
+            }
+
+            applyDecisionClassification(bin);
+
+            if (decision != null && !decision.isShouldOptimize()) {
+                continue;
+            }
+
+            if (decision != null && decision.isRefuelOnly()) {
+                continue;
+            }
+
+            if (Boolean.TRUE.equals(bin.getMandatory())) {
+                result.add(bin);
+                continue;
+            }
+
+            if (decision != null && decision.isIncludeOpportunistic() && Boolean.TRUE.equals(bin.getOpportunistic())) {
+                result.add(bin);
+            }
+        }
+
+        long mandatoryNow = result.stream().filter(b -> Boolean.TRUE.equals(b.getMandatory())).count();
+        long opportunisticNow = result.stream().filter(b -> Boolean.TRUE.equals(b.getOpportunistic())).count();
+        long reportableNow = result.stream().filter(b -> Boolean.TRUE.equals(b.getReportable())).count();
+
+        System.out.println(
+                "Run-aware classification => mandatoryNow=" + mandatoryNow
+                        + ", opportunisticNow=" + opportunisticNow
+                        + ", reportableNow=" + reportableNow
+        );
+        System.out.println(
+                "Routing decision => shouldOptimize=" + (decision != null && decision.isShouldOptimize())
+                        + ", refuelOnly=" + (decision != null && decision.isRefuelOnly())
+                        + ", includeOpportunistic=" + (decision != null && decision.isIncludeOpportunistic())
+                        + ", strategy=" + (decision != null ? decision.getStrategy() : null)
+                        + ", reason=" + (decision != null ? decision.getReason() : null)
+        );
+        System.out.println("FINAL BINS SENT TO PYTHON = " + result.size());
+
+        return result;
+    }
+
+    private List<RoutingBinDto> buildRoutingBinsFromMissionBins(
+            List<MissionBin> remainingMissionBins,
+            List<RoutingTruckDto> routingTrucks
+    ) {
+        List<RoutingBinDto> result = new ArrayList<>();
+
+        if (remainingMissionBins == null) {
+            return result;
+        }
+
+        for (MissionBin missionBin : remainingMissionBins) {
+            if (missionBin == null || missionBin.getBin() == null) {
+                continue;
+            }
+
+            Bin binEntity = missionBin.getBin();
+
+            RoutingBinDto dto = new RoutingBinDto();
+            dto.setId(binEntity.getId());
+            dto.setLat(resolveBinRoutingLat(binEntity));
+            dto.setLng(resolveBinRoutingLng(binEntity));
+            dto.setWasteType(extractBinWasteType(binEntity));
+
+            enrichRoutingBin(dto);
+            initializeCollectionMetadata(dto);
+
+            if (!Boolean.TRUE.equals(dto.getCollectionAllowedNow())) {
+                continue;
+            }
+
+            if (!truckWasteCompatibilityService.hasAtLeastOneCompatibleTruck(routingTrucks, dto)) {
+                continue;
+            }
+
+            applyDecisionClassification(dto);
+            result.add(dto);
+        }
+
+        return result;
+    }
+
     private void enrichRoutingBin(RoutingBinDto bin) {
         double fillLevel = safeDouble(bin.getFillLevel());
         double estimatedLoadKg = computeEstimatedLoadKg(fillLevel, DEFAULT_BIN_MAX_CAPACITY_KG);
+
         bin.setEstimatedLoadKg(estimatedLoadKg);
 
         Double predictedHoursToFull = findLatestPredictedHours(bin.getId());
         bin.setPredictedHoursToFull(predictedHoursToFull);
+
+        if (bin.getWasteType() == null || bin.getWasteType().isBlank()) {
+            bin.setWasteType("UNKNOWN");
+        }
+    }
+
+    private void initializeCollectionMetadata(RoutingBinDto bin) {
+        boolean allowed = collectionScheduleService.isCollectionAllowed(bin);
+
+        bin.setCollectionAllowedNow(allowed);
+        bin.setCollectionWindowExplanation(collectionScheduleService.explainCollectionWindow(bin));
+        bin.setWindowStartMinutes(resolveCollectionWindowStartMinutes(bin));
+        bin.setWindowEndMinutes(resolveCollectionWindowEndMinutes(bin));
+
+        if (!allowed) {
+            bin.setMandatory(false);
+            bin.setOpportunistic(false);
+            bin.setReportable(true);
+            bin.setDecisionCategory("SCHEDULE_BLOCKED");
+            bin.setDecisionReason(
+                    "Ce bac est exclu de la tournée actuelle car la fenêtre de collecte autorisée n'est pas ouverte. "
+                            + collectionScheduleService.explainCollectionWindow(bin)
+            );
+            bin.setFeedbackScore(0.0);
+            bin.setPostponementCount(0L);
+            bin.setOpportunisticScore(0.0);
+        }
+    }
+
+    private Integer resolveCollectionWindowStartMinutes(RoutingBinDto bin) {
+        if (bin == null || bin.getWasteType() == null || bin.getWasteType().isBlank()) {
+            return null;
+        }
+
+        String wasteType = bin.getWasteType().trim().toUpperCase();
+
+        if ("GRAY".equals(wasteType) || "GREEN".equals(wasteType)) {
+            return 16 * 60;
+        }
+
+        if ("YELLOW".equals(wasteType)) {
+            return (15 * 60) + 30;
+        }
+
+        if ("WHITE".equals(wasteType)) {
+            return 14 * 60;
+        }
+
+        return null;
+    }
+
+    private Integer resolveCollectionWindowEndMinutes(RoutingBinDto bin) {
+        if (bin == null || bin.getWasteType() == null || bin.getWasteType().isBlank()) {
+            return null;
+        }
+
+        String wasteType = bin.getWasteType().trim().toUpperCase();
+
+        if ("GRAY".equals(wasteType) || "GREEN".equals(wasteType)) {
+            return 23 * 60;
+        }
+
+        if ("YELLOW".equals(wasteType)) {
+            return (22 * 60) + 30;
+        }
+
+        if ("WHITE".equals(wasteType)) {
+            return 20 * 60;
+        }
+
+        return null;
     }
 
     private void applyDecisionClassification(RoutingBinDto bin) {
+        if (!Boolean.TRUE.equals(bin.getCollectionAllowedNow())) {
+            return;
+        }
+
+        RoutingRun currentRun = resolveCurrentRun();
+
         List<PostponedBin> activePostponedBins = findActivePostponements(bin.getId());
         long postponementCount = activePostponedBins.size();
         double feedbackScore = computeFeedbackScore(bin, activePostponedBins);
@@ -169,80 +391,57 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
         double priority = safeDouble(bin.getPredictedPriority());
         double fillLevel = safeDouble(bin.getFillLevel());
         Double predictedHours = bin.getPredictedHoursToFull();
+        double hoursUntilNextRun = computeHoursUntilNextRun(currentRun);
 
-        boolean mandatoryByHighFill = fillLevel >= MANDATORY_FILL_THRESHOLD;
+        boolean overflowBeforeCurrentRunEnd = willOverflowBeforeCurrentRunEnd(predictedHours, currentRun);
+        boolean overflowBeforeNextRun = willOverflowBeforeNextRun(predictedHours, currentRun);
         boolean mandatoryByUrgentHours = predictedHours != null && predictedHours <= MANDATORY_HOURS_THRESHOLD;
+        boolean mandatoryByHighFill = fillLevel >= MANDATORY_FILL_THRESHOLD;
+        boolean mandatoryByHighPriority = priority >= MANDATORY_PRIORITY_THRESHOLD
+                && (fillLevel >= 80.0 || (predictedHours != null && predictedHours <= 24.0));
         boolean mandatoryByFeedback = feedbackScore >= FEEDBACK_SCORE_THRESHOLD;
 
-        boolean overflowBeforeShiftEnd = willOverflowBeforeEndOfShift(predictedHours);
-        boolean overflowBeforeNextShift = willOverflowBeforeNextShift(predictedHours);
-
-        boolean mandatoryByHighPriority =
-                priority >= MANDATORY_PRIORITY_THRESHOLD
-                        && (
-                        fillLevel >= 80.0
-                                || (predictedHours != null && predictedHours <= 24.0)
-                );
-
-        bin.setFeedbackScore(feedbackScore);
+        bin.setFeedbackScore(round(feedbackScore));
         bin.setPostponementCount(postponementCount);
 
-        if (overflowBeforeShiftEnd) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_OVERFLOW_BEFORE_SHIFT_END");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+        if (overflowBeforeCurrentRunEnd) {
+            markMandatory(bin, "MANDATORY_OVERFLOW_BEFORE_CURRENT_RUN_END");
             return;
         }
 
-        if (overflowBeforeNextShift) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_OVERFLOW_BEFORE_NEXT_SHIFT");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+        if (overflowBeforeNextRun) {
+            markMandatory(bin, "MANDATORY_OVERFLOW_BEFORE_NEXT_RUN");
             return;
         }
 
         if (mandatoryByUrgentHours) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_BY_URGENT_HOURS");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+            markMandatory(bin, "MANDATORY_BY_URGENT_HOURS");
             return;
         }
 
         if (mandatoryByHighFill) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_BY_HIGH_FILL");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+            markMandatory(bin, "MANDATORY_BY_HIGH_FILL");
             return;
         }
 
         if (mandatoryByHighPriority) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_BY_HIGH_PRIORITY");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+            markMandatory(bin, "MANDATORY_BY_HIGH_PRIORITY");
             return;
         }
 
         if (mandatoryByFeedback) {
-            bin.setMandatory(true);
-            bin.setDecisionCategory("MANDATORY");
-            bin.setDecisionReason("MANDATORY_BY_FEEDBACK_SCORE");
-            bin.setOpportunistic(false);
-            bin.setReportable(false);
+            markMandatory(bin, "MANDATORY_BY_FEEDBACK_SCORE");
             return;
         }
 
+        boolean opportunisticByRunWindow =
+                predictedHours != null
+                        && predictedHours > hoursUntilNextRun
+                        && predictedHours <= (hoursUntilNextRun + OPPORTUNISTIC_BUFFER_HOURS);
+
         boolean opportunistic =
-                (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD
+                opportunisticByRunWindow
+                        || (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD
                         && (fillLevel >= 60.0 || (predictedHours != null && predictedHours <= 48.0)))
                         || fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD
                         || (predictedHours != null && predictedHours <= OPPORTUNISTIC_HOURS_THRESHOLD)
@@ -250,40 +449,91 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                         || postponementCount >= 1;
 
         if (opportunistic) {
+            double opportunisticScore = computeOpportunisticScore(
+                    priority,
+                    fillLevel,
+                    predictedHours,
+                    feedbackScore,
+                    postponementCount,
+                    hoursUntilNextRun,
+                    opportunisticByRunWindow
+            );
+
             bin.setMandatory(false);
-            bin.setDecisionCategory("OPPORTUNISTIC");
-            bin.setDecisionReason("OPPORTUNISTIC_BY_MEDIUM_URGENCY");
+            bin.setDecisionCategory(BinDecisionCategory.OPPORTUNISTIC.getCode());
+            bin.setDecisionReason(
+                    opportunisticByRunWindow
+                            ? "OPPORTUNISTIC_CAN_WAIT_UNTIL_NEXT_RUN_WITH_LOW_MARGIN"
+                            : "OPPORTUNISTIC_BY_MEDIUM_URGENCY"
+            );
             bin.setOpportunistic(true);
             bin.setReportable(false);
+            bin.setOpportunisticScore(round(opportunisticScore));
             return;
         }
 
         bin.setMandatory(false);
-        bin.setDecisionCategory("REPORTABLE");
-        bin.setDecisionReason("REPORTABLE_LOW_RISK");
+        bin.setDecisionCategory(BinDecisionCategory.REPORTABLE.getCode());
+        bin.setDecisionReason("REPORTABLE_CAN_WAIT_BEYOND_NEXT_RUN");
         bin.setOpportunistic(false);
         bin.setReportable(true);
+        bin.setOpportunisticScore(0.0);
     }
 
-    private boolean isMandatoryByHighPriority(RoutingBinDto bin) {
-        double priority = safeDouble(bin.getPredictedPriority());
-        double fillLevel = safeDouble(bin.getFillLevel());
-        Double predictedHours = bin.getPredictedHoursToFull();
+    private double computeOpportunisticScore(
+            double priority,
+            double fillLevel,
+            Double predictedHours,
+            double feedbackScore,
+            long postponementCount,
+            double hoursUntilNextRun,
+            boolean opportunisticByRunWindow
+    ) {
+        double score = 0.0;
 
-        return priority >= MANDATORY_PRIORITY_THRESHOLD
-                && (
-                fillLevel >= 80.0
-                        || (predictedHours != null && predictedHours <= 24.0)
-        );
-    }
+        if (opportunisticByRunWindow) {
+            score += 3.0;
+        }
 
-    private boolean isMandatoryByHighFill(RoutingBinDto bin) {
-        return safeDouble(bin.getFillLevel()) >= MANDATORY_FILL_THRESHOLD;
-    }
+        if (predictedHours != null) {
+            if (predictedHours <= 12.0) {
+                score += 3.0;
+            } else if (predictedHours <= 24.0) {
+                score += 2.0;
+            } else if (predictedHours <= 48.0) {
+                score += 1.0;
+            }
 
-    private boolean isMandatoryByUrgentHours(RoutingBinDto bin) {
-        return bin.getPredictedHoursToFull() != null
-                && bin.getPredictedHoursToFull() <= MANDATORY_HOURS_THRESHOLD;
+            if (predictedHours <= (hoursUntilNextRun + OPPORTUNISTIC_BUFFER_HOURS)) {
+                score += 1.0;
+            }
+        }
+
+        if (fillLevel >= 90.0) {
+            score += 3.0;
+        } else if (fillLevel >= 80.0) {
+            score += 2.0;
+        } else if (fillLevel >= 70.0) {
+            score += 1.0;
+        }
+
+        if (priority >= 0.95) {
+            score += 3.0;
+        } else if (priority >= 0.90) {
+            score += 2.0;
+        } else if (priority >= 0.85) {
+            score += 1.0;
+        }
+
+        if (feedbackScore >= 6.0) {
+            score += 2.0;
+        } else if (feedbackScore >= 3.0) {
+            score += 1.0;
+        }
+
+        score += Math.min(postponementCount, 3);
+
+        return score;
     }
 
     private boolean isDecisionReasonUrgency(String decisionReason) {
@@ -291,49 +541,72 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             return false;
         }
 
-        return "MANDATORY_OVERFLOW_BEFORE_SHIFT_END".equals(decisionReason)
-                || "MANDATORY_OVERFLOW_BEFORE_NEXT_SHIFT".equals(decisionReason)
+        return "MANDATORY_OVERFLOW_BEFORE_CURRENT_RUN_END".equals(decisionReason)
+                || "MANDATORY_OVERFLOW_BEFORE_NEXT_RUN".equals(decisionReason)
                 || "MANDATORY_BY_URGENT_HOURS".equals(decisionReason)
                 || "MANDATORY_BY_HIGH_FILL".equals(decisionReason);
     }
 
-    private LocalDateTime computePredictedFullAt(Double predictedHoursToFull) {
-        if (predictedHoursToFull == null) {
-            return null;
+    private RoutingRun resolveCurrentRun() {
+        LocalDateTime now = LocalDateTime.now();
+        int hour = now.getHour();
+
+        if (hour >= MORNING_START_HOUR && hour < EVENING_START_HOUR) {
+            return RoutingRun.MORNING;
         }
-        return LocalDateTime.now().plusMinutes((long) (predictedHoursToFull * 60));
+
+        return RoutingRun.EVENING;
     }
 
-    private boolean willOverflowBeforeEndOfShift(Double predictedHoursToFull) {
-        LocalDateTime predictedFullAt = computePredictedFullAt(predictedHoursToFull);
-        if (predictedFullAt == null) {
-            return false;
+    private LocalDateTime resolveNextRunStart(LocalDateTime now, RoutingRun currentRun) {
+        if (currentRun == RoutingRun.MORNING) {
+            return now.withHour(EVENING_START_HOUR).withMinute(0).withSecond(0).withNano(0);
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime endOfShift = now.withHour(WORKDAY_END_HOUR).withMinute(0).withSecond(0).withNano(0);
-
-        if (now.isAfter(endOfShift)) {
-            return false;
-        }
-
-        return !predictedFullAt.isAfter(endOfShift);
-    }
-
-    private boolean willOverflowBeforeNextShift(Double predictedHoursToFull) {
-        LocalDateTime predictedFullAt = computePredictedFullAt(predictedHoursToFull);
-        if (predictedFullAt == null) {
-            return false;
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime nextShiftStart = now.plusDays(1)
-                .withHour(WORKDAY_START_HOUR)
+        return now.plusDays(1)
+                .withHour(MORNING_START_HOUR)
                 .withMinute(0)
                 .withSecond(0)
                 .withNano(0);
+    }
 
-        return !predictedFullAt.isAfter(nextShiftStart);
+    private LocalDateTime resolveCurrentRunEnd(LocalDateTime now, RoutingRun currentRun) {
+        if (currentRun == RoutingRun.MORNING) {
+            return now.withHour(MORNING_END_HOUR).withMinute(0).withSecond(0).withNano(0);
+        }
+
+        return now.withHour(EVENING_END_HOUR).withMinute(0).withSecond(0).withNano(0);
+    }
+
+    private double computeHoursUntilNextRun(RoutingRun currentRun) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextRunStart = resolveNextRunStart(now, currentRun);
+        long minutes = Duration.between(now, nextRunStart).toMinutes();
+        return Math.max(0.0, minutes / 60.0);
+    }
+
+    private boolean willOverflowBeforeCurrentRunEnd(Double predictedHoursToFull, RoutingRun currentRun) {
+        if (predictedHoursToFull == null) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime predictedFullAt = now.plusMinutes((long) (predictedHoursToFull * 60));
+        LocalDateTime currentRunEnd = resolveCurrentRunEnd(now, currentRun);
+
+        return !predictedFullAt.isAfter(currentRunEnd);
+    }
+
+    private boolean willOverflowBeforeNextRun(Double predictedHoursToFull, RoutingRun currentRun) {
+        if (predictedHoursToFull == null) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime predictedFullAt = now.plusMinutes((long) (predictedHoursToFull * 60));
+        LocalDateTime nextRunStart = resolveNextRunStart(now, currentRun);
+
+        return !predictedFullAt.isAfter(nextRunStart);
     }
 
     private MandatoryBinInsightDto toMandatoryInsight(
@@ -346,297 +619,533 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     ) {
         MandatoryBinInsightDto dto = new MandatoryBinInsightDto();
         dto.setBinId(bin.getId());
-        dto.setFillLevel(bin.getFillLevel());
-        dto.setPredictedPriority(bin.getPredictedPriority());
-        dto.setPredictedHoursToFull(bin.getPredictedHoursToFull());
+        dto.setFillLevel(round(safeDouble(bin.getFillLevel())));
+        dto.setPredictedPriority(round(safeDouble(bin.getPredictedPriority())));
+        dto.setPredictedHoursToFull(round(bin.getPredictedHoursToFull()));
         dto.setMandatory(mandatory);
         dto.setMandatoryByUrgency(mandatoryByUrgency);
         dto.setMandatoryByFeedback(mandatoryByFeedback);
         dto.setPostponementCount(postponementCount);
-        dto.setFeedbackScore(feedbackScore);
-
-        dto.setDecisionCategory(bin.getDecisionCategory());
-        dto.setDecisionReason(bin.getDecisionReason());
-        dto.setOpportunistic(bin.getOpportunistic());
-        dto.setReportable(bin.getReportable());
+        dto.setFeedbackScore(round(feedbackScore));
 
         dto.setReason(bin.getDecisionReason());
+        dto.setDecisionCategory(bin.getDecisionCategory());
+        dto.setDecisionReason(resolveDecisionReasonFr(bin));
+        dto.setOpportunistic(bin.getOpportunistic());
+        dto.setReportable(bin.getReportable());
+        dto.setOpportunisticScore(round(safeDouble(bin.getOpportunisticScore())));
+
+        dto.setScoreExplanation(buildScoreExplanationFr(bin));
+        dto.setUrgencyExplanation(buildUrgencyExplanationFr(bin));
+        dto.setFeedbackExplanation(buildFeedbackExplanationFr(bin));
+        dto.setPostponementExplanation(buildPostponementExplanationFr(bin));
+        dto.setClassificationExplanation(buildClassificationExplanationFr(bin));
 
         return dto;
     }
 
-    private RoutingDepotDto buildDefaultDepot() {
-        RoutingDepotDto depot = new RoutingDepotDto();
-        depot.setLat(35.5070);
-        depot.setLng(11.0700);
-        return depot;
+    private List<RoutingTruckDto> buildTrucks(List<Truck> trucks) {
+        List<RoutingTruckDto> result = new ArrayList<>();
+
+        if (trucks == null) {
+            return result;
+        }
+
+        for (Truck truck : trucks) {
+            if (truck == null) {
+                continue;
+            }
+
+            RoutingTruckDto dto = new RoutingTruckDto();
+            dto.setId(truck.getId());
+            dto.setLat(extractDouble(truck, "getLastKnownLat"));
+            dto.setLng(extractDouble(truck, "getLastKnownLng"));
+            dto.setRemainingCapacityKg(resolveRemainingCapacityKg(truck));
+            dto.setFuelLevelLiters(extractBigDecimalAsDouble(truck, "getFuelLevelLiters"));
+            dto.setFuelConsumptionPerKm(extractBigDecimalAsDouble(truck, "getFuelConsumptionPerKm"));
+            dto.setStatus(extractEnumName(truck, "getStatus"));
+            dto.setSupportedWasteTypes(extractSupportedWasteTypes(truck));
+
+            result.add(dto);
+
+            FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
+            if (station != null && fuelManagementService.isRefuelRecommended(truck)) {
+                RecommendedFuelStationDto recommended = new RecommendedFuelStationDto();
+                recommended.setTruckId(truck.getId());
+                recommended.setStationId(station.getId());
+                recommended.setStationName(station.getName());
+                recommended.setLat(station.getLat());
+                recommended.setLng(station.getLng());
+                lastRecommendedFuelStations.add(recommended);
+            }
+        }
+
+        for (RoutingTruckDto t : result) {
+            System.out.println(
+                    "TRUCK DEBUG => id=" + t.getId()
+                            + ", status=" + t.getStatus()
+                            + ", supportedWasteTypes=" + t.getSupportedWasteTypes()
+                            + ", remainingCapacityKg=" + t.getRemainingCapacityKg()
+            );
+        }
+        System.out.println("FINAL TRUCKS SENT TO PYTHON = " + result.size());
+
+        return result;
     }
 
     private List<RoutingIncidentDto> buildActiveIncidents(List<Truck> trucks) {
-        List<RoutingIncidentDto> incidents = new ArrayList<>();
-        Set<Long> refuelRequiredTruckIds = new HashSet<>();
+        List<RoutingIncidentDto> result = new ArrayList<>();
 
-        List<TruckIncident> allActiveIncidents = truckIncidentRepository.findByStatusIn(
-                List.of(
-                        TruckIncident.IncidentStatus.OPEN,
-                        TruckIncident.IncidentStatus.IN_PROGRESS
-                )
-        );
+        if (trucks == null || trucks.isEmpty()) {
+            return result;
+        }
+
+        Set<Long> allowedTruckIds = trucks.stream()
+                .filter(truck -> truck != null && truck.getId() != null)
+                .map(Truck::getId)
+                .collect(Collectors.toSet());
+
+        if (allowedTruckIds.isEmpty()) {
+            return result;
+        }
+
+        List<TruckIncident> allActiveIncidents;
+        try {
+            allActiveIncidents = truckIncidentRepository.findByStatusIn(
+                    List.of(
+                            TruckIncident.IncidentStatus.OPEN,
+                            TruckIncident.IncidentStatus.IN_PROGRESS
+                    )
+            );
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
 
         for (TruckIncident incident : allActiveIncidents) {
-            if (incident.getTruck() == null || incident.getTruck().getId() == null) {
+            if (incident == null || incident.getTruck() == null || incident.getTruck().getId() == null) {
+                continue;
+            }
+
+            Long truckId = incident.getTruck().getId();
+            if (!allowedTruckIds.contains(truckId)) {
                 continue;
             }
 
             RoutingIncidentDto dto = new RoutingIncidentDto();
             dto.setId(incident.getId());
-            dto.setTruckId(incident.getTruck().getId());
+            dto.setTruckId(truckId);
             dto.setType(incident.getIncidentType() != null ? incident.getIncidentType().name() : null);
             dto.setSeverity(incident.getSeverity() != null ? incident.getSeverity().name() : null);
             dto.setDescription(incident.getDescription());
-            incidents.add(dto);
+
+            result.add(dto);
         }
 
-        for (Truck truck : trucks) {
-            if (truck == null || truck.getId() == null) {
-                continue;
-            }
-
-            if (!fuelManagementService.isFuelCritical(truck)) {
-                continue;
-            }
-
-            if (refuelRequiredTruckIds.contains(truck.getId())) {
-                continue;
-            }
-
-            RoutingIncidentDto dto = new RoutingIncidentDto();
-            dto.setId(-truck.getId());
-            dto.setTruckId(truck.getId());
-            dto.setType("REFUEL_REQUIRED");
-            dto.setSeverity("CRITICAL");
-            dto.setDescription("Truck fuel is critical");
-
-            incidents.add(dto);
-            refuelRequiredTruckIds.add(truck.getId());
-
-            FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
-            if (station != null && station.getId() != null) {
-                RecommendedFuelStationDto recommendation = new RecommendedFuelStationDto();
-                recommendation.setTruckId(truck.getId());
-                recommendation.setStationId(station.getId());
-                recommendation.setStationName(station.getName());
-                recommendation.setLat(station.getLat());
-                recommendation.setLng(station.getLng());
-
-                lastRecommendedFuelStations.add(recommendation);
-            }
-        }
-
-        return incidents;
+        return result;
     }
 
-    private List<RoutingBinDto> buildRoutingBins(RoutingDecision decision) {
-        List<RoutingBinDto> bins = binPriorityService.getPriorityBinsForRouting();
-
-        if (bins == null) {
-            return new ArrayList<>();
-        }
-
-        for (RoutingBinDto bin : bins) {
-            enrichRoutingBin(bin);
-            applyDecisionClassification(bin);
-        }
-
-        long mandatoryCount = bins.stream()
-                .filter(b -> "MANDATORY".equals(b.getDecisionCategory()))
-                .count();
-
-        long opportunisticCount = bins.stream()
-                .filter(b -> "OPPORTUNISTIC".equals(b.getDecisionCategory()))
-                .count();
-
-        long reportableCount = bins.stream()
-                .filter(b -> "REPORTABLE".equals(b.getDecisionCategory()))
-                .count();
-
-        System.out.println(
-                "All candidate bins=" + bins.size()
-                        + ", mandatory=" + mandatoryCount
-                        + ", opportunistic=" + opportunisticCount
-                        + ", reportable=" + reportableCount
-        );
-
-        if (decision != null && decision.getStrategy() == RoutingDecision.Strategy.MANDATORY_ONLY) {
-            return bins.stream()
-                    .filter(b -> "MANDATORY".equals(b.getDecisionCategory()))
-                    .toList();
-        }
-
-        return bins;
+    private RoutingDepotDto buildDefaultDepot() {
+        return new RoutingDepotDto(35.5047, 11.0622);
     }
 
     private List<PostponedBin> findActivePostponements(Long binId) {
-        if (binId == null) {
-            return List.of();
+        try {
+            return postponedBinRepository.findByBinIdAndResolvedFalseOrderByCreatedAtDesc(binId);
+        } catch (Exception e) {
+            return new ArrayList<>();
         }
-        return postponedBinRepository.findByBinIdAndResolvedFalseOrderByCreatedAtDesc(binId);
+    }
+
+    private Double findLatestPredictedHours(Long binId) {
+        try {
+            Object latestPrediction = binTimePredictionRepository.findTopByBinIdOrderByCreatedAtDesc(binId).orElse(null);
+            if (latestPrediction == null) {
+                return null;
+            }
+
+            try {
+                Object value = latestPrediction.getClass().getMethod("getPredictedHoursToFull").invoke(latestPrediction);
+                return value instanceof Double ? (Double) value : null;
+            } catch (Exception ignored) {
+                try {
+                    Object value = latestPrediction.getClass().getMethod("getPredictedHoursToThreshold").invoke(latestPrediction);
+                    return value instanceof Double ? (Double) value : null;
+                } catch (Exception ignoredAgain) {
+                    try {
+                        Object value = latestPrediction.getClass().getMethod("getPredictedHours").invoke(latestPrediction);
+                        if (value instanceof Double d) {
+                            return d;
+                        }
+                        if (value instanceof Number n) {
+                            return n.doubleValue();
+                        }
+                        return null;
+                    } catch (Exception ignoredThird) {
+                        return null;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private double computeEstimatedLoadKg(double fillLevel, double maxCapacityKg) {
+        return round((Math.max(0.0, fillLevel) / 100.0) * maxCapacityKg);
     }
 
     private double computeFeedbackScore(RoutingBinDto bin, List<PostponedBin> activePostponedBins) {
         double score = 0.0;
 
-        for (PostponedBin postponedBin : activePostponedBins) {
-            score += UNRESOLVED_POSTPONED_WEIGHT * computeAgeDecayFactor(postponedBin.getCreatedAt());
+        double fillLevel = safeDouble(bin.getFillLevel());
+        double priority = safeDouble(bin.getPredictedPriority());
+        Double predictedHours = bin.getPredictedHoursToFull();
+
+        if (activePostponedBins != null && !activePostponedBins.isEmpty()) {
+            score += activePostponedBins.size() * UNRESOLVED_POSTPONED_WEIGHT;
         }
 
-        if (bin.getPredictedHoursToFull() != null && bin.getPredictedHoursToFull() <= MANDATORY_HOURS_THRESHOLD) {
+        if (predictedHours != null && predictedHours <= MANDATORY_HOURS_THRESHOLD) {
             score += URGENT_HOURS_WEIGHT;
         }
 
-        if (safeDouble(bin.getFillLevel()) >= 90.0) {
+        if (fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD) {
             score += HIGH_FILL_WEIGHT;
         }
 
-        if (safeDouble(bin.getPredictedPriority()) >= 0.90) {
+        if (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD) {
             score += HIGH_PRIORITY_WEIGHT;
         }
 
-        return score;
+        return round(score);
     }
 
-    private double computeAgeDecayFactor(Instant createdAt) {
-        if (createdAt == null) {
-            return 1.0;
-        }
-
-        long ageDays = Duration.between(createdAt, Instant.now()).toDays();
-
-        if (ageDays <= 2) {
-            return 1.0;
-        }
-
-        if (ageDays <= 7) {
-            return 0.7;
-        }
-
-        return 0.4;
+    private void markMandatory(RoutingBinDto bin, String reasonCode) {
+        bin.setMandatory(true);
+        bin.setDecisionCategory(BinDecisionCategory.MANDATORY.getCode());
+        bin.setDecisionReason(reasonCode);
+        bin.setOpportunistic(false);
+        bin.setReportable(false);
+        bin.setOpportunisticScore(0.0);
     }
 
-    private List<RoutingBinDto> buildRoutingBinsFromMissionBins(List<MissionBin> missionBins) {
-        List<RoutingBinDto> bins = new ArrayList<>();
-
-        if (missionBins == null || missionBins.isEmpty()) {
-            return bins;
+    private String resolveDecisionReasonFr(RoutingBinDto bin) {
+        if (bin == null || bin.getDecisionReason() == null || bin.getDecisionReason().isBlank()) {
+            return "Aucune justification métier détaillée n'est disponible pour ce bac.";
         }
 
-        for (MissionBin missionBin : missionBins) {
-            if (missionBin == null || missionBin.getBin() == null) {
-                continue;
-            }
-
-            Bin bin = missionBin.getBin();
-
-            RoutingBinDto dto = new RoutingBinDto();
-            dto.setId(bin.getId());
-            dto.setLat(resolveBinLat(bin));
-            dto.setLng(resolveBinLng(bin));
-
-            double fillLevel = missionBin.getTargetFillThreshold() != null
-                    ? missionBin.getTargetFillThreshold().doubleValue()
-                    : 80.0;
-
-            dto.setFillLevel(fillLevel);
-            dto.setPredictedPriority(1.0);
-            dto.setEstimatedLoadKg(computeEstimatedLoadKg(fillLevel, DEFAULT_BIN_MAX_CAPACITY_KG));
-            dto.setPredictedHoursToFull(0.0);
-            dto.setMandatory(true);
-            dto.setDecisionCategory("MANDATORY");
-            dto.setDecisionReason("REPLAN_REMAINING_BIN");
-            dto.setFeedbackScore(0.0);
-            dto.setPostponementCount(0L);
-            dto.setOpportunistic(false);
-            dto.setReportable(false);
-
-            bins.add(dto);
-        }
-
-        return bins;
+        return switch (bin.getDecisionReason()) {
+            case "MANDATORY_OVERFLOW_BEFORE_CURRENT_RUN_END" ->
+                    "Bac classé MANDATORY car il risque de déborder avant la fin du cycle de collecte en cours.";
+            case "MANDATORY_OVERFLOW_BEFORE_NEXT_RUN" ->
+                    "Bac classé MANDATORY car il risque de déborder avant le prochain passage planifié.";
+            case "MANDATORY_BY_URGENT_HOURS" ->
+                    "Bac classé MANDATORY car le temps estimé avant saturation est jugé critique.";
+            case "MANDATORY_BY_HIGH_FILL" ->
+                    "Bac classé MANDATORY car son niveau de remplissage est déjà très élevé et nécessite une collecte immédiate.";
+            case "MANDATORY_BY_HIGH_PRIORITY" ->
+                    "Bac classé MANDATORY car son score de priorité prédite est exceptionnellement élevé.";
+            case "MANDATORY_BY_FEEDBACK_SCORE" ->
+                    "Bac classé MANDATORY car les retours terrain et l'historique opérationnel indiquent une forte nécessité d'intervention.";
+            case "OPPORTUNISTIC_CAN_WAIT_UNTIL_NEXT_RUN_WITH_LOW_MARGIN" ->
+                    "Bac classé OPPORTUNISTIC car il peut probablement attendre le prochain passage, mais avec une marge de sécurité limitée.";
+            case "OPPORTUNISTIC_BY_MEDIUM_URGENCY" ->
+                    "Bac classé OPPORTUNISTIC car sa situation n'est pas encore critique, mais elle devient suffisamment sensible pour profiter d'une tournée disponible.";
+            case "REPORTABLE_CAN_WAIT_BEYOND_NEXT_RUN" ->
+                    "Bac classé REPORTABLE car il peut attendre au-delà du prochain cycle sans risque opérationnel immédiat.";
+            default ->
+                    bin.getDecisionReason();
+        };
     }
 
-    private Double findLatestPredictedHours(Long binId) {
-        if (binId == null) {
+    private String buildScoreExplanationFr(RoutingBinDto bin) {
+        if (bin == null) {
+            return "Le score n'a pas pu être calculé.";
+        }
+
+        if ("SCHEDULE_BLOCKED".equals(bin.getDecisionCategory())) {
+            return "Aucun score opportuniste n'est retenu car la collecte n'est pas autorisée à ce moment.";
+        }
+
+        if ("NO_COMPATIBLE_TRUCK".equals(bin.getDecisionCategory())) {
+            return "Le bac n'est pas envoyé au moteur d'optimisation car aucun camion compatible n'est disponible.";
+        }
+
+        double priority = round(safeDouble(bin.getPredictedPriority()));
+        double fillLevel = round(safeDouble(bin.getFillLevel()));
+        Double predictedHours = round(bin.getPredictedHoursToFull());
+        double feedback = round(safeDouble(bin.getFeedbackScore()));
+        long postponementCount = bin.getPostponementCount() != null ? bin.getPostponementCount() : 0L;
+        double opportunisticScore = round(safeDouble(bin.getOpportunisticScore()));
+
+        if (Boolean.TRUE.equals(bin.getMandatory())) {
+            return "Même si un score opportuniste peut être estimé, la règle MANDATORY domine la décision. "
+                    + "Les indicateurs observés sont : priorité prédite=" + priority
+                    + ", remplissage=" + fillLevel + "%, heures avant saturation="
+                    + (predictedHours != null ? predictedHours : "indisponibles")
+                    + ", feedback=" + feedback
+                    + ", reports=" + postponementCount + ".";
+        }
+
+        if (Boolean.TRUE.equals(bin.getOpportunistic())) {
+            return "Le score opportuniste (" + opportunisticScore
+                    + ") résulte d'un compromis entre la priorité prédite (" + priority
+                    + "), le niveau de remplissage (" + fillLevel + "%), "
+                    + "l'horizon avant saturation (" + (predictedHours != null ? predictedHours : "indisponible") + " h), "
+                    + "le score de feedback (" + feedback + ") et "
+                    + "l'historique de reports (" + postponementCount + ").";
+        }
+
+        return "Le score opportuniste (" + opportunisticScore
+                + ") reste insuffisant pour justifier une collecte immédiate. "
+                + "Les indicateurs observés sont : priorité=" + priority
+                + ", remplissage=" + fillLevel + "%, heures avant saturation="
+                + (predictedHours != null ? predictedHours : "indisponibles")
+                + ", feedback=" + feedback
+                + ", reports=" + postponementCount + ".";
+    }
+
+    private String buildUrgencyExplanationFr(RoutingBinDto bin) {
+        if (bin == null) {
+            return "Le niveau d'urgence n'a pas pu être évalué.";
+        }
+
+        if ("SCHEDULE_BLOCKED".equals(bin.getDecisionCategory())) {
+            return "Le bac n'est pas analysé par le moteur de priorité car la fenêtre de collecte n'est pas ouverte.";
+        }
+
+        if ("NO_COMPATIBLE_TRUCK".equals(bin.getDecisionCategory())) {
+            return "Le bac n'est pas retenu malgré son état car aucun camion compatible avec son type n'est disponible.";
+        }
+
+        Double predictedHours = bin.getPredictedHoursToFull();
+        if (predictedHours == null) {
+            return "Aucune estimation fiable du temps restant avant saturation n'est disponible.";
+        }
+
+        double hours = round(predictedHours);
+        RoutingRun currentRun = resolveCurrentRun();
+
+        if (willOverflowBeforeCurrentRunEnd(predictedHours, currentRun)) {
+            return "Le bac devrait atteindre la saturation dans le cycle courant (≈ " + hours
+                    + " h restantes), ce qui le rend immédiatement prioritaire.";
+        }
+
+        if (willOverflowBeforeNextRun(predictedHours, currentRun)) {
+            return "Le bac devrait atteindre la saturation avant le prochain passage planifié (≈ " + hours
+                    + " h restantes), ce qui justifie une décision renforcée.";
+        }
+
+        if (predictedHours <= MANDATORY_HOURS_THRESHOLD) {
+            return "Le temps restant avant saturation est très faible (≈ " + hours
+                    + " h), donc le niveau d'urgence est considéré comme critique.";
+        }
+
+        if (predictedHours <= OPPORTUNISTIC_HOURS_THRESHOLD) {
+            return "Le temps restant avant saturation (≈ " + hours
+                    + " h) n'est pas critique, mais il devient suffisamment court pour une collecte opportuniste.";
+        }
+
+        return "Le temps restant avant saturation (≈ " + hours
+                + " h) laisse une marge confortable. Le bac peut être suivi sans action immédiate.";
+    }
+
+    private String buildFeedbackExplanationFr(RoutingBinDto bin) {
+        if (bin == null) {
+            return "Aucune analyse de feedback n'est disponible.";
+        }
+
+        if ("SCHEDULE_BLOCKED".equals(bin.getDecisionCategory())) {
+            return "Le feedback n'est pas exploité pour cette tournée car la collecte n'est pas autorisée actuellement.";
+        }
+
+        if ("NO_COMPATIBLE_TRUCK".equals(bin.getDecisionCategory())) {
+            return "Même si un feedback existe, aucun camion compatible n'est disponible pour ce type de bac.";
+        }
+
+        double feedback = round(safeDouble(bin.getFeedbackScore()));
+
+        if (feedback >= FEEDBACK_SCORE_THRESHOLD) {
+            return "Le score de feedback est élevé (" + feedback
+                    + "), ce qui traduit une pression terrain importante et renforce la priorité de collecte.";
+        }
+
+        if (feedback >= OPPORTUNISTIC_FEEDBACK_THRESHOLD) {
+            return "Le score de feedback (" + feedback
+                    + ") révèle des signaux opérationnels modérés, suffisants pour favoriser une collecte opportuniste.";
+        }
+
+        return "Le score de feedback (" + feedback
+                + ") reste faible et ne suffit pas, à lui seul, à imposer une collecte prioritaire.";
+    }
+
+    private String buildPostponementExplanationFr(RoutingBinDto bin) {
+        if (bin == null) {
+            return "Aucune information sur les reports n'est disponible.";
+        }
+
+        if ("SCHEDULE_BLOCKED".equals(bin.getDecisionCategory())) {
+            return "Le bac reste hors tournée courante à cause de la contrainte horaire, indépendamment de l'historique de report.";
+        }
+
+        if ("NO_COMPATIBLE_TRUCK".equals(bin.getDecisionCategory())) {
+            return "Le bac ne peut pas être affecté tant qu'aucun camion compatible n'est disponible.";
+        }
+
+        long postponementCount = bin.getPostponementCount() != null ? bin.getPostponementCount() : 0L;
+
+        if (postponementCount <= 0) {
+            return "Aucun report actif n'a été identifié pour ce bac.";
+        }
+
+        if (postponementCount == 1) {
+            return "Le bac a déjà été reporté une fois, ce qui augmente légèrement sa sensibilité opérationnelle.";
+        }
+
+        return "Le bac présente un historique de " + postponementCount
+                + " reports actifs, ce qui augmente la pression de collecte et pèse dans la décision finale.";
+    }
+
+    private String buildClassificationExplanationFr(RoutingBinDto bin) {
+        if (bin == null || bin.getDecisionCategory() == null) {
+            return "La classification n'a pas pu être expliquée.";
+        }
+
+        return switch (bin.getDecisionCategory()) {
+            case "SCHEDULE_BLOCKED" ->
+                    "Le bac est exclu de la tournée actuelle car la fenêtre de collecte autorisée n'est pas ouverte. "
+                            + (bin.getCollectionWindowExplanation() != null ? bin.getCollectionWindowExplanation() : "");
+            case "NO_COMPATIBLE_TRUCK" ->
+                    "Le bac est temporairement exclu car aucun camion compatible avec son type n'est disponible pour éviter le mélange des déchets.";
+            case "MANDATORY" ->
+                    "Le bac est classé MANDATORY car au moins une règle critique domine la décision métier : risque de débordement imminent, remplissage très élevé, priorité prédite forte ou pression terrain significative.";
+            case "OPPORTUNISTIC" ->
+                    "Le bac est classé OPPORTUNISTIC car il présente un intérêt opérationnel réel sans atteindre le niveau de criticité d'un bac obligatoire. Il peut être intégré si la tournée conserve une marge suffisante.";
+            case "REPORTABLE" ->
+                    "Le bac est classé REPORTABLE car les indicateurs actuels restent compatibles avec un report sans risque immédiat sur la continuité du service.";
+            default ->
+                    "La catégorie métier a été renseignée, mais aucune explication standard n'est disponible.";
+        };
+    }
+
+    private double resolveRemainingCapacityKg(Truck truck) {
+        if (truck == null) {
+            return 0.0;
+        }
+
+        BigDecimal maxLoad = extractBigDecimal(truck, "getMaxLoadKg");
+        if (maxLoad == null) {
+            return 0.0;
+        }
+
+        BigDecimal currentLoad = extractBigDecimal(truck, "getCurrentLoadKg");
+        if (currentLoad == null) {
+            currentLoad = BigDecimal.ZERO;
+        }
+
+        BigDecimal remainingCapacity = maxLoad.subtract(currentLoad);
+
+        if (remainingCapacity.compareTo(BigDecimal.ZERO) < 0) {
+            return 0.0;
+        }
+
+        return remainingCapacity.setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private Double resolveBinRoutingLat(Bin bin) {
+        Double accessLat = extractDouble(bin, "getAccessLat");
+        if (accessLat != null) {
+            return accessLat;
+        }
+        return extractDouble(bin, "getLat");
+    }
+
+    private Double resolveBinRoutingLng(Bin bin) {
+        Double accessLng = extractDouble(bin, "getAccessLng");
+        if (accessLng != null) {
+            return accessLng;
+        }
+        return extractDouble(bin, "getLng");
+    }
+
+    private String extractBinWasteType(Bin bin) {
+        Object value = invokeGetter(bin, "getWasteType");
+        if (value == null) {
+            return "UNKNOWN";
+        }
+        return value.toString().trim().toUpperCase();
+    }
+
+    private List<String> extractSupportedWasteTypes(Truck truck) {
+        Object value = invokeGetter(truck, "getSupportedWasteTypes");
+
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .filter(item -> item != null)
+                    .map(item -> item.toString().trim().toUpperCase())
+                    .toList();
+        }
+
+        return new ArrayList<>();
+    }
+
+    private Object invokeGetter(Object target, String methodName) {
+        if (target == null) {
             return null;
         }
 
-        return binTimePredictionRepository
-                .findTopByBinIdOrderByCreatedAtDesc(binId)
-                .map(pred -> pred.getPredictedHours() != null ? pred.getPredictedHours().doubleValue() : null)
-                .orElse(null);
-    }
-
-    private boolean isMandatoryBin(RoutingBinDto bin, Double predictedHoursToFull) {
-        double priority = safeDouble(bin.getPredictedPriority());
-        double fillLevel = safeDouble(bin.getFillLevel());
-
-        if (fillLevel >= MANDATORY_FILL_THRESHOLD) {
-            return true;
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        } catch (Exception e) {
+            return null;
         }
+    }
 
-        if (predictedHoursToFull != null && predictedHoursToFull <= MANDATORY_HOURS_THRESHOLD) {
-            return true;
+    private Double extractDouble(Object target, String methodName) {
+        Object value = invokeGetter(target, methodName);
+        if (value instanceof Number number) {
+            return number.doubleValue();
         }
-
-        return priority >= MANDATORY_PRIORITY_THRESHOLD
-                && (
-                fillLevel >= 80.0
-                        || (predictedHoursToFull != null && predictedHoursToFull <= 24.0)
-        );
+        return null;
     }
 
-    private List<RoutingTruckDto> buildTrucks(List<Truck> trucks) {
-        return trucks.stream().map(this::mapTruckToRoutingTruckDto).toList();
+    private BigDecimal extractBigDecimal(Object target, String methodName) {
+        Object value = invokeGetter(target, methodName);
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return null;
     }
 
-    private RoutingTruckDto mapTruckToRoutingTruckDto(Truck truck) {
-        RoutingTruckDto dto = new RoutingTruckDto();
-
-        dto.setId(truck.getId());
-        dto.setLat(truck.getLastKnownLat());
-        dto.setLng(truck.getLastKnownLng());
-        dto.setRemainingCapacityKg(calculateRemainingCapacity(truck));
-        dto.setFuelLevelLiters(toDouble(truck.getFuelLevelLiters()));
-        dto.setFuelConsumptionPerKm(toDouble(truck.getFuelConsumptionPerKm()));
-        dto.setStatus(truck.getStatus() != null ? truck.getStatus().name() : null);
-
-        return dto;
-    }
-
-    private Double calculateRemainingCapacity(Truck truck) {
-        BigDecimal maxLoad = truck.getMaxLoadKg() != null ? truck.getMaxLoadKg() : BigDecimal.ZERO;
-        BigDecimal currentLoad = truck.getCurrentLoadKg() != null ? truck.getCurrentLoadKg() : BigDecimal.ZERO;
-        return maxLoad.subtract(currentLoad).doubleValue();
-    }
-
-    private Double toDouble(BigDecimal value) {
+    private Double extractBigDecimalAsDouble(Object target, String methodName) {
+        BigDecimal value = extractBigDecimal(target, methodName);
         return value != null ? value.doubleValue() : null;
     }
 
-    private double computeEstimatedLoadKg(double fillLevel, double maxCapacityKg) {
-        double normalized = Math.max(0.0, Math.min(fillLevel, 100.0));
-        double estimated = (normalized / 100.0) * maxCapacityKg;
-        return Math.max(1.0, Math.round(estimated));
+    private String extractEnumName(Object target, String methodName) {
+        Object value = invokeGetter(target, methodName);
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name();
+        }
+        return value != null ? value.toString() : null;
     }
 
     private double safeDouble(Double value) {
         return value != null ? value : 0.0;
     }
 
-    private double resolveBinLat(Bin bin) {
-        return bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat();
+    private Double round(Double value) {
+        if (value == null) {
+            return null;
+        }
+        return Math.round(value * 100.0) / 100.0;
     }
 
-    private double resolveBinLng(Bin bin) {
-        return bin.getAccessLng() != null ? bin.getAccessLng() : bin.getLng();
+    private double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 }

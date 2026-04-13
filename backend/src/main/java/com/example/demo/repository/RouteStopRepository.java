@@ -4,6 +4,7 @@ import com.example.demo.entity.Bin;
 import com.example.demo.entity.RoutePlan;
 import com.example.demo.entity.RouteStop;
 import com.example.demo.entity.RouteStop.StopStatus;
+import com.example.demo.entity.RouteStop.StopType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -20,4 +21,6 @@ public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
     List<RouteStop> findByStatus(StopStatus status);
 
     List<RouteStop> findByRoutePlanAndStatus(RoutePlan routePlan, StopStatus status);
+
+    boolean existsByRoutePlanAndStopTypeAndStatus(RoutePlan routePlan, StopType stopType, StopStatus status);
 }

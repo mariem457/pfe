@@ -55,8 +55,8 @@ public class BinPriorityServiceImpl implements BinPriorityService {
 
         return bins.stream()
                 .map(bin -> buildRoutingBin(bin, latestTelemetryByBinId.get(bin.getId())))
-                .filter(dto -> dto != null && dto.getPredictedPriority() != null && dto.getPredictedPriority() > 0)
-                .filter(this::shouldCollect)
+                .filter(dto -> dto != null)
+                .filter(dto -> dto.getPredictedPriority() != null && dto.getPredictedPriority() > 0)
                 .sorted(Comparator.comparing(RoutingBinDto::getPredictedPriority).reversed())
                 .toList();
     }
@@ -109,7 +109,7 @@ public class BinPriorityServiceImpl implements BinPriorityService {
     }
 
     private RoutingBinDto buildRoutingBin(Bin bin, BinTelemetry telemetry) {
-        if (telemetry == null) {
+        if (bin == null || telemetry == null) {
             return null;
         }
 
@@ -119,8 +119,8 @@ public class BinPriorityServiceImpl implements BinPriorityService {
 
         BinTelemetry secondPreviousTelemetry = previousTelemetry != null
                 ? binTelemetryRepository
-                        .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
-                        .orElse(null)
+                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
+                .orElse(null)
                 : null;
 
         double hour = telemetry.getTimestamp()
@@ -179,11 +179,15 @@ public class BinPriorityServiceImpl implements BinPriorityService {
         dto.setFillLevel(fillLevel);
         dto.setPredictedPriority(predictionResult.getPriorityScore());
         dto.setEstimatedLoadKg(weightKg);
+        dto.setWasteType(resolveWasteType(bin));
 
         return dto;
     }
 
-    private boolean shouldCollect(RoutingBinDto dto) {
-        return dto.getPredictedPriority() >= 0.80 || dto.getFillLevel() >= 80.0;
+    private String resolveWasteType(Bin bin) {
+        if (bin == null || bin.getWasteType() == null) {
+            return "UNKNOWN";
+        }
+        return bin.getWasteType().name().trim().toUpperCase();
     }
 }

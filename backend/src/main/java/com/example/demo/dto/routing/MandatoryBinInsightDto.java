@@ -1,6 +1,7 @@
 package com.example.demo.dto.routing;
 
 public class MandatoryBinInsightDto {
+
     private Long binId;
     private Double fillLevel;
     private Double predictedPriority;
@@ -16,6 +17,14 @@ public class MandatoryBinInsightDto {
     private String decisionReason;
     private Boolean opportunistic;
     private Boolean reportable;
+    private Double opportunisticScore;
+
+    // Explainability FR
+    private String scoreExplanation;
+    private String urgencyExplanation;
+    private String feedbackExplanation;
+    private String postponementExplanation;
+    private String classificationExplanation;
 
     public MandatoryBinInsightDto() {
     }
@@ -130,5 +139,53 @@ public class MandatoryBinInsightDto {
 
     public void setReportable(Boolean reportable) {
         this.reportable = reportable;
+    }
+
+    public Double getOpportunisticScore() {
+        return opportunisticScore;
+    }
+
+    public void setOpportunisticScore(Double opportunisticScore) {
+        this.opportunisticScore = opportunisticScore;
+    }
+
+    public String getScoreExplanation() {
+        return scoreExplanation;
+    }
+
+    public void setScoreExplanation(String scoreExplanation) {
+        this.scoreExplanation = scoreExplanation;
+    }
+
+    public String getUrgencyExplanation() {
+        return urgencyExplanation;
+    }
+
+    public void setUrgencyExplanation(String urgencyExplanation) {
+        this.urgencyExplanation = urgencyExplanation;
+    }
+
+    public String getFeedbackExplanation() {
+        return feedbackExplanation;
+    }
+
+    public void setFeedbackExplanation(String feedbackExplanation) {
+        this.feedbackExplanation = feedbackExplanation;
+    }
+
+    public String getPostponementExplanation() {
+        return postponementExplanation;
+    }
+
+    public void setPostponementExplanation(String postponementExplanation) {
+        this.postponementExplanation = postponementExplanation;
+    }
+
+    public String getClassificationExplanation() {
+        return classificationExplanation;
+    }
+
+    public void setClassificationExplanation(String classificationExplanation) {
+        this.classificationExplanation = classificationExplanation;
     }
 }

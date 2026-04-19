@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,6 +82,34 @@ public class BinService {
         binRepository.deleteById(id);
     }
 
+    @Transactional
+    public int backfillZonesForBinsWithoutZone() {
+        List<Bin> bins = binRepository.findAll().stream()
+                .filter(b -> b.getZone() == null)
+                .toList();
+
+        int updated = 0;
+
+        for (Bin b : bins) {
+            Double zoneLat = b.getAccessLat() != null ? b.getAccessLat() : b.getLat();
+            Double zoneLng = b.getAccessLng() != null ? b.getAccessLng() : b.getLng();
+
+            if (zoneLat == null || zoneLng == null) {
+                continue;
+            }
+
+            Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(zoneLat, zoneLng);
+
+            if (zoneOpt.isPresent()) {
+                b.setZone(zoneOpt.get());
+                binRepository.save(b);
+                updated++;
+            }
+        }
+
+        return updated;
+    }
+
     private void apply(Bin b, BinRequest req, boolean isCreate) {
         if (isCreate || req.binCode != null) {
             b.setBinCode(req.binCode);
@@ -91,6 +120,14 @@ public class BinService {
                 b.setType(Bin.BinType.valueOf(req.type.toUpperCase()));
             } catch (Exception e) {
                 throw new IllegalArgumentException("invalid bin type, expected REAL or SIM");
+            }
+        }
+
+        if (isCreate || req.wasteType != null) {
+            try {
+                b.setWasteType(Bin.WasteType.valueOf(req.wasteType.toUpperCase()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("invalid waste type, expected GRAY, GREEN, YELLOW or WHITE");
             }
         }
 
@@ -130,6 +167,10 @@ public class BinService {
             throw new IllegalArgumentException("lat and lng are required");
         }
 
+        if (b.getWasteType() == null) {
+            throw new IllegalArgumentException("wasteType is required");
+        }
+
         if (b.getAccessLat() == null) {
             b.setAccessLat(b.getLat());
         }
@@ -143,11 +184,13 @@ public class BinService {
 
         Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(zoneLat, zoneLng);
 
-        Zone zone = zoneOpt.orElseThrow(() ->
-                new IllegalArgumentException("Aucune zone trouvée pour cette position")
-        );
-
-        b.setZone(zone);
+        if (zoneOpt.isPresent()) {
+            b.setZone(zoneOpt.get());
+        } else {
+            if (isCreate) {
+                b.setZone(null);
+            }
+        }
     }
 
     private String generateNextBinCode() {
@@ -185,6 +228,7 @@ public class BinService {
         r.id = b.getId();
         r.binCode = b.getBinCode();
         r.type = b.getType().name();
+        r.wasteType = b.getWasteType() != null ? b.getWasteType().name() : null;
         r.zoneId = (b.getZone() != null) ? b.getZone().getId() : null;
         r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
         r.lat = b.getLat();
@@ -196,6 +240,26 @@ public class BinService {
         r.notes = b.getNotes();
         r.createdAt = b.getCreatedAt();
         r.updatedAt = b.getUpdatedAt();
+        r.clusterId = b.getClusterId();
+
+        Optional<BinTelemetry> latestTelemetryOpt = binTelemetryRepository.findTopByBinOrderByTimestampDesc(b);
+
+        if (latestTelemetryOpt.isPresent()) {
+            BinTelemetry latest = latestTelemetryOpt.get();
+
+            r.fillLevel = (int) latest.getFillLevel();
+            r.batteryLevel = (int) latest.getBatteryLevel();
+            r.status = latest.getStatus();
+            r.lastTelemetryAt = latest.getTimestamp() != null
+                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
+                    : null;
+        } else {
+            r.fillLevel = 0;
+            r.batteryLevel = 0;
+            r.status = "OK";
+            r.lastTelemetryAt = null;
+        }
+
         return r;
     }
 

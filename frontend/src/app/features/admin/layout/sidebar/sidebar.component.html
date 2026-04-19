@@ -2,25 +2,25 @@
 
   <!-- TOP / BRAND -->
   <div class="brand">
-    <div class="brand__icon">
-      <mat-icon>delete</mat-icon>
+    <div class="brand__logo-wrap">
+      <img src="/images/logo.png" alt="WiseTrash Logo" class="brand__logo" />
     </div>
 
     <div class="brand__text">
-      <div class="brand__name">Intello Trash</div>
-      <div class="brand__tag">Smart Waste Management</div>
+      
+      <div class="brand__tag">Gestion intelligente des déchets</div>
     </div>
   </div>
 
   <nav class="nav">
     <a routerLink="dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
       <mat-icon>grid_view</mat-icon>
-      <span>Overview</span>
+      <span>Vue d’ensemble</span>
     </a>
 
     <a routerLink="bins" routerLinkActive="active">
       <mat-icon>delete_outline</mat-icon>
-      <span>Smart Bins</span>
+      <span>Bennes intelligentes</span>
     </a>
 
     <a routerLink="/municipality/missions" routerLinkActive="active" class="nav-link-with-icon">
@@ -42,17 +42,17 @@
 
     <a routerLink="trucks" routerLinkActive="active">
       <mat-icon>local_shipping</mat-icon>
-      <span>Trucks</span>
+      <span>Camions</span>
     </a>
 
     <a routerLink="optimisation" routerLinkActive="active">
       <mat-icon>psychology</mat-icon>
       <span>Optimisation</span>
     </a>
-    <a routerLink="/municipality/smart-routing">
-      <mat-icon>psychology</mat-icon>
-      <span>Routage Intelligent</span>
-     
+
+    <a routerLink="/municipality/smart-routing" routerLinkActive="active">
+      <mat-icon>route</mat-icon>
+      <span>Routage intelligent</span>
     </a>
 
     <a routerLink="parametres" routerLinkActive="active">
@@ -62,31 +62,27 @@
 
     <a routerLink="rapport" routerLinkActive="active">
       <mat-icon>assessment</mat-icon>
-      <span>Rapport</span>
+      <span>Rapports</span>
     </a>
-
 
     <a routerLink="public-reports" routerLinkActive="active">
       <mat-icon>public</mat-icon>
-      <span>Rapports Publics</span>
+      <span>Rapports publics</span>
     </a>
   </nav>
 
   <!-- BOTTOM / FOOTER -->
   <div class="sidebar-footer">
     <div class="divider"></div>
-
-    <div class="user">
-      <div class="avatar">AD</div>
-      <div class="user__meta">
-        <div class="user__name">Admin User</div>
-        <div class="user__email">admincity.gov</div>
-      </div>
-    </div>
-
+<div class="user">
+  <div class="avatar">MU</div>
+  <div class="user__meta">
+    <div class="user__name">Interface municipalité</div>
+  </div>
+</div>
     <a class="logout" href="javascript:void(0)" (click)="onLogout($event)">
       <mat-icon>logout</mat-icon>
-      <span>Log Out</span>
+      <span>Déconnexion</span>
     </a>
   </div>
 

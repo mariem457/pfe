@@ -10,6 +10,13 @@ public class Bin {
 
     public enum BinType { REAL, SIM }
 
+    public enum WasteType {
+        GRAY,
+        GREEN,
+        YELLOW,
+        WHITE
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,24 +58,21 @@ public class Bin {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
-    public enum WasteType {
-        GRAY,
-        GREEN,
-        YELLOW,
-        WHITE
-    }
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "waste_type", length = 20)
+    @Column(name = "waste_type", nullable = false, length = 20)
     private WasteType wasteType;
+    @Column(name = "cluster_id")
+    private Integer clusterId;
 
-    public WasteType getWasteType() {
-        return wasteType;
+    public Integer getClusterId() {
+        return clusterId;
     }
 
-    public void setWasteType(WasteType wasteType) {
-        this.wasteType = wasteType;
+    public void setClusterId(Integer clusterId) {
+        this.clusterId = clusterId;
     }
+
     @PrePersist
     void prePersist() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -83,11 +87,15 @@ public class Bin {
     }
 
     public Long getId() { return id; }
+
     public String getBinCode() { return binCode; }
     public void setBinCode(String binCode) { this.binCode = binCode; }
 
     public BinType getType() { return type; }
     public void setType(BinType type) { this.type = type; }
+
+    public WasteType getWasteType() { return wasteType; }
+    public void setWasteType(WasteType wasteType) { this.wasteType = wasteType; }
 
     public Zone getZone() { return zone; }
     public void setZone(Zone zone) { this.zone = zone; }

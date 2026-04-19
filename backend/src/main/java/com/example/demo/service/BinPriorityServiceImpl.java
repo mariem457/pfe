@@ -56,8 +56,21 @@ public class BinPriorityServiceImpl implements BinPriorityService {
         return bins.stream()
                 .map(bin -> buildRoutingBin(bin, latestTelemetryByBinId.get(bin.getId())))
                 .filter(dto -> dto != null)
-                .filter(dto -> dto.getPredictedPriority() != null && dto.getPredictedPriority() > 0)
-                .sorted(Comparator.comparing(RoutingBinDto::getPredictedPriority).reversed())
+                // ما عادش نقصيو bins حسب predictedPriority فقط
+                // نخليو القرار الحقيقي يصير بعد في RoutingPayloadBuilderServiceImpl
+                .sorted(
+                        Comparator
+                                // 1) الأعلى fillLevel أولًا
+                                .comparing(
+                                        (RoutingBinDto dto) -> safeDouble(dto.getFillLevel()),
+                                        Comparator.reverseOrder()
+                                )
+                                // 2) إذا fill متقارب، prediction تعطي boost فقط
+                                .thenComparing(
+                                        dto -> safeDouble(dto.getPredictedPriority()),
+                                        Comparator.reverseOrder()
+                                )
+                )
                 .toList();
     }
 
@@ -128,13 +141,14 @@ public class BinPriorityServiceImpl implements BinPriorityService {
                 .getHour();
 
         double fillLevel = telemetry.getFillLevel();
+
         double fillRate = previousTelemetry != null
                 ? Math.max(0.0, telemetry.getFillLevel() - previousTelemetry.getFillLevel())
                 : 0.0;
 
-        double batteryLevel = telemetry.getBatteryLevel();
+        double batteryLevel = telemetry.getBatteryLevel() != null ? telemetry.getBatteryLevel() : 0.0;
         double weightKg = telemetry.getWeightKg() != null ? telemetry.getWeightKg().doubleValue() : 0.0;
-        double rssi = telemetry.getRssi();
+        double rssi = telemetry.getRssi() != null ? telemetry.getRssi() : 0.0;
         boolean collected = Boolean.TRUE.equals(telemetry.getCollected());
 
         double fillLevelLag1 = previousTelemetry != null ? previousTelemetry.getFillLevel() : fillLevel;
@@ -152,7 +166,9 @@ public class BinPriorityServiceImpl implements BinPriorityService {
                 ? previousTelemetry.getWeightKg().doubleValue()
                 : weightKg;
 
-        double rssiLag1 = previousTelemetry != null ? previousTelemetry.getRssi() : rssi;
+        double rssiLag1 = previousTelemetry != null && previousTelemetry.getRssi() != null
+                ? previousTelemetry.getRssi()
+                : rssi;
 
         PredictionResult predictionResult = pythonPredictionService.runPrediction(
                 hour,
@@ -177,7 +193,7 @@ public class BinPriorityServiceImpl implements BinPriorityService {
         dto.setLat(routingLat);
         dto.setLng(routingLng);
         dto.setFillLevel(fillLevel);
-        dto.setPredictedPriority(predictionResult.getPriorityScore());
+        dto.setPredictedPriority(predictionResult != null ? predictionResult.getPriorityScore() : 0.0);
         dto.setEstimatedLoadKg(weightKg);
         dto.setWasteType(resolveWasteType(bin));
 
@@ -189,5 +205,9 @@ public class BinPriorityServiceImpl implements BinPriorityService {
             return "UNKNOWN";
         }
         return bin.getWasteType().name().trim().toUpperCase();
+    }
+
+    private double safeDouble(Double value) {
+        return value != null ? value : 0.0;
     }
 }

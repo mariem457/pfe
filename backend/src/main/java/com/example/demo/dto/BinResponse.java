@@ -7,6 +7,7 @@ public class BinResponse {
     public Long id;
     public String binCode;
     public String type;
+    public String wasteType;
     public Long zoneId;
     public String zoneName;
     public Double lat;
@@ -18,4 +19,11 @@ public class BinResponse {
     public String notes;
     public OffsetDateTime createdAt;
     public OffsetDateTime updatedAt;
+    public Integer clusterId;
+
+    // ===== Latest telemetry =====
+    public Integer fillLevel;
+    public Integer batteryLevel;
+    public String status;
+    public OffsetDateTime lastTelemetryAt;
 }

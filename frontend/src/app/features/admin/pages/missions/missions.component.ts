@@ -15,6 +15,8 @@ import {
   FleetMapRouteStop
 } from '../trucks/fleet-map/fleet-map.component';
 
+type MissionTab = 'overview' | 'map' | 'bins';
+
 @Component({
   selector: 'app-missions-page',
   standalone: true,
@@ -42,10 +44,11 @@ export class MissionsComponent implements OnInit {
   errorMessage = signal<string | null>(null);
   aiMessage = signal<string | null>(null);
 
-  // NEW: batch / séparation visuelle
   latestAiBatchLabel = signal<string | null>(null);
   latestAiMissionIds = signal<number[]>([]);
   showOnlyLatestAi = signal(false);
+
+  activeTab = signal<MissionTab>('overview');
 
   searchTerm = '';
   selectedStatus = 'ALL';
@@ -54,6 +57,26 @@ export class MissionsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadMissions();
+  }
+
+  private sortMissionList(list: MissionResponse[]): MissionResponse[] {
+    const statusOrder: Record<string, number> = {
+      IN_PROGRESS: 0,
+      CREATED: 1,
+      COMPLETED: 2,
+      CANCELLED: 3
+    };
+
+    return [...list].sort((a, b) => {
+      const aStatus = statusOrder[a.status || ''] ?? 99;
+      const bStatus = statusOrder[b.status || ''] ?? 99;
+
+      if (aStatus !== bStatus) {
+        return aStatus - bStatus;
+      }
+
+      return b.id - a.id;
+    });
   }
 
   filteredMissions = computed(() => {
@@ -78,7 +101,23 @@ export class MissionsComponent implements OnInit {
       );
     }
 
-    return data.sort((a, b) => b.id - a.id);
+    return this.sortMissionList(data);
+  });
+
+  groupedMissions = computed(() => {
+    const data = this.filteredMissions();
+
+    return {
+      inProgress: data.filter(m => m.status === 'IN_PROGRESS'),
+      created: data.filter(m => m.status === 'CREATED'),
+      completed: data.filter(m => m.status === 'COMPLETED'),
+      cancelled: data.filter(m => m.status === 'CANCELLED')
+    };
+  });
+
+  newestMissionId = computed(() => {
+    const all = [...this.missions()].sort((a, b) => b.id - a.id);
+    return all.length ? all[0].id : null;
   });
 
   totalMissions = computed(() => this.missions().length);
@@ -101,6 +140,10 @@ export class MissionsComponent implements OnInit {
     this.missionBins().filter(b => b.collected).length
   );
 
+  remainingBins = computed(() =>
+    this.missionBins().filter(b => !b.collected).length
+  );
+
   progressPercent = computed(() => {
     const total = this.totalBins();
     if (!total) return 0;
@@ -118,7 +161,19 @@ export class MissionsComponent implements OnInit {
         lng: bin.lng as number,
         visitOrder: bin.visitOrder,
         collected: bin.collected,
-        targetFillThreshold: bin.targetFillThreshold
+        targetFillThreshold: bin.targetFillThreshold,
+        wasteType: (bin as any).wasteType ?? null,
+        fillLevel: (bin as any).fillLevel ?? null,
+        batteryLevel: (bin as any).batteryLevel ?? null,
+        status: (bin as any).status ?? null,
+        zoneName: (bin as any).zoneName ?? null,
+        clusterId: (bin as any).clusterId ?? null,
+        decisionReason: (bin as any).decisionReason ?? null,
+        scoreExplanation: (bin as any).scoreExplanation ?? null,
+        urgencyExplanation: (bin as any).urgencyExplanation ?? null,
+        feedbackExplanation: (bin as any).feedbackExplanation ?? null,
+        postponementExplanation: (bin as any).postponementExplanation ?? null,
+        classificationExplanation: (bin as any).classificationExplanation ?? null
       }))
   );
 
@@ -190,18 +245,23 @@ export class MissionsComponent implements OnInit {
     }
   });
 
+  setActiveTab(tab: MissionTab): void {
+    this.activeTab.set(tab);
+  }
+
   loadMissions(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
 
     this.missionService.getAllMissions().subscribe({
       next: (data) => {
-        this.missions.set(data);
+        const sorted = this.sortMissionList(data);
+        this.missions.set(sorted);
         this.loading.set(false);
 
         const currentSelected = this.selectedMission();
 
-        if (!data.length) {
+        if (!sorted.length) {
           this.selectedMission.set(null);
           this.missionBins.set([]);
           this.missionRouteCoordinates.set([]);
@@ -213,14 +273,14 @@ export class MissionsComponent implements OnInit {
         }
 
         if (currentSelected) {
-          const updatedSelected = data.find(m => m.id === currentSelected.id);
+          const updatedSelected = sorted.find(m => m.id === currentSelected.id);
           if (updatedSelected) {
             this.selectedMission.set(updatedSelected);
             return;
           }
         }
 
-        this.selectMission(data[0]);
+        this.selectMission(sorted[0]);
       },
       error: (err) => {
         this.loading.set(false);
@@ -234,6 +294,7 @@ export class MissionsComponent implements OnInit {
   selectMission(mission: MissionResponse): void {
     this.errorMessage.set(null);
     this.selectedMission.set(mission);
+    this.activeTab.set('overview');
     this.missionBins.set([]);
     this.missionRouteCoordinates.set([]);
     this.missionRouteStops.set([]);
@@ -378,8 +439,6 @@ export class MissionsComponent implements OnInit {
     this.aiMessage.set(null);
     this.generatingAi.set(true);
 
-    // TEMPORAIRE FRONTEND:
-    // plus tard le backend يرجع batchId + missionIds
     setTimeout(() => {
       const current = this.missions();
       const simulatedNewIds = current
@@ -417,6 +476,10 @@ export class MissionsComponent implements OnInit {
 
   isInLatestAiBatch(missionId: number): boolean {
     return this.latestAiMissionIds().includes(missionId);
+  }
+
+  isNewestMission(missionId: number): boolean {
+    return this.newestMissionId() === missionId;
   }
 
   clearAiMessage(): void {

@@ -191,7 +191,10 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             initializeCollectionMetadata(bin);
 
             System.out.println(
-                    "BIN DEBUG => id=" + bin.getId()
+                    "PRE-CLASSIFICATION => id=" + bin.getId()
+                            + ", fillLevel=" + bin.getFillLevel()
+                            + ", predictedPriority=" + bin.getPredictedPriority()
+                            + ", predictedHoursToFull=" + bin.getPredictedHoursToFull()
                             + ", wasteType=" + bin.getWasteType()
                             + ", allowedNow=" + bin.getCollectionAllowedNow()
                             + ", windowStart=" + bin.getWindowStartMinutes()
@@ -201,6 +204,12 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             );
 
             if (!Boolean.TRUE.equals(bin.getCollectionAllowedNow())) {
+                System.out.println(
+                        "SKIPPED_BEFORE_CLASSIFICATION => id=" + bin.getId()
+                                + ", reason=SCHEDULE_BLOCKED"
+                                + ", fillLevel=" + bin.getFillLevel()
+                                + ", predictedPriority=" + bin.getPredictedPriority()
+                );
                 continue;
             }
 
@@ -211,27 +220,83 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 bin.setDecisionCategory("NO_COMPATIBLE_TRUCK");
                 bin.setDecisionReason("Aucun camion compatible n'est disponible pour ce type de bac.");
                 bin.setOpportunisticScore(0.0);
+
+                System.out.println(
+                        "SKIPPED_BEFORE_CLASSIFICATION => id=" + bin.getId()
+                                + ", reason=NO_COMPATIBLE_TRUCK"
+                                + ", fillLevel=" + bin.getFillLevel()
+                                + ", predictedPriority=" + bin.getPredictedPriority()
+                                + ", wasteType=" + bin.getWasteType()
+                );
                 continue;
             }
 
             applyDecisionClassification(bin);
 
+            System.out.println(
+                    "POST-CLASSIFICATION => id=" + bin.getId()
+                            + ", fillLevel=" + bin.getFillLevel()
+                            + ", predictedPriority=" + bin.getPredictedPriority()
+                            + ", predictedHoursToFull=" + bin.getPredictedHoursToFull()
+                            + ", mandatory=" + bin.getMandatory()
+                            + ", opportunistic=" + bin.getOpportunistic()
+                            + ", reportable=" + bin.getReportable()
+                            + ", decisionCategory=" + bin.getDecisionCategory()
+                            + ", decisionReason=" + bin.getDecisionReason()
+                            + ", feedbackScore=" + bin.getFeedbackScore()
+                            + ", postponementCount=" + bin.getPostponementCount()
+                            + ", opportunisticScore=" + bin.getOpportunisticScore()
+            );
+
             if (decision != null && !decision.isShouldOptimize()) {
+                System.out.println(
+                        "SKIPPED_AFTER_CLASSIFICATION => id=" + bin.getId()
+                                + ", reason=DECISION_SHOULD_NOT_OPTIMIZE"
+                );
                 continue;
             }
 
             if (decision != null && decision.isRefuelOnly()) {
+                System.out.println(
+                        "SKIPPED_AFTER_CLASSIFICATION => id=" + bin.getId()
+                                + ", reason=REFUEL_ONLY_MODE"
+                );
                 continue;
             }
 
             if (Boolean.TRUE.equals(bin.getMandatory())) {
                 result.add(bin);
+                System.out.println(
+                        "ADDED_TO_FINAL_PAYLOAD => id=" + bin.getId()
+                                + ", reason=MANDATORY"
+                                + ", fillLevel=" + bin.getFillLevel()
+                                + ", predictedPriority=" + bin.getPredictedPriority()
+                                + ", decisionReason=" + bin.getDecisionReason()
+                );
                 continue;
             }
 
             if (decision != null && decision.isIncludeOpportunistic() && Boolean.TRUE.equals(bin.getOpportunistic())) {
                 result.add(bin);
+                System.out.println(
+                        "ADDED_TO_FINAL_PAYLOAD => id=" + bin.getId()
+                                + ", reason=OPPORTUNISTIC"
+                                + ", fillLevel=" + bin.getFillLevel()
+                                + ", predictedPriority=" + bin.getPredictedPriority()
+                                + ", decisionReason=" + bin.getDecisionReason()
+                );
+                continue;
             }
+
+            System.out.println(
+                    "NOT_ADDED_TO_FINAL_PAYLOAD => id=" + bin.getId()
+                            + ", fillLevel=" + bin.getFillLevel()
+                            + ", predictedPriority=" + bin.getPredictedPriority()
+                            + ", mandatory=" + bin.getMandatory()
+                            + ", opportunistic=" + bin.getOpportunistic()
+                            + ", reportable=" + bin.getReportable()
+                            + ", decisionReason=" + bin.getDecisionReason()
+            );
         }
 
         long mandatoryNow = result.stream().filter(b -> Boolean.TRUE.equals(b.getMandatory())).count();
@@ -250,6 +315,21 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                         + ", strategy=" + (decision != null ? decision.getStrategy() : null)
                         + ", reason=" + (decision != null ? decision.getReason() : null)
         );
+
+        for (RoutingBinDto b : result) {
+            System.out.println(
+                    "FINAL_BIN => id=" + b.getId()
+                            + ", fillLevel=" + b.getFillLevel()
+                            + ", predictedPriority=" + b.getPredictedPriority()
+                            + ", predictedHoursToFull=" + b.getPredictedHoursToFull()
+                            + ", mandatory=" + b.getMandatory()
+                            + ", opportunistic=" + b.getOpportunistic()
+                            + ", reportable=" + b.getReportable()
+                            + ", decisionCategory=" + b.getDecisionCategory()
+                            + ", decisionReason=" + b.getDecisionReason()
+            );
+        }
+
         System.out.println("FINAL BINS SENT TO PYTHON = " + result.size());
 
         return result;
@@ -281,15 +361,46 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             enrichRoutingBin(dto);
             initializeCollectionMetadata(dto);
 
+            System.out.println(
+                    "REPLAN_PRE-CLASSIFICATION => id=" + dto.getId()
+                            + ", fillLevel=" + dto.getFillLevel()
+                            + ", predictedPriority=" + dto.getPredictedPriority()
+                            + ", predictedHoursToFull=" + dto.getPredictedHoursToFull()
+                            + ", wasteType=" + dto.getWasteType()
+                            + ", allowedNow=" + dto.getCollectionAllowedNow()
+            );
+
             if (!Boolean.TRUE.equals(dto.getCollectionAllowedNow())) {
+                System.out.println(
+                        "REPLAN_SKIPPED_BEFORE_CLASSIFICATION => id=" + dto.getId()
+                                + ", reason=SCHEDULE_BLOCKED"
+                );
                 continue;
             }
 
             if (!truckWasteCompatibilityService.hasAtLeastOneCompatibleTruck(routingTrucks, dto)) {
+                System.out.println(
+                        "REPLAN_SKIPPED_BEFORE_CLASSIFICATION => id=" + dto.getId()
+                                + ", reason=NO_COMPATIBLE_TRUCK"
+                                + ", wasteType=" + dto.getWasteType()
+                );
                 continue;
             }
 
             applyDecisionClassification(dto);
+
+            System.out.println(
+                    "REPLAN_POST-CLASSIFICATION => id=" + dto.getId()
+                            + ", fillLevel=" + dto.getFillLevel()
+                            + ", predictedPriority=" + dto.getPredictedPriority()
+                            + ", predictedHoursToFull=" + dto.getPredictedHoursToFull()
+                            + ", mandatory=" + dto.getMandatory()
+                            + ", opportunistic=" + dto.getOpportunistic()
+                            + ", reportable=" + dto.getReportable()
+                            + ", decisionCategory=" + dto.getDecisionCategory()
+                            + ", decisionReason=" + dto.getDecisionReason()
+            );
+
             result.add(dto);
         }
 
@@ -311,7 +422,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     }
 
     private void initializeCollectionMetadata(RoutingBinDto bin) {
-        boolean allowed = collectionScheduleService.isCollectionAllowed(bin);
+        boolean allowed = true;
 
         bin.setCollectionAllowedNow(allowed);
         bin.setCollectionWindowExplanation(collectionScheduleService.explainCollectionWindow(bin));
@@ -745,9 +856,8 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     }
 
     private RoutingDepotDto buildDefaultDepot() {
-        return new RoutingDepotDto(35.5047, 11.0622);
+        return new RoutingDepotDto(48.8326, 2.2925);
     }
-
     private List<PostponedBin> findActivePostponements(Long binId) {
         try {
             return postponedBinRepository.findByBinIdAndResolvedFalseOrderByCreatedAtDesc(binId);

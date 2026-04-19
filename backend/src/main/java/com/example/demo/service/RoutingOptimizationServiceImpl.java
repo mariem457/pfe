@@ -21,6 +21,7 @@ import com.example.demo.entity.Truck;
 import com.example.demo.exception.BadRequestException;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.DepotRepository;
+import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.FuelStationRepository;
 import com.example.demo.repository.MissionBinRepository;
 import com.example.demo.repository.MissionRepository;
@@ -54,6 +55,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     private final PostponedBinRepository postponedBinRepository;
     private final SmartRoutingDecisionService smartRoutingDecisionService;
     private final RoutingExecutionLogRepository routingExecutionLogRepository;
+    private final DriverRepository driverRepository;
 
     public RoutingOptimizationServiceImpl(
             TruckRepository truckRepository,
@@ -68,7 +70,8 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             FuelStationRepository fuelStationRepository,
             PostponedBinRepository postponedBinRepository,
             SmartRoutingDecisionService smartRoutingDecisionService,
-            RoutingExecutionLogRepository routingExecutionLogRepository
+            RoutingExecutionLogRepository routingExecutionLogRepository,
+            DriverRepository driverRepository
     ) {
         this.truckRepository = truckRepository;
         this.binRepository = binRepository;
@@ -83,6 +86,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         this.postponedBinRepository = postponedBinRepository;
         this.smartRoutingDecisionService = smartRoutingDecisionService;
         this.routingExecutionLogRepository = routingExecutionLogRepository;
+        this.driverRepository = driverRepository;
     }
 
     @Override
@@ -394,7 +398,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             RoutingRequestDto routingRequest,
             RecommendedFuelStationDto stationDto
     ) {
-        Driver driver = truck.getAssignedDriver();
+        Driver driver = resolveDriverForTruck(truck);
         Depot depot = resolveActiveDepot();
 
         FuelStation fuelStation = fuelStationRepository.findById(stationDto.getStationId())
@@ -404,6 +408,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         mission.setMissionCode(generateMissionCode());
         mission.setDriver(driver);
         mission.setTruck(truck);
+        mission.setDepot(depot);
         mission.setStatus("CREATED");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
         mission.setPriority("HIGH");
@@ -453,10 +458,13 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                 .findFirst()
                 .orElseThrow();
 
+        Driver driver = resolveDriverForTruck(truck);
+
         Mission mission = new Mission();
         mission.setMissionCode(generateMissionCode());
-        mission.setDriver(truck.getAssignedDriver());
+        mission.setDriver(driver);
         mission.setTruck(truck);
+        mission.setDepot(resolveActiveDepot());
         mission.setStatus("CREATED");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
         mission.setPriority("NORMAL");
@@ -700,6 +708,21 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                 .filter(s -> truckId.equals(s.getTruckId()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private Driver resolveDriverForTruck(Truck truck) {
+        if (truck == null) {
+            throw new BadRequestException("Truck is null while resolving driver");
+        }
+
+        if (truck.getTruckCode() == null || truck.getTruckCode().isBlank()) {
+            throw new BadRequestException("Truck code is missing for truck id: " + truck.getId());
+        }
+
+        return driverRepository.findByVehicleCode(truck.getTruckCode())
+                .orElseThrow(() -> new BadRequestException(
+                        "No driver mapped to truck code: " + truck.getTruckCode()
+                ));
     }
 
     private Depot resolveActiveDepot() {

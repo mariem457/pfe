@@ -10,12 +10,22 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as L from 'leaflet';
+import 'leaflet.heat';
 import { Subscription } from 'rxjs';
 import { RealtimeService, TruckLocationMsg } from '../../../../../services/realtime.service';
 import { BinService } from '../../../../../services/bin.service';
 import { MapFocusService } from '../../../../../services/map-focus.service';
 
+declare module 'leaflet' {
+  function heatLayer(
+    latlngs: Array<[number, number, number?]>,
+    options?: any
+  ): any;
+}
+
 type LatLng = { lat: number; lng: number };
+type MapDisplayMode = 'markers' | 'heatmap' | 'both';
+type HeatMetricMode = 'density' | 'fillLevel';
 
 export interface FleetMapReportItem {
   id: number;
@@ -38,6 +48,18 @@ export interface FleetMapMissionBinItem {
   visitOrder: number;
   collected: boolean;
   targetFillThreshold?: number | null;
+  wasteType?: string | null;
+  decisionReason?: string | null;
+  scoreExplanation?: string | null;
+  urgencyExplanation?: string | null;
+  feedbackExplanation?: string | null;
+  postponementExplanation?: string | null;
+  classificationExplanation?: string | null;
+  fillLevel?: number | null;
+  batteryLevel?: number | null;
+  status?: string | null;
+  zoneName?: string | null;
+  clusterId?: number | null;
 }
 
 export interface FleetMapRouteCoordinate {
@@ -51,6 +73,55 @@ export interface FleetMapRouteStop {
   binId: number | null;
   lat: number;
   lng: number;
+}
+
+export interface FleetMapPlanningStop {
+  binId: number;
+  orderIndex: number;
+}
+
+export interface FleetMapPlanningMission {
+  truckId: number;
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+  stops: FleetMapPlanningStop[];
+  routeCoordinates: FleetMapRouteCoordinate[];
+}
+
+export interface FleetMapDroppedBin {
+  id: number;
+  lat: number;
+  lng: number;
+  binCode?: string | null;
+  wasteType?: string | null;
+  clusterId?: number | null;
+}
+
+export interface FleetMapSelectedBinExplainability {
+  decisionReason?: string | null;
+  scoreExplanation?: string | null;
+  urgencyExplanation?: string | null;
+  feedbackExplanation?: string | null;
+  postponementExplanation?: string | null;
+  classificationExplanation?: string | null;
+}
+
+export interface FleetMapSelectedBinDetails extends FleetMapSelectedBinExplainability {
+  id?: number | string | null;
+  binId?: number | null;
+  binCode?: string | null;
+  lat: number;
+  lng: number;
+  wasteType?: string | null;
+  clusterId?: number | null;
+  fillLevel?: number | null;
+  batteryLevel?: number | null;
+  status?: string | null;
+  zoneName?: string | null;
+  collected?: boolean | null;
+  targetFillThreshold?: number | null;
+  visitOrder?: number | null;
+  source?: 'bin' | 'mission' | 'planning' | 'dropped' | 'focus';
 }
 
 @Component({
@@ -69,12 +140,17 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() title = 'Carte de la flotte en direct';
   @Input() subtitle = 'Localisation et itinéraires des camions en temps réel';
   @Input() reports: FleetMapReportItem[] = [];
+
   @Input() missionBins: FleetMapMissionBinItem[] = [];
   @Input() missionRouteCoordinates: FleetMapRouteCoordinate[] = [];
   @Input() missionRouteStops: FleetMapRouteStop[] = [];
   @Input() snappedWaypoints: FleetMapRouteCoordinate[] = [];
   @Input() matrixSource: string | null = null;
   @Input() geometrySource: string | null = 'OSRM';
+
+  @Input() planningMode = false;
+  @Input() planningMissions: FleetMapPlanningMission[] = [];
+  @Input() droppedBins: FleetMapDroppedBin[] = [];
 
   private map?: L.Map;
   private trucksSub?: Subscription;
@@ -95,6 +171,13 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private snappedWaypointMarkers = new Map<number, L.Layer>();
   private snappedConnectorLines = new Map<number, L.Polyline>();
 
+  private planningMissionPolylines = new Map<number, L.Polyline>();
+  private planningMissionMarkers = new Map<string, L.Layer>();
+  private droppedBinMarkers = new Map<number, L.Layer>();
+
+  private heatLayer?: any;
+  private binsData: any[] = [];
+
   addBinMode = false;
 
   showAddBinModal = false;
@@ -102,9 +185,15 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   addBinError = '';
   addBinSuccess = '';
 
+  selectedBin: FleetMapSelectedBinDetails | null = null;
+
+  displayMode: MapDisplayMode = 'both';
+  heatMetric: HeatMetricMode = 'fillLevel';
+
   newBin = {
     binCode: '',
     type: 'SIM',
+    wasteType: 'GRAY',
     lat: null as number | null,
     lng: null as number | null,
     notes: '',
@@ -128,7 +217,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
       this.loadParisBoundary()
         .then(() => {
-          this.fitToParis();
+          this.fitToDataArea();
           this.lockMapToParis();
         })
         .catch((e) => console.error('GeoJSON error:', e))
@@ -155,6 +244,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           setTimeout(() => {
             this.applyPendingFocus();
             this.map?.invalidateSize();
+            this.fitToDataArea();
           }, 300);
         });
 
@@ -170,7 +260,13 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
       setTimeout(() => {
         this.applyPendingFocus();
+        this.fitToDataArea();
       }, 100);
+    }
+
+    if (changes['showBins'] && this.map) {
+      this.refreshBinVisualisation();
+      this.fitToDataArea();
     }
 
     if (
@@ -178,10 +274,14 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         changes['missionBins'] ||
         changes['missionRouteCoordinates'] ||
         changes['missionRouteStops'] ||
-        changes['snappedWaypoints']
+        changes['snappedWaypoints'] ||
+        changes['planningMissions'] ||
+        changes['droppedBins'] ||
+        changes['planningMode']
       ) && this.map
     ) {
       this.renderMissionBins();
+      this.fitToDataArea();
     }
   }
 
@@ -195,6 +295,18 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
   }
 
+  setDisplayMode(mode: MapDisplayMode): void {
+    this.displayMode = mode;
+    this.refreshBinVisualisation();
+    this.fitToDataArea();
+  }
+
+  setHeatMetric(metric: HeatMetricMode): void {
+    this.heatMetric = metric;
+    this.renderHeatLayer();
+    this.fitToDataArea();
+  }
+
   closeAddBinModal(): void {
     this.showAddBinModal = false;
     this.creatingBin = false;
@@ -204,6 +316,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.newBin = {
       binCode: '',
       type: 'SIM',
+      wasteType: 'GRAY',
       lat: null,
       lng: null,
       notes: '',
@@ -226,8 +339,14 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       return;
     }
 
+    if (!this.newBin.wasteType) {
+      this.addBinError = 'Veuillez choisir un type de déchet.';
+      return;
+    }
+
     const payload: any = {
       type: this.newBin.type,
+      wasteType: this.newBin.wasteType,
       lat: this.newBin.lat,
       lng: this.newBin.lng,
       notes: this.newBin.notes?.trim() || null,
@@ -359,6 +478,81 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.map.fitBounds(bounds, { padding: [20, 20] });
   }
 
+  private fitToDataArea(): void {
+    if (!this.map) return;
+
+    const boundsPoints: L.LatLngExpression[] = [];
+
+    if (this.parisPolygon?.length) {
+      this.parisPolygon.forEach((p) => boundsPoints.push([p.lat, p.lng]));
+    }
+
+    (this.binsData || []).forEach((bin) => {
+      if (bin?.lat != null && bin?.lng != null && this.isInsideParis(bin.lat, bin.lng)) {
+        boundsPoints.push([bin.lat, bin.lng]);
+      }
+    });
+
+    (this.missionBins || []).forEach((bin) => {
+      if (bin?.lat != null && bin?.lng != null && this.isInsideParis(bin.lat, bin.lng)) {
+        boundsPoints.push([bin.lat, bin.lng]);
+      }
+    });
+
+    (this.reports || []).forEach((report) => {
+      if (report?.lat != null && report?.lng != null && this.isInsideParis(report.lat, report.lng)) {
+        boundsPoints.push([report.lat, report.lng]);
+      }
+    });
+
+    (this.planningMissions || []).forEach((mission) => {
+      (mission.routeCoordinates || []).forEach((p) => {
+        if (p?.lat != null && p?.lng != null && this.isInsideParis(p.lat, p.lng)) {
+          boundsPoints.push([p.lat, p.lng]);
+        }
+      });
+
+      (mission.stops || []).forEach((stop) => {
+        const bin = this.findMissionBinByBinId(stop.binId);
+        if (bin?.lat != null && bin?.lng != null && this.isInsideParis(bin.lat, bin.lng)) {
+          boundsPoints.push([bin.lat, bin.lng]);
+        }
+      });
+    });
+
+    (this.droppedBins || []).forEach((bin) => {
+      if (bin?.lat != null && bin?.lng != null && this.isInsideParis(bin.lat, bin.lng)) {
+        boundsPoints.push([bin.lat, bin.lng]);
+      }
+    });
+
+    (this.missionRouteCoordinates || []).forEach((p) => {
+      if (p?.lat != null && p?.lng != null && this.isInsideParis(p.lat, p.lng)) {
+        boundsPoints.push([p.lat, p.lng]);
+      }
+    });
+
+    (this.missionRouteStops || []).forEach((s) => {
+      if (s?.lat != null && s?.lng != null && this.isInsideParis(s.lat, s.lng)) {
+        boundsPoints.push([s.lat, s.lng]);
+      }
+    });
+
+    (this.snappedWaypoints || []).forEach((p) => {
+      if (p?.lat != null && p?.lng != null && this.isInsideParis(p.lat, p.lng)) {
+        boundsPoints.push([p.lat, p.lng]);
+      }
+    });
+
+    if (!boundsPoints.length) {
+      this.fitToParis();
+      return;
+    }
+
+    const bounds = L.latLngBounds(boundsPoints);
+    this.map.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
+  }
+
   private lockMapToParis(): void {
     if (!this.map || !this.parisPolygon?.length) return;
 
@@ -394,17 +588,6 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private openAddBinModal(lat: number, lng: number): void {
     this.addBinError = '';
     this.addBinSuccess = '';
-    this.showAddBinModal = true;
-
-    this.newBin = {
-      binCode: '',
-      type: 'SIM',
-      lat,
-      lng,
-      notes: '',
-      installationDate: '',
-      isActive: true
-    };
 
     if (this.map) {
       if (this.pendingAddMarker) {
@@ -421,6 +604,32 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         <div>Lng: ${lng.toFixed(6)}</div>
       `).openPopup();
     }
+
+    const returnToBins = this.route.snapshot.queryParamMap.get('returnToBins');
+
+    if (returnToBins === '1') {
+      this.router.navigate(['/municipality/bins'], {
+        queryParams: {
+          pickedLat: lat,
+          pickedLng: lng,
+          returnToBins: 1
+        }
+      });
+      return;
+    }
+
+    this.showAddBinModal = true;
+
+    this.newBin = {
+      binCode: '',
+      type: 'SIM',
+      wasteType: 'GRAY',
+      lat,
+      lng,
+      notes: '',
+      installationDate: '',
+      isActive: true
+    };
   }
 
   private loadBins(): void {
@@ -430,37 +639,15 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       next: (bins: any[]) => {
         if (!this.map) return;
 
-        const map = this.map;
-        this.clearBinMarkers();
+        this.binsData = (bins || []).filter(bin =>
+          bin?.lat != null &&
+          bin?.lng != null &&
+          this.isInsideParis(bin.lat, bin.lng)
+        );
 
-        bins.forEach((bin) => {
-          if (bin.lat == null || bin.lng == null) return;
-          if (!this.isInsideParis(bin.lat, bin.lng)) return;
-
-          const color = this.getBinColor(bin);
-
-          const marker = L.circleMarker([bin.lat, bin.lng], {
-            radius: 8,
-            color,
-            fillColor: color,
-            fillOpacity: 0.9,
-            weight: 2
-          });
-
-          marker.addTo(map).bindPopup(`
-            <div style="min-width:220px">
-              <div style="font-weight:700; margin-bottom:6px;">${bin.binCode ?? 'BIN'}</div>
-              <div><b>Zone:</b> ${bin.zoneName ?? '—'}</div>
-              <div><b>Fill:</b> ${bin.fillLevel ?? 0}%</div>
-              <div><b>Battery:</b> ${bin.batteryLevel ?? 0}%</div>
-              <div><b>Status:</b> ${bin.status ?? 'OK'}</div>
-            </div>
-          `);
-
-          this.binMarkers.set(bin.binId ?? bin.id ?? bin.binCode, marker);
-        });
-
+        this.refreshBinVisualisation();
         this.renderMissionBins();
+        this.fitToDataArea();
 
         setTimeout(() => {
           this.applyPendingFocus();
@@ -472,8 +659,138 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
   }
 
+  private refreshBinVisualisation(): void {
+    if (!this.map) return;
+
+    this.clearBinMarkers();
+    this.clearHeatLayer();
+
+    if (!this.showBins) {
+      return;
+    }
+
+    if (this.displayMode === 'markers' || this.displayMode === 'both') {
+      this.renderBinMarkersFromData();
+    }
+
+    if (this.displayMode === 'heatmap' || this.displayMode === 'both') {
+      this.renderHeatLayer();
+    }
+  }
+
+  private renderBinMarkersFromData(): void {
+    if (!this.map) return;
+
+    const map = this.map;
+    this.clearBinMarkers();
+
+    (this.binsData || []).forEach((bin) => {
+      if (bin.lat == null || bin.lng == null) return;
+      if (!this.isInsideParis(bin.lat, bin.lng)) return;
+
+      const color = this.getBinColor(bin);
+
+      const marker = L.circleMarker([bin.lat, bin.lng], {
+        radius: 8,
+        color,
+        fillColor: color,
+        fillOpacity: 0.9,
+        weight: 2
+      });
+
+      marker.addTo(map).bindPopup(this.buildBinPopup(bin));
+
+      marker.on('click', () => {
+        this.selectBinDetails({
+          id: bin.binId ?? bin.id ?? null,
+          binId: bin.binId ?? bin.id ?? null,
+          binCode: bin.binCode ?? null,
+          lat: bin.lat,
+          lng: bin.lng,
+          wasteType: bin.wasteType ?? null,
+          clusterId: bin.clusterId ?? null,
+          fillLevel: bin.fillLevel ?? null,
+          batteryLevel: bin.batteryLevel ?? null,
+          status: bin.status ?? null,
+          zoneName: bin.zoneName ?? null,
+          decisionReason: bin.decisionReason ?? null,
+          scoreExplanation: bin.scoreExplanation ?? null,
+          urgencyExplanation: bin.urgencyExplanation ?? null,
+          feedbackExplanation: bin.feedbackExplanation ?? null,
+          postponementExplanation: bin.postponementExplanation ?? null,
+          classificationExplanation: bin.classificationExplanation ?? null,
+          source: 'bin'
+        });
+      });
+
+      this.binMarkers.set(bin.binId ?? bin.id ?? bin.binCode, marker);
+    });
+  }
+
+  private buildHeatPoints(): [number, number, number][] {
+    const bins = (this.binsData || [])
+      .filter(bin =>
+        bin?.lat != null &&
+        bin?.lng != null &&
+        this.isInsideParis(bin.lat, bin.lng)
+      );
+
+    if (this.heatMetric === 'fillLevel') {
+      return bins.map(bin => {
+        const fill = typeof bin.fillLevel === 'number' ? bin.fillLevel : 0;
+        const intensity = Math.max(0.05, Math.min(1, fill / 100));
+        return [bin.lat, bin.lng, intensity];
+      });
+    }
+
+    return bins.map(bin => [bin.lat, bin.lng, 0.6]);
+  }
+
+  private renderHeatLayer(): void {
+    if (!this.map) return;
+
+    if (this.heatLayer) {
+      this.heatLayer.removeFrom(this.map);
+      this.heatLayer = undefined;
+    }
+
+    if (!this.showBins) return;
+    if (this.displayMode !== 'heatmap' && this.displayMode !== 'both') return;
+    if (!this.binsData.length) return;
+
+    const points = this.buildHeatPoints();
+    if (!points.length) return;
+
+    this.heatLayer = (L as any).heatLayer(points, {
+      radius: 28,
+      blur: 22,
+      maxZoom: 18,
+      minOpacity: 0.3,
+      gradient: {
+        0.15: '#3b82f6',
+        0.35: '#22c55e',
+        0.55: '#facc15',
+        0.75: '#f97316',
+        1.0: '#dc2626'
+      }
+    });
+
+    this.heatLayer.addTo(this.map);
+  }
+
+  private clearHeatLayer(): void {
+    if (!this.map || !this.heatLayer) return;
+    this.heatLayer.removeFrom(this.map);
+    this.heatLayer = undefined;
+  }
+
   private renderMissionBins(): void {
     if (!this.map) return;
+
+    if (this.planningMode) {
+      this.renderPlanningRoutes();
+      return;
+    }
 
     this.clearMissionMarkers();
 
@@ -490,29 +807,52 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     const snapped = (this.snappedWaypoints || [])
       .filter(p => p.lat != null && p.lng != null);
 
-    if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length) return;
+    if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length) {
+      this.fitToDataArea();
+      return;
+    }
 
     const boundsPoints: L.LatLngExpression[] = [];
 
     bins.forEach((bin) => {
-      const color = bin.collected ? '#16a34a' : '#f59e0b';
+      const color = this.getWasteTypeColor(bin.wasteType);
+      const borderColor = bin.collected ? '#16a34a' : color;
 
       const marker = L.circleMarker([bin.lat, bin.lng], {
         radius: 10,
-        color,
+        color: borderColor,
         fillColor: color,
         fillOpacity: 0.95,
         weight: 3
       });
 
-      marker.addTo(this.map!).bindPopup(`
-        <div style="min-width:220px">
-          <div style="font-weight:700; margin-bottom:6px;">${bin.binCode || 'BIN-' + bin.binId}</div>
-          <div><b>Ordre:</b> ${bin.visitOrder}</div>
-          <div><b>Statut:</b> ${bin.collected ? 'Collecté' : 'À collecter'}</div>
-          <div><b>Seuil:</b> ${bin.targetFillThreshold ?? '—'}%</div>
-        </div>
-      `);
+      marker.addTo(this.map!).bindPopup(this.buildMissionBinPopup(bin));
+
+      marker.on('click', () => {
+        this.selectBinDetails({
+          id: bin.id,
+          binId: bin.binId,
+          binCode: bin.binCode ?? null,
+          lat: bin.lat,
+          lng: bin.lng,
+          wasteType: bin.wasteType ?? null,
+          clusterId: bin.clusterId ?? null,
+          fillLevel: bin.fillLevel ?? null,
+          batteryLevel: bin.batteryLevel ?? null,
+          collected: bin.collected,
+          targetFillThreshold: bin.targetFillThreshold ?? null,
+          visitOrder: bin.visitOrder,
+          status: bin.status ?? (bin.collected ? 'COLLECTED' : 'TO_COLLECT'),
+          zoneName: bin.zoneName ?? null,
+          decisionReason: bin.decisionReason ?? null,
+          scoreExplanation: bin.scoreExplanation ?? null,
+          urgencyExplanation: bin.urgencyExplanation ?? null,
+          feedbackExplanation: bin.feedbackExplanation ?? null,
+          postponementExplanation: bin.postponementExplanation ?? null,
+          classificationExplanation: bin.classificationExplanation ?? null,
+          source: 'mission'
+        });
+      });
 
       const orderLabel = L.marker([bin.lat, bin.lng], {
         icon: L.divIcon({
@@ -640,9 +980,159 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
 
     if (boundsPoints.length) {
-      const bounds = L.latLngBounds(boundsPoints as [number, number][]);
-      this.map!.fitBounds(bounds, { padding: [30, 30] });
+      const bounds = L.latLngBounds(boundsPoints);
+      this.map!.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
     }
+  }
+
+  private renderPlanningRoutes(): void {
+    if (!this.map) return;
+
+    this.clearMissionMarkers();
+
+    const boundsPoints: L.LatLngExpression[] = [];
+    const colors = ['#2563eb', '#dc2626', '#16a34a', '#7c3aed', '#ea580c'];
+
+    (this.planningMissions || []).forEach((mission, missionIndex) => {
+      const color = colors[missionIndex % colors.length];
+
+      const coords = (mission.routeCoordinates || [])
+        .filter(p => p.lat != null && p.lng != null);
+
+      if (coords.length >= 2) {
+        const latLngs: L.LatLngExpression[] = coords.map(p => [p.lat, p.lng]);
+
+        const polyline = L.polyline(latLngs, {
+          color,
+          weight: 5,
+          opacity: 0.9
+        }).addTo(this.map!);
+
+        polyline.bindPopup(`
+          <div style="min-width:220px">
+            <div style="font-weight:700; margin-bottom:6px;">Truck ${mission.truckId}</div>
+            <div><b>Distance:</b> ${mission.totalDistanceKm} km</div>
+            <div><b>Duration:</b> ${mission.totalDurationMinutes} min</div>
+            <div><b>Stops:</b> ${mission.stops?.length || 0}</div>
+          </div>
+        `);
+
+        this.planningMissionPolylines.set(mission.truckId, polyline);
+        boundsPoints.push(...latLngs);
+      }
+
+      (mission.stops || []).forEach((stop) => {
+        const bin = this.findMissionBinByBinId(stop.binId);
+        if (!bin) return;
+
+        const fillColor = this.getWasteTypeColor(bin.wasteType);
+
+        const marker = L.circleMarker([bin.lat, bin.lng], {
+          radius: 10,
+          color,
+          fillColor,
+          fillOpacity: 0.9,
+          weight: 3
+        }).addTo(this.map!);
+
+        marker.bindPopup(`
+          <div style="min-width:220px">
+            <div style="font-weight:700; margin-bottom:6px;">Bin ${stop.binId}</div>
+            <div><b>Truck:</b> ${mission.truckId}</div>
+            <div><b>Order:</b> ${stop.orderIndex}</div>
+            <div><b>Code:</b> ${bin.binCode || '—'}</div>
+            <div><b>Waste Type:</b> ${bin.wasteType || '—'}</div>
+          </div>
+        `);
+
+        marker.on('click', () => {
+          this.selectBinDetails({
+            id: bin.id,
+            binId: bin.binId,
+            binCode: bin.binCode ?? null,
+            lat: bin.lat,
+            lng: bin.lng,
+            wasteType: bin.wasteType ?? null,
+            clusterId: bin.clusterId ?? null,
+            fillLevel: bin.fillLevel ?? null,
+            batteryLevel: bin.batteryLevel ?? null,
+            visitOrder: stop.orderIndex,
+            status: `Truck ${mission.truckId}`,
+            zoneName: bin.zoneName ?? null,
+            decisionReason: bin.decisionReason ?? null,
+            scoreExplanation: bin.scoreExplanation ?? null,
+            urgencyExplanation: bin.urgencyExplanation ?? null,
+            feedbackExplanation: bin.feedbackExplanation ?? null,
+            postponementExplanation: bin.postponementExplanation ?? null,
+            classificationExplanation: bin.classificationExplanation ?? null,
+            source: 'planning'
+          });
+        });
+
+        const label = L.marker([bin.lat, bin.lng], {
+          icon: L.divIcon({
+            className: 'mission-order-icon',
+            html: `<div class="mission-order-badge" style="background:${color};">${stop.orderIndex}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          }),
+          zIndexOffset: 2500
+        }).addTo(this.map!);
+
+        this.planningMissionMarkers.set(`${mission.truckId}-${stop.binId}`, marker);
+        this.planningMissionMarkers.set(`${mission.truckId}-${stop.binId}-label`, label);
+
+        boundsPoints.push([bin.lat, bin.lng]);
+      });
+    });
+
+    (this.droppedBins || []).forEach((bin) => {
+      const marker = L.circleMarker([bin.lat, bin.lng], {
+        radius: 8,
+        color: '#dc2626',
+        fillColor: '#dc2626',
+        fillOpacity: 0.45,
+        weight: 2,
+        dashArray: '4 4'
+      }).addTo(this.map!);
+
+      marker.bindPopup(`
+        <div style="min-width:220px">
+          <div style="font-weight:700; margin-bottom:6px;">Dropped Bin ${bin.id}</div>
+          <div><b>Code:</b> ${bin.binCode || '—'}</div>
+          <div><b>Waste Type:</b> ${bin.wasteType || '—'}</div>
+          <div><b>Cluster:</b> ${bin.clusterId ?? '—'}</div>
+          <div style="color:#dc2626; margin-top:6px;"><b>Not assigned</b></div>
+        </div>
+      `);
+
+      marker.on('click', () => {
+        this.selectBinDetails({
+          id: bin.id,
+          binCode: bin.binCode ?? null,
+          lat: bin.lat,
+          lng: bin.lng,
+          wasteType: bin.wasteType ?? null,
+          clusterId: bin.clusterId ?? null,
+          status: 'NOT_ASSIGNED',
+          source: 'dropped'
+        });
+      });
+
+      this.droppedBinMarkers.set(bin.id, marker);
+      boundsPoints.push([bin.lat, bin.lng]);
+    });
+
+    if (boundsPoints.length) {
+      const bounds = L.latLngBounds(boundsPoints);
+      this.map.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
+    }
+  }
+
+  private findMissionBinByBinId(binId: number | null): FleetMapMissionBinItem | null {
+    if (binId == null) return null;
+    const found = (this.missionBins || []).find(b => b.binId === binId);
+    return found || null;
   }
 
   private loadReportsOnMap(): void {
@@ -722,6 +1212,15 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           }
         }
       }
+
+      this.selectBinDetails({
+        id: target.id ?? null,
+        binCode: target.code ?? null,
+        lat: target.lat,
+        lng: target.lng,
+        zoneName: target.zone ?? null,
+        source: 'focus'
+      });
 
       if (matchedMarker) {
         setTimeout(() => {
@@ -803,6 +1302,21 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
     this.snappedConnectorLines.clear();
 
+    for (const line of this.planningMissionPolylines.values()) {
+      line.removeFrom(this.map);
+    }
+    this.planningMissionPolylines.clear();
+
+    for (const marker of this.planningMissionMarkers.values()) {
+      marker.removeFrom(this.map);
+    }
+    this.planningMissionMarkers.clear();
+
+    for (const marker of this.droppedBinMarkers.values()) {
+      marker.removeFrom(this.map);
+    }
+    this.droppedBinMarkers.clear();
+
     if (this.missionPolyline) {
       this.missionPolyline.removeFrom(this.map);
       this.missionPolyline = undefined;
@@ -814,14 +1328,86 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
   }
 
-  private getBinColor(bin: any): string {
-    const fill = Number(bin.fillLevel ?? 0);
-    const status = (bin.status ?? '').toUpperCase();
+  private getWasteTypeColor(wasteType?: string | null): string {
+    switch ((wasteType || '').toUpperCase()) {
+      case 'GRAY':
+        return '#222222';
+      case 'GREEN':
+        return '#2E7D32';
+      case 'YELLOW':
+        return '#F9A825';
+      case 'WHITE':
+        return '#1E88E5';
+      default:
+        return '#64748b';
+    }
+  }
 
-    if (status === 'ERROR') return '#111827';
-    if (status === 'OVERFLOW' || status === 'FULL' || fill >= 90) return '#ef4444';
-    if (status === 'WARNING' || fill >= 60) return '#f59e0b';
-    return '#16a34a';
+  private getBinColor(bin: any): string {
+    return this.getWasteTypeColor(bin?.wasteType);
+  }
+
+  private escapeHtml(value: any): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private buildBinPopup(bin: any): string {
+    const code = this.escapeHtml(bin.binCode ?? `BIN-${bin.binId ?? bin.id ?? '?'}`);
+    const wasteType = this.escapeHtml(bin.wasteType ?? '—');
+    const fill = bin.fillLevel ?? 0;
+    const battery = bin.batteryLevel ?? 0;
+    const status = this.escapeHtml(bin.status ?? 'OK');
+    const zone = this.escapeHtml(bin.zoneName ?? '—');
+    const cluster = bin.clusterId ?? '—';
+
+    return `
+      <div class="bin-popup-card">
+        <div class="bin-popup-title">${code}</div>
+        <div><b>Zone:</b> ${zone}</div>
+        <div><b>Cluster:</b> ${cluster}</div>
+        <div><b>Type:</b> ${wasteType}</div>
+        <div><b>Fill:</b> ${fill}%</div>
+        <div><b>Battery:</b> ${battery}%</div>
+        <div><b>Status:</b> ${status}</div>
+      </div>
+    `;
+  }
+
+  private buildMissionBinPopup(bin: FleetMapMissionBinItem): string {
+    const code = this.escapeHtml(bin.binCode || `BIN-${bin.binId}`);
+    const wasteType = this.escapeHtml(bin.wasteType ?? '—');
+    const cluster = bin.clusterId ?? '—';
+
+    return `
+      <div class="bin-popup-card">
+        <div class="bin-popup-title">${code}</div>
+        <div><b>Cluster:</b> ${cluster}</div>
+        <div><b>Ordre:</b> ${bin.visitOrder}</div>
+        <div><b>Statut:</b> ${bin.collected ? 'Collecté' : 'À collecter'}</div>
+        <div><b>Seuil:</b> ${bin.targetFillThreshold ?? '—'}%</div>
+        <div><b>Type:</b> ${wasteType}</div>
+      </div>
+    `;
+  }
+
+  private selectBinDetails(details: FleetMapSelectedBinDetails): void {
+    this.selectedBin = details;
+  }
+
+  hasExplainability(bin: FleetMapSelectedBinDetails | null): boolean {
+    return !!(
+      bin?.urgencyExplanation ||
+      bin?.classificationExplanation ||
+      bin?.scoreExplanation ||
+      bin?.decisionReason ||
+      bin?.feedbackExplanation ||
+      bin?.postponementExplanation
+    );
   }
 
   private makeReportIcon(report: FleetMapReportItem): L.DivIcon {
@@ -986,6 +1572,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       }
     } catch {}
 
+    try {
+      this.clearHeatLayer();
+    } catch {}
+
     try { this.map?.remove(); } catch {}
 
     this.truckMarkers.clear();
@@ -995,5 +1585,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.missionRouteStopMarkers.clear();
     this.snappedWaypointMarkers.clear();
     this.snappedConnectorLines.clear();
+    this.planningMissionPolylines.clear();
+    this.planningMissionMarkers.clear();
+    this.droppedBinMarkers.clear();
   }
 }

@@ -1,45 +1,39 @@
 <section class="login-page">
   <div class="login-card">
 
-    <div class="logo-circle">🗑</div>
-    <h2 class="brand">WiseTrash</h2>
-    <p class="subtitle">Gestion Intelligente des Déchets</p>
+    <div class="logo-wrap">
+      <img src="/images/logo.png" alt="WiseTrash logo" class="logo-img" />
+    </div>
 
-    <h1>Bon Retour</h1>
-    <p class="desc">Connectez-vous pour accéder à votre tableau de bord</p>
+    <p class="login-subtitle">Connectez-vous pour accéder à votre tableau de bord</p>
 
     <form (ngSubmit)="login()">
-
-      <label>Email</label>
+      <label for="email">Adresse e-mail</label>
       <div class="input-group">
-        <span class="material-icons">person</span>
+        <span class="material-icons">mail</span>
         <input
+          id="email"
           type="email"
           name="email"
-          [ngModel]="email"
-          (ngModelChange)="email = $event"
-          (input)="email = $any($event.target).value"
+          [(ngModel)]="email"
           placeholder="admin@ville.gov"
-          autocomplete="email"
+          autocomplete="off"
           required
         />
       </div>
 
-      <label>Mot de passe</label>
+      <label for="password">Mot de passe</label>
       <div class="input-group" [class.active]="showPassword">
         <span class="material-icons">lock</span>
-
         <input
+          id="password"
           [type]="showPassword ? 'text' : 'password'"
           name="password"
-          [ngModel]="password"
-          (ngModelChange)="password = $event"
-          (input)="password = $any($event.target).value"
-          placeholder="•••••••"
-          autocomplete="current-password"
+          [(ngModel)]="password"
+          placeholder="••••••••"
+          autocomplete="new-password"
           required
         />
-
         <button
           type="button"
           class="eye-btn"
@@ -57,8 +51,7 @@
           <input
             type="checkbox"
             name="rememberMe"
-            [ngModel]="rememberMe"
-            (ngModelChange)="rememberMe = $event"
+            [(ngModel)]="rememberMe"
           />
           <span>Se souvenir de moi</span>
         </label>
@@ -69,7 +62,7 @@
       </div>
 
       <button type="submit" class="btn-login">
-        Se connecter →
+        Se connecter
       </button>
 
       <p *ngIf="errorMessage" class="login-error">
@@ -77,9 +70,9 @@
       </p>
 
       <a routerLink="/" class="back-link">
-        ← Retour à l'accueil
+        <span class="material-icons">arrow_back</span>
+        Retour à l'accueil
       </a>
-
     </form>
   </div>
 </section>

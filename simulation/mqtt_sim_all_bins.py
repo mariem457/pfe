@@ -10,21 +10,21 @@ import paho.mqtt.client as mqtt
 # =========================
 # CONFIG
 # =========================
-BROKER = "localhost"          # أو 127.0.0.1
+BROKER = "localhost"
 PORT = 1883
-BACKEND_BINS_URL = "http://localhost:8081/api/bins"
-REFRESH_BINS_EVERY_SEC = 120   # كل قداش يعاود يجيب liste bins من backend
-PUBLISH_EVERY_SEC = 15         # كل قداش يبعث telemetry
 
-# source الأفضل يكون واحد من اللي backend يتقبلهم
-# إذا backend عندك يقبل أي source تنجم تخليه PY_SIM
+BACKEND_BINS_URL = "http://localhost:8081/api/bins"
+
+REFRESH_BINS_EVERY_SEC = 180
+PUBLISH_EVERY_SEC = 30
+
 MQTT_SOURCE = "MQTT_SIM"
 
 # =========================
 # AUTH
 # =========================
 USE_AUTH = True
-JWT_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZ2VudF9QYXJpcyIsInJvbGUiOiJNVU5JQ0lQQUxJVFkiLCJ0b2tlblZlcnNpb24iOjAsImlhdCI6MTc3NTI5ODUxNCwiZXhwIjoxNzc1Mzg0OTE0fQ.W0Co5VQfj01chugpC7sXr68fGyLXk1uYljKl5a3c3bo"
+JWT_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtYXJpZW1oYW1kaTAyMUBnbWFpbC5jb20iLCJyb2xlIjoiTVVOSUNJUEFMSVRZIiwidG9rZW5WZXJzaW9uIjowLCJpYXQiOjE3NzY1MDcxOTMsImV4cCI6MTc3NjU5MzU5M30.jmpwQaUIGbLjhU7IU9XPOxBjzE9L5NvjOhZNUU12OY4"
 
 # =========================
 # MQTT SETUP
@@ -36,15 +36,6 @@ client.loop_start()
 # =========================
 # STATE
 # =========================
-# bin_states[binCode] = {
-#   "id": ...,
-#   "fill": ...,
-#   "battery": ...,
-#   "base_increment_range": (min, max),
-#   "event_probability": ...,
-#   "battery_drain_probability": ...,
-#   "profile": ...
-# }
 bin_states: Dict[str, Dict[str, Any]] = {}
 last_refresh_ts = 0
 
@@ -77,7 +68,6 @@ def fetch_bins_from_backend():
     if not isinstance(data, list):
         raise Exception(f"Réponse inattendue depuis backend: {data}")
 
-    # ناخذ فقط active bins واللي عندهم binCode
     bins = []
     for b in data:
         if not b.get("binCode"):
@@ -89,46 +79,141 @@ def fetch_bins_from_backend():
     return bins
 
 
-def pick_profile():
-    profiles = [
-        {
-            "name": "quiet",
-            "fill_range": (5, 30),
-            "battery_range": (75, 100),
-            "increment_range": (0, 2),
-            "event_probability": 0.02,
-            "battery_drain_probability": 0.03,
-        },
-        {
-            "name": "normal",
-            "fill_range": (15, 45),
-            "battery_range": (60, 95),
-            "increment_range": (1, 4),
-            "event_probability": 0.05,
-            "battery_drain_probability": 0.05,
-        },
-        {
-            "name": "busy",
-            "fill_range": (35, 70),
-            "battery_range": (50, 90),
-            "increment_range": (2, 6),
-            "event_probability": 0.08,
-            "battery_drain_probability": 0.08,
-        },
-        {
-            "name": "critical-zone",
-            "fill_range": (60, 90),
-            "battery_range": (35, 70),
-            "increment_range": (3, 8),
-            "event_probability": 0.12,
-            "battery_drain_probability": 0.10,
-        },
-    ]
+def get_activity_period():
+    hour = datetime.now().hour
+    if 0 <= hour < 6:
+        return "night"
+    elif 6 <= hour < 12:
+        return "morning"
+    elif 12 <= hour < 18:
+        return "afternoon"
+    return "evening"
+
+
+def period_multiplier(period: str) -> float:
+    if period == "night":
+        return 0.35
+    if period == "morning":
+        return 0.85
+    if period == "afternoon":
+        return 1.15
+    return 1.35
+
+
+def zone_multiplier(zone_name: str | None) -> float:
+    if not zone_name:
+        return 1.0
+
+    z = zone_name.strip().lower()
+
+    if z == "grenelle":
+        return 1.20
+    if z == "javel":
+        return 1.05
+    if z == "necker":
+        return 0.95
+    if z == "saint-lambert":
+        return 0.90
+
+    return 1.0
+
+
+def pick_profile(waste_type: str | None, zone_name: str | None):
+    waste = (waste_type or "").strip().upper()
+    zone = (zone_name or "").strip().lower()
+
+    if waste in ("GRAY", "GREEN"):
+        profiles = [
+            {
+                "name": "gg-normal",
+                "fill_range": (20, 45),
+                "battery_range": (65, 95),
+                "increment_range": (2, 5),
+                "event_probability": 0.06,
+                "battery_drain_probability": 0.05,
+            },
+            {
+                "name": "gg-busy",
+                "fill_range": (35, 70),
+                "battery_range": (55, 90),
+                "increment_range": (3, 7),
+                "event_probability": 0.10,
+                "battery_drain_probability": 0.07,
+            },
+        ]
+
+        if zone == "grenelle":
+            profiles.append(
+                {
+                    "name": "gg-critical-grenelle",
+                    "fill_range": (60, 88),
+                    "battery_range": (40, 80),
+                    "increment_range": (4, 9),
+                    "event_probability": 0.14,
+                    "battery_drain_probability": 0.10,
+                }
+            )
+
+    elif waste == "WHITE":
+        profiles = [
+            {
+                "name": "white-quiet",
+                "fill_range": (5, 25),
+                "battery_range": (70, 100),
+                "increment_range": (0, 2),
+                "event_probability": 0.02,
+                "battery_drain_probability": 0.03,
+            },
+            {
+                "name": "white-normal",
+                "fill_range": (10, 35),
+                "battery_range": (65, 95),
+                "increment_range": (1, 3),
+                "event_probability": 0.04,
+                "battery_drain_probability": 0.04,
+            },
+        ]
+
+    elif waste == "YELLOW":
+        profiles = [
+            {
+                "name": "yellow-normal",
+                "fill_range": (10, 35),
+                "battery_range": (65, 95),
+                "increment_range": (1, 3),
+                "event_probability": 0.04,
+                "battery_drain_probability": 0.04,
+            },
+            {
+                "name": "yellow-busy",
+                "fill_range": (20, 50),
+                "battery_range": (55, 90),
+                "increment_range": (2, 4),
+                "event_probability": 0.06,
+                "battery_drain_probability": 0.05,
+            },
+        ]
+
+    else:
+        profiles = [
+            {
+                "name": "fallback-normal",
+                "fill_range": (15, 40),
+                "battery_range": (60, 95),
+                "increment_range": (1, 4),
+                "event_probability": 0.05,
+                "battery_drain_probability": 0.05,
+            }
+        ]
+
     return random.choice(profiles)
 
 
 def create_initial_state(bin_obj):
-    profile = pick_profile()
+    waste_type = bin_obj.get("wasteType")
+    zone_name = bin_obj.get("zoneName")
+
+    profile = pick_profile(waste_type, zone_name)
 
     return {
         "id": bin_obj.get("id"),
@@ -141,7 +226,9 @@ def create_initial_state(bin_obj):
         "lat": bin_obj.get("lat"),
         "lng": bin_obj.get("lng"),
         "type": bin_obj.get("type"),
-        "zoneName": bin_obj.get("zoneName"),
+        "zoneName": zone_name,
+        "wasteType": waste_type,
+        "is_full_since": None,
     }
 
 
@@ -158,16 +245,20 @@ def sync_bins_with_backend():
 
             if code not in bin_states:
                 bin_states[code] = create_initial_state(b)
-                print(f"[NEW BIN] {code} | profile={bin_states[code]['profile']}")
+                print(
+                    f"[NEW BIN] {code} | "
+                    f"profile={bin_states[code]['profile']} | "
+                    f"waste={bin_states[code]['wasteType']} | "
+                    f"zone={bin_states[code]['zoneName']}"
+                )
             else:
-                # نحدث metadata فقط ونخلي state متاع simulation كما هو
                 bin_states[code]["id"] = b.get("id")
                 bin_states[code]["lat"] = b.get("lat")
                 bin_states[code]["lng"] = b.get("lng")
                 bin_states[code]["type"] = b.get("type")
                 bin_states[code]["zoneName"] = b.get("zoneName")
+                bin_states[code]["wasteType"] = b.get("wasteType")
 
-        # نحيو bins اللي ما عادش موجودة/active
         local_codes = list(bin_states.keys())
         for code in local_codes:
             if code not in backend_codes:
@@ -180,47 +271,42 @@ def sync_bins_with_backend():
         print(f"[SYNC ERROR] Impossible de charger les bins depuis backend: {e}")
 
 
-def get_activity_period():
-    hour = datetime.now().hour
-    if 0 <= hour < 6:
-        return "night"
-    elif 6 <= hour < 12:
-        return "morning"
-    elif 12 <= hour < 18:
-        return "afternoon"
-    return "evening"
-
-
-def period_multiplier(period: str) -> float:
-    if period == "night":
-        return 0.5
-    if period == "morning":
-        return 0.9
-    if period == "afternoon":
-        return 1.2
-    return 1.4  # evening
-
-
 def compute_increment(state: Dict[str, Any], period: str) -> int:
     min_inc, max_inc = state["base_increment_range"]
     base = random.randint(min_inc, max_inc)
-    inc = max(0, round(base * period_multiplier(period)))
 
-    # Event exceptionnel
+    waste = (state.get("wasteType") or "").strip().upper()
+    zone = state.get("zoneName")
+
+    waste_mult = 1.0
+    if waste in ("GRAY", "GREEN"):
+        waste_mult = 1.15
+    elif waste == "YELLOW":
+        waste_mult = 0.95
+    elif waste == "WHITE":
+        waste_mult = 0.80
+
+    inc = base
+    inc = round(inc * period_multiplier(period))
+    inc = round(inc * zone_multiplier(zone))
+    inc = round(inc * waste_mult)
+    inc = max(0, inc)
+
     if random.random() < state["event_probability"]:
         bonus = random.randint(4, 12)
         inc += bonus
-        print(f"[EVENT] extra waste for bin profile={state['profile']} (+{bonus})")
+        print(
+            f"[EVENT] extra waste | "
+            f"profile={state['profile']} | waste={waste} | zone={zone} | +{bonus}"
+        )
 
     return inc
 
 
 def update_battery(state: Dict[str, Any]):
-    # Drain faible normal
     if random.random() < state["battery_drain_probability"]:
         state["battery"] = max(5, state["battery"] - random.randint(1, 3))
 
-    # Si batterie déjà basse، تنقص أسرع شوية
     if state["battery"] < 25 and random.random() < 0.25:
         state["battery"] = max(3, state["battery"] - 1)
 
@@ -235,11 +321,13 @@ def compute_status(fill: int, battery: int) -> str:
     return "OK"
 
 
-def maybe_simulate_collection(state: Dict[str, Any], code: str):
-    # إذا تعبا برشة، بعد cycle يفرغ
+def update_full_state(state: Dict[str, Any]):
     if state["fill"] >= 100:
-        print(f"[COLLECTION] {code} full -> simulated emptying")
-        state["fill"] = random.randint(5, 18)
+        state["fill"] = 100
+        if state["is_full_since"] is None:
+            state["is_full_since"] = datetime.now(timezone.utc).isoformat()
+    else:
+        state["is_full_since"] = None
 
 
 def publish_bin_telemetry(bin_code: str, state: Dict[str, Any]):
@@ -254,15 +342,17 @@ def publish_bin_telemetry(bin_code: str, state: Dict[str, Any]):
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    # إذا backend متاعك يقبلهم، تنجم تزيدهم:
-    # payload["weightKg"] = round((state["fill"] / 100.0) * random.uniform(8, 35), 2)
-    # payload["rssi"] = random.randint(-95, -55)
+    # إذا backend يقبلهم خلّيهم، وإذا لا علّقهم
+    payload["weightKg"] = round((state["fill"] / 100.0) * random.uniform(8, 35), 2)
+    payload["rssi"] = random.randint(-95, -55)
 
     msg = json.dumps(payload)
     result = client.publish(topic, msg, qos=1)
 
     print(
         f"[SEND] {bin_code} | "
+        f"waste={state.get('wasteType')} | "
+        f"zone={state.get('zoneName')} | "
         f"fill={state['fill']}% | "
         f"battery={state['battery']}% | "
         f"status={payload['status']} | "
@@ -275,13 +365,13 @@ def simulation_tick():
 
     for code, state in bin_states.items():
         increment = compute_increment(state, period)
-        state["fill"] = min(100, state["fill"] + increment)
+
+        if state["fill"] < 100:
+            state["fill"] = min(100, state["fill"] + increment)
 
         update_battery(state)
-
+        update_full_state(state)
         publish_bin_telemetry(code, state)
-
-        maybe_simulate_collection(state, code)
 
 
 def main():

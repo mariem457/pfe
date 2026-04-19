@@ -10,6 +10,9 @@ public class BinRequest {
     @NotNull(message = "type is required")
     public String type;
 
+    @NotNull(message = "wasteType is required")
+    public String wasteType;
+
     @NotNull(message = "lat is required")
     public Double lat;
 

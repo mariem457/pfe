@@ -6,21 +6,61 @@
     </div>
 
     <div class="map-actions">
-      <button
-        *ngIf="allowAddBins"
-        type="button"
-        class="add-btn"
-        (click)="toggleAddBinMode()"
-      >
-        {{ addBinMode ? 'Annuler ajout' : 'Ajouter des poubelles' }}
-      </button>
+      <div class="map-toggle-group" *ngIf="showBins">
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="displayMode === 'markers'"
+          (click)="setDisplayMode('markers')"
+        >
+          Marqueurs
+        </button>
+
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="displayMode === 'heatmap'"
+          (click)="setDisplayMode('heatmap')"
+        >
+          Carte thermique
+        </button>
+
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="displayMode === 'both'"
+          (click)="setDisplayMode('both')"
+        >
+          Vue combinée
+        </button>
+      </div>
+
+      <div class="map-toggle-group" *ngIf="showBins && (displayMode === 'heatmap' || displayMode === 'both')">
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="heatMetric === 'density'"
+          (click)="setHeatMetric('density')"
+        >
+          Densité
+        </button>
+
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="heatMetric === 'fillLevel'"
+          (click)="setHeatMetric('fillLevel')"
+        >
+          Taux de remplissage
+        </button>
+      </div>
 
       <span class="source-badge source-traffic" *ngIf="matrixSource">
-        Traffic: {{ matrixSource }}
+        Trafic : {{ matrixSource }}
       </span>
 
       <span class="source-badge source-geometry" *ngIf="geometrySource">
-        Geometry: {{ geometrySource }}
+        Géométrie : {{ geometrySource }}
       </span>
 
       <span class="live-badge" *ngIf="showTrucks">En direct</span>
@@ -28,82 +68,206 @@
   </div>
 
   <div class="map-hint" *ngIf="allowAddBins && addBinMode">
-    Clique sur la carte pour choisir l’emplacement de la poubelle.
+    Cliquez sur la carte pour sélectionner l’emplacement du bac.
   </div>
 
-  <div id="fleetMap"></div>
+  <div class="map-content-layout" [class.has-side-panel]="selectedBin">
+    <div id="fleetMap"></div>
+
+    <div class="bin-side-panel" *ngIf="selectedBin as bin">
+      <div class="side-panel-header">
+        <h3>{{ bin.binCode || ('Bac #' + (bin.binId || bin.id || '?')) }}</h3>
+        <span class="bin-source-badge" *ngIf="bin.source">{{ bin.source }}</span>
+      </div>
+
+      <div class="bin-status-strip">
+        <span class="status-chip waste-chip waste-gray" *ngIf="bin.wasteType === 'GRAY'">Déchets ménagers</span>
+        <span class="status-chip waste-chip waste-green" *ngIf="bin.wasteType === 'GREEN'">Déchets organiques</span>
+        <span class="status-chip waste-chip waste-yellow" *ngIf="bin.wasteType === 'YELLOW'">Emballages recyclables</span>
+        <span class="status-chip waste-chip waste-white" *ngIf="bin.wasteType === 'WHITE'">Verre</span>
+
+        <span class="status-chip fill-chip fill-low" *ngIf="bin.fillLevel != null && bin.fillLevel < 25">
+          Faible remplissage
+        </span>
+        <span class="status-chip fill-chip fill-medium" *ngIf="bin.fillLevel != null && bin.fillLevel >= 25 && bin.fillLevel < 50">
+          Remplissage modéré
+        </span>
+        <span class="status-chip fill-chip fill-high" *ngIf="bin.fillLevel != null && bin.fillLevel >= 50 && bin.fillLevel < 80">
+          Remplissage élevé
+        </span>
+        <span class="status-chip fill-chip fill-critical" *ngIf="bin.fillLevel != null && bin.fillLevel >= 80">
+          Niveau critique
+        </span>
+      </div>
+
+      <div class="bin-side-meta">
+        <div><strong>Type de déchet :</strong> {{ bin.wasteType || '—' }}</div>
+        <div><strong>Cluster :</strong> {{ bin.clusterId ?? '—' }}</div>
+        <div><strong>Niveau de remplissage :</strong> {{ bin.fillLevel ?? '—' }}<span *ngIf="bin.fillLevel != null">%</span></div>
+        <div><strong>Niveau de batterie :</strong> {{ bin.batteryLevel ?? '—' }}<span *ngIf="bin.batteryLevel != null">%</span></div>
+        <div><strong>Statut :</strong> {{ bin.status || '—' }}</div>
+        <div><strong>Zone :</strong> {{ bin.zoneName || '—' }}</div>
+        <div><strong>Ordre de passage :</strong> {{ bin.visitOrder ?? '—' }}</div>
+        <div><strong>Seuil cible :</strong> {{ bin.targetFillThreshold ?? '—' }}<span *ngIf="bin.targetFillThreshold != null">%</span></div>
+        <div><strong>Latitude :</strong> {{ bin.lat }}</div>
+        <div><strong>Longitude :</strong> {{ bin.lng }}</div>
+      </div>
+
+      <div class="explainability-block" *ngIf="hasExplainability(bin)">
+        <h4>Justification de sélection</h4>
+
+        <div class="explain-item" *ngIf="bin.urgencyExplanation">
+          <strong>Urgence</strong>
+          <div>{{ bin.urgencyExplanation }}</div>
+        </div>
+
+        <div class="explain-item" *ngIf="bin.classificationExplanation">
+          <strong>Classification</strong>
+          <div>{{ bin.classificationExplanation }}</div>
+        </div>
+
+        <div class="explain-item" *ngIf="bin.scoreExplanation">
+          <strong>Score</strong>
+          <div>{{ bin.scoreExplanation }}</div>
+        </div>
+
+        <div class="explain-item" *ngIf="bin.decisionReason">
+          <strong>Décision</strong>
+          <div>{{ bin.decisionReason }}</div>
+        </div>
+
+        <div class="explain-item" *ngIf="bin.feedbackExplanation">
+          <strong>Retour</strong>
+          <div>{{ bin.feedbackExplanation }}</div>
+        </div>
+
+        <div class="explain-item" *ngIf="bin.postponementExplanation">
+          <strong>Report</strong>
+          <div>{{ bin.postponementExplanation }}</div>
+        </div>
+      </div>
+
+      <div class="explainability-empty" *ngIf="!hasExplainability(bin)">
+        Aucune explication détaillée n’est disponible pour ce bac pour le moment.
+      </div>
+    </div>
+  </div>
 
   <div class="map-legend">
-    <div class="legend-item" *ngIf="showBins">
-      <span class="legend-dot legend-bin"></span>
-      <span>Bacs</span>
+    <div class="legend-section" *ngIf="showBins">
+      <div class="legend-title">Types de déchets</div>
+
+      <div class="legend-item">
+        <span class="legend-dot waste-gray"></span>
+        <span>Déchets ménagers</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot waste-green"></span>
+        <span>Déchets organiques</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot waste-yellow"></span>
+        <span>Emballages recyclables</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot waste-white"></span>
+        <span>Verre</span>
+      </div>
     </div>
 
-    <div class="legend-item" *ngIf="missionBins?.length">
-      <span class="legend-dot legend-mission-pending"></span>
-      <span>Bac mission à collecter</span>
+    <div class="legend-section" *ngIf="showBins">
+      <div class="legend-title">Niveau de remplissage</div>
+
+      <div class="legend-item">
+        <span class="legend-dot fill-low"></span>
+        <span>0% à 24% · Faible</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot fill-medium"></span>
+        <span>25% à 49% · Modéré</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot fill-high"></span>
+        <span>50% à 79% · Élevé</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot fill-critical"></span>
+        <span>80% à 100% · Critique</span>
+      </div>
     </div>
 
-    <div class="legend-item" *ngIf="missionBins?.length">
-      <span class="legend-dot legend-mission-collected"></span>
-      <span>Bac mission collecté</span>
+    <div class="legend-section" *ngIf="showBins && (displayMode === 'heatmap' || displayMode === 'both')">
+      <div class="legend-title">Carte thermique</div>
+
+      <div class="legend-item">
+        <span class="legend-heat heat-low"></span>
+        <span>Faible intensité</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-heat heat-high"></span>
+        <span>Forte intensité</span>
+      </div>
     </div>
 
-    <div class="legend-item" *ngIf="missionRouteCoordinates?.length">
-      <span class="legend-dot" style="background:#2563eb;"></span>
-      <span>Trajet réel (OSRM)</span>
+    <div class="legend-section" *ngIf="showReports">
+      <div class="legend-title">Signalements</div>
+
+      <div class="legend-item">
+        <span class="legend-dot legend-pending"></span>
+        <span>En attente</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot legend-validated"></span>
+        <span>Validé</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot legend-assigned"></span>
+        <span>Affecté</span>
+      </div>
     </div>
 
-    <div class="legend-item" *ngIf="showReports">
-      <span class="legend-dot legend-pending"></span>
-      <span>Signalement en attente</span>
+    <div class="legend-section" *ngIf="showTrucks">
+      <div class="legend-title">Véhicules</div>
+
+      <div class="legend-item">
+        <span class="legend-truck">🚛</span>
+        <span>Camion</span>
+      </div>
     </div>
 
-    <div class="legend-item" *ngIf="showReports">
-      <span class="legend-dot legend-validated"></span>
-      <span>Signalement validé</span>
-    </div>
+    <div class="legend-section" *ngIf="matrixSource">
+      <div class="legend-title">Source</div>
 
-    <div class="legend-item" *ngIf="showReports">
-      <span class="legend-dot legend-assigned"></span>
-      <span>Signalement affecté</span>
-    </div>
-
-    <div class="legend-item" *ngIf="showTrucks">
-      <span class="legend-truck">🚛</span>
-      <span>Camion</span>
-    </div>
-
-    <div class="legend-item" *ngIf="snappedWaypoints?.length">
-      <span class="legend-dot" style="background:#ffffff; border:2px solid #2563eb;"></span>
-      <span>Snapped waypoint</span>
-    </div>
-
-    <div class="legend-item" *ngIf="snappedWaypoints?.length">
-      <span class="legend-dot" style="background:#dc2626;"></span>
-      <span>Écart bin / route</span>
-    </div>
-
-    <div class="legend-item" *ngIf="matrixSource">
-      <span class="legend-dot legend-traffic"></span>
-      <span>Matrice: {{ matrixSource }}</span>
+      <div class="legend-item">
+        <span class="legend-dot legend-traffic"></span>
+        <span>Matrice : {{ matrixSource }}</span>
+      </div>
     </div>
   </div>
 
   <div class="bin-modal-overlay" *ngIf="showAddBinModal" (click)="closeAddBinModal()">
     <div class="bin-modal" (click)="$event.stopPropagation()">
       <div class="bin-modal-header">
-        <h3>Ajouter une poubelle</h3>
+        <h3>Ajouter un bac</h3>
         <button type="button" class="close-btn" (click)="closeAddBinModal()">✕</button>
       </div>
 
       <div class="bin-modal-body">
         <div class="form-row">
-          <label>Code poubelle (optionnel)</label>
+          <label>Code du bac (optionnel)</label>
           <input
             type="text"
             [(ngModel)]="newBin.binCode"
-            placeholder="Ex: BIN-101"
+            placeholder="Ex : BIN-101"
           />
         </div>
 
@@ -112,6 +276,16 @@
           <select [(ngModel)]="newBin.type">
             <option value="SIM">SIM</option>
             <option value="REAL">REAL</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label>Type de déchet</label>
+          <select [(ngModel)]="newBin.wasteType">
+            <option value="GRAY">Déchets ménagers</option>
+            <option value="GREEN">Déchets organiques</option>
+            <option value="YELLOW">Emballages recyclables</option>
+            <option value="WHITE">Verre</option>
           </select>
         </div>
 
@@ -137,14 +311,14 @@
           <textarea
             rows="3"
             [(ngModel)]="newBin.notes"
-            placeholder="Notes sur la poubelle..."
+            placeholder="Ajoutez des informations complémentaires..."
           ></textarea>
         </div>
 
         <div class="form-row checkbox-row">
           <label>
             <input type="checkbox" [(ngModel)]="newBin.isActive" />
-            Poubelle active
+            Bac actif
           </label>
         </div>
 

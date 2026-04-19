@@ -14,6 +14,7 @@ export interface BinStatusDto {
   temperature?: number;
   lastTelemetryAt?: string;
   isActive?: boolean;
+  wasteType?: string;
 }
 
 @Injectable({
@@ -24,8 +25,8 @@ export class BinService {
 
   constructor(private http: HttpClient) {}
 
-  getBins(): Observable<BinStatusDto[]> {
-    return this.http.get<BinStatusDto[]>(`${this.baseUrl}/status`);
+  getBins(): Observable<any[]> {
+    return this.http.get<any[]>(this.baseUrl);
   }
 
   getBinsStatus(): Observable<BinStatusDto[]> {
@@ -43,28 +44,30 @@ export class BinService {
   createBin(data: {
     binCode?: string;
     type: string;
+    wasteType: string;
     lat: number;
     lng: number;
     installationDate?: string;
     isActive?: boolean;
     notes?: string | null;
   }): Observable<any> {
-    return this.http.post(this.baseUrl, data);
+    return this.http.post<any>(this.baseUrl, data);
   }
 
   updateBin(id: number, data: {
     binCode?: string;
     type?: string;
+    wasteType?: string;
     lat?: number;
     lng?: number;
     installationDate?: string;
     isActive?: boolean;
     notes?: string | null;
   }): Observable<any> {
-    return this.http.put(`${this.baseUrl}/${id}`, data);
+    return this.http.put<any>(`${this.baseUrl}/${id}`, data);
   }
 
   deleteBin(id: number): Observable<any> {
-    return this.http.delete(`${this.baseUrl}/${id}`);
+    return this.http.delete<any>(`${this.baseUrl}/${id}`);
   }
 }

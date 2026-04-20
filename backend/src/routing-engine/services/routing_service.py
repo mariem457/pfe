@@ -22,9 +22,10 @@ REPORTABLE_BASE_PENALTY = 8000
 MORNING_RUN_MAX_MINUTES = 6 * 60
 EVENING_RUN_MAX_MINUTES = 6 * 60
 
-# depot window: full day
-DEFAULT_DEPOT_WINDOW_START = 0
-DEFAULT_DEPOT_WINDOW_END = 24 * 60
+DEFAULT_SERVICE_TIME_MINUTES = 2
+
+MORNING_START_MINUTE_OF_DAY = 6 * 60
+EVENING_START_MINUTE_OF_DAY = 17 * 60
 
 
 def normalize_text(value) -> str:
@@ -51,7 +52,7 @@ def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int
 
     for vehicle_index, truck in enumerate(eligible_trucks):
         if is_truck_compatible_with_bin(truck, bin_dto):
-            compatible_vehicle_indices.append(vehicle_index)
+            compatible_vehicle_indices.append(int(vehicle_index))
 
     return compatible_vehicle_indices
 
@@ -84,6 +85,49 @@ def resolve_run_max_minutes(current_run: str | None) -> int:
         return EVENING_RUN_MAX_MINUTES
 
     return DEFAULT_MAX_ROUTE_MINUTES
+
+
+def resolve_run_start_minute_of_day(current_run: str | None) -> int:
+    run_value = normalize_text(current_run)
+
+    if run_value == "EVENING":
+        return EVENING_START_MINUTE_OF_DAY
+
+    return MORNING_START_MINUTE_OF_DAY
+
+
+def resolve_relative_time_window(bin_dto, current_run: str | None, run_max_minutes: int):
+    """
+    Convert absolute minutes-of-day window to minutes relative to current run start.
+    Returns:
+      - (start_rel, end_rel) if the window intersects the current run
+      - None if no usable window exists for this run
+    """
+    start_abs = getattr(bin_dto, "windowStartMinutes", None)
+    end_abs = getattr(bin_dto, "windowEndMinutes", None)
+
+    if start_abs is None or end_abs is None:
+        return None
+
+    start_abs = int(start_abs)
+    end_abs = int(end_abs)
+
+    if start_abs > end_abs:
+        return None
+
+    run_start_abs = resolve_run_start_minute_of_day(current_run)
+    run_end_abs = run_start_abs + run_max_minutes
+
+    intersect_start = max(start_abs, run_start_abs)
+    intersect_end = min(end_abs, run_end_abs)
+
+    if intersect_start > intersect_end:
+        return None
+
+    start_rel = intersect_start - run_start_abs
+    end_rel = intersect_end - run_start_abs
+
+    return start_rel, end_rel
 
 
 def compute_drop_penalty(bin_dto) -> int:
@@ -234,6 +278,9 @@ def build_response_from_solution(
 
             total_dist += distance_matrix[from_node][to_node]
             total_time += duration_matrix[from_node][to_node]
+            if from_node != 0:
+                total_time += DEFAULT_SERVICE_TIME_MINUTES
+
             index = next_index
 
         if stops:
@@ -302,7 +349,6 @@ def solve_single_pass(
     capacities = [int(t.remainingCapacityKg) for t in eligible_trucks]
 
     run_max_minutes = resolve_run_max_minutes(request.currentRun)
-    max_route_minutes = [run_max_minutes for _ in eligible_trucks]
 
     print(
         f"Current run={request.currentRun}, run_max_minutes={run_max_minutes}",
@@ -317,15 +363,14 @@ def solve_single_pass(
 
     routing = pywrapcp.RoutingModel(manager)
 
-    def distance_callback(from_i, to_i):
-        from_node = manager.IndexToNode(from_i)
-        to_node = manager.IndexToNode(to_i)
-        return distance_matrix[from_node][to_node]
-
     def duration_callback(from_i, to_i):
         from_node = manager.IndexToNode(from_i)
         to_node = manager.IndexToNode(to_i)
-        return duration_matrix[from_node][to_node]
+
+        travel_minutes = duration_matrix[from_node][to_node]
+        service_minutes = DEFAULT_SERVICE_TIME_MINUTES if from_node != 0 else 0
+
+        return travel_minutes + service_minutes
 
     def demand_callback(from_i):
         return demands[manager.IndexToNode(from_i)]
@@ -334,12 +379,10 @@ def solve_single_pass(
         node = manager.IndexToNode(from_i)
         return 0 if node == 0 else 1
 
-    distance_transit = routing.RegisterTransitCallback(distance_callback)
     duration_transit = routing.RegisterTransitCallback(duration_callback)
     demand = routing.RegisterUnaryTransitCallback(demand_callback)
     stop_transit = routing.RegisterUnaryTransitCallback(stop_callback)
 
-    # objective
     routing.SetArcCostEvaluatorOfAllVehicles(duration_transit)
 
     routing.AddDimensionWithVehicleCapacity(
@@ -350,11 +393,10 @@ def solve_single_pass(
         "Capacity"
     )
 
-    # Time dimension = travel time in minutes
-    routing.AddDimensionWithVehicleCapacity(
+    routing.AddDimension(
         duration_transit,
-        60,  # slack: allows waiting if truck arrives before opening window
-        max_route_minutes,
+        60,
+        run_max_minutes,
         True,
         "Time"
     )
@@ -374,19 +416,12 @@ def solve_single_pass(
     time_dimension.SetGlobalSpanCostCoefficient(100)
     stops_dimension.SetGlobalSpanCostCoefficient(1000)
 
-    # depot windows
     for vehicle_idx in range(len(eligible_trucks)):
         start_index = routing.Start(vehicle_idx)
         end_index = routing.End(vehicle_idx)
 
-        time_dimension.CumulVar(start_index).SetRange(
-            DEFAULT_DEPOT_WINDOW_START,
-            DEFAULT_DEPOT_WINDOW_END
-        )
-        time_dimension.CumulVar(end_index).SetRange(
-            DEFAULT_DEPOT_WINDOW_START,
-            DEFAULT_DEPOT_WINDOW_END
-        )
+        time_dimension.CumulVar(start_index).SetRange(0, run_max_minutes)
+        time_dimension.CumulVar(end_index).SetRange(0, run_max_minutes)
 
     target_stops_per_truck = math.ceil(len(request.bins) / len(eligible_trucks))
     soft_upper_bound = target_stops_per_truck + 1
@@ -403,7 +438,6 @@ def solve_single_pass(
         routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(end_index))
         routing.AddVariableMinimizedByFinalizer(stops_dimension.CumulVar(end_index))
 
-    # compatibility + time windows
     for node in range(1, len(distance_matrix)):
         bin_dto = request.bins[node - 1]
         penalty = compute_drop_penalty(bin_dto)
@@ -413,7 +447,11 @@ def solve_single_pass(
         node_index = manager.NodeToIndex(node)
 
         if compatible_vehicle_indices:
-            routing.SetAllowedVehiclesForIndex(compatible_vehicle_indices, node_index)
+            allowed_set = {int(v) for v in compatible_vehicle_indices}
+
+            for vehicle_index in range(len(eligible_trucks)):
+                if vehicle_index not in allowed_set:
+                    routing.VehicleVar(node_index).RemoveValue(vehicle_index)
         else:
             print(
                 f"No compatible truck for binId={bin_dto.id}, wasteType={getattr(bin_dto, 'wasteType', None)}. "
@@ -421,19 +459,24 @@ def solve_single_pass(
                 flush=True
             )
 
-        # Apply time window only if both values exist
-        if bin_dto.windowStartMinutes is not None and bin_dto.windowEndMinutes is not None:
-            start_min = int(bin_dto.windowStartMinutes)
-            end_min = int(bin_dto.windowEndMinutes)
+        relative_window = resolve_relative_time_window(bin_dto, request.currentRun, run_max_minutes)
 
-            if start_min <= end_min:
-                time_dimension.CumulVar(node_index).SetRange(start_min, end_min)
-            else:
-                print(
-                    f"Invalid time window for binId={bin_dto.id}: "
-                    f"start={start_min}, end={end_min}",
-                    flush=True
-                )
+        if relative_window is not None:
+            start_rel, end_rel = relative_window
+            time_dimension.CumulVar(node_index).SetRange(start_rel, end_rel)
+            print(
+                f"TimeWindow applied -> binId={bin_dto.id}, "
+                f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
+                f"relative=({start_rel}, {end_rel})",
+                flush=True
+            )
+        else:
+            print(
+                f"No usable time window for current run -> binId={bin_dto.id}, "
+                f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
+                f"currentRun={request.currentRun}",
+                flush=True
+            )
 
         routing.AddDisjunction([node_index], penalty)
 

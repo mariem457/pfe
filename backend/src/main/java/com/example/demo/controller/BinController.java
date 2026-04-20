@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bins")
@@ -53,5 +54,15 @@ public class BinController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/backfill-zones")
+    public ResponseEntity<Map<String, Object>> backfillZones() {
+        int updated = service.backfillZonesForBinsWithoutZone();
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Zones backfilled successfully",
+                "updatedBins", updated
+        ));
     }
 }

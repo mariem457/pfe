@@ -566,12 +566,6 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             throw new BadRequestException("Depot coordinates are invalid while saving route plan");
         }
 
-        System.out.println("SAVE ROUTE PLAN => truckId=" + truck.getId()
-                + ", depotLat=" + depotLat
-                + ", depotLng=" + depotLng
-                + ", missionDistanceKm=" + routingMissionDto.getTotalDistanceKm()
-                + ", missionDurationMin=" + routingMissionDto.getTotalDurationMinutes());
-
         int nextOrder = 1;
 
         RouteStop depotStart = new RouteStop();
@@ -583,6 +577,24 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         depotStart.setStatus(RouteStop.StopStatus.PLANNED);
         depotStart.setNotes("Route start from depot");
         routeStopRepository.save(depotStart);
+
+        RecommendedFuelStationDto stationDto =
+                findRecommendedFuelStationForTruck(routingResponse, truck.getId());
+
+        if (stationDto != null) {
+            FuelStation fs = fuelStationRepository.findById(stationDto.getStationId()).orElseThrow();
+
+            RouteStop fuelStop = new RouteStop();
+            fuelStop.setRoutePlan(savedPlan);
+            fuelStop.setStopOrder(nextOrder++);
+            fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
+            fuelStop.setFuelStation(fs);
+            fuelStop.setLat(fs.getLat());
+            fuelStop.setLng(fs.getLng());
+            fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
+            fuelStop.setNotes("Recommended fuel stop");
+            routeStopRepository.save(fuelStop);
+        }
 
         if (routingMissionDto.getStops() != null) {
             List<RoutingStopDto> orderedStops = routingMissionDto.getStops().stream()
@@ -613,12 +625,6 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                     stop.setStatus(RouteStop.StopStatus.PLANNED);
                     stop.setNotes("Optimized route bin pickup");
                     routeStopRepository.save(stop);
-
-                    System.out.println("ROUTE STOP SAVED => order=" + currentOrder
-                            + ", type=BIN_PICKUP"
-                            + ", binId=" + bin.getId()
-                            + ", lat=" + lat
-                            + ", lng=" + lng);
                 });
             }
         }
@@ -632,11 +638,6 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
         depotReturn.setNotes("Return to depot");
         routeStopRepository.save(depotReturn);
-
-        System.out.println("ROUTE STOP SAVED => order=" + nextOrder
-                + ", type=DEPOT_RETURN"
-                + ", lat=" + depotLat
-                + ", lng=" + depotLng);
     }
 
     private void saveDroppedBins(RoutingRequestDto routingRequest, RoutingResponseDto routingResponse) {

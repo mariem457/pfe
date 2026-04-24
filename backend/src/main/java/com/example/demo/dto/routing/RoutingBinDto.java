@@ -15,6 +15,7 @@ public class RoutingBinDto {
     private Double predictedHoursToFull;
 
     private Boolean mandatory;
+
     private String wasteType;
 
     private String decisionCategory;
@@ -27,6 +28,7 @@ public class RoutingBinDto {
 
     private Boolean collectionAllowedNow;
     private String collectionWindowExplanation;
+
     private Integer windowStartMinutes;
     private Integer windowEndMinutes;
 

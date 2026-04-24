@@ -100,7 +100,9 @@ public class MissionServiceImpl implements MissionService {
         Mission mission = missionRepository.findById(missionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mission not found: " + missionId));
 
-        List<MissionBin> remainingBins = missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(missionId);
+        List<MissionBin> remainingBins =
+                missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(missionId);
+
         if (!remainingBins.isEmpty()) {
             throw new BadRequestException("Cannot complete mission. Some bins are still not collected.");
         }
@@ -156,7 +158,9 @@ public class MissionServiceImpl implements MissionService {
 
         missionBinRepository.save(missionBin);
 
-        long remaining = missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(missionId).size();
+        long remaining =
+                missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(missionId).size();
+
         if (remaining == 0) {
             mission.setStatus("COMPLETED");
             mission.setMissionStatusDetail(Mission.MissionStatusDetail.COMPLETED);
@@ -178,9 +182,9 @@ public class MissionServiceImpl implements MissionService {
             }
 
             missionRepository.save(mission);
+            autoInsertRefuelStopIfNeeded(mission);
         }
 
-        autoInsertRefuelStopIfNeeded(mission);
         return mapMissionToResponse(mission);
     }
 
@@ -249,9 +253,6 @@ public class MissionServiceImpl implements MissionService {
                 .toList();
 
         int lastBinIndex = findLastBinIndex(canonicalStops);
-        if (lastBinIndex < 1) {
-            warnings.add("No BIN_PICKUP found in route. Transfer route will fallback to empty.");
-        }
 
         List<RouteStop> collectionStops;
         List<RouteStop> transferStops;
@@ -301,7 +302,6 @@ public class MissionServiceImpl implements MissionService {
         dto.setGeometrySource("OSRM");
         dto.setValidationWarnings(warnings);
 
-        debugMissionRoute(missionId, canonicalStops, fullRoute, collectionRoute, transferRoute, warnings);
         return dto;
     }
 
@@ -334,45 +334,277 @@ public class MissionServiceImpl implements MissionService {
         }
 
         if (hasPlannedFuelStop(latestPlan)) {
-            status.setMessage("Une station-service planifiée existe déjà.");
-            status.setDecisionReason("Un arrêt carburant est déjà présent dans le plan de route.");
+            status.setMessage("Une station-service planifiée existe déjà pour cette mission.");
+            status.setDecisionReason("Le système a détecté qu'un arrêt carburant est déjà présent dans l'itinéraire.");
             return status;
         }
 
-        Truck truck = latestPlan.getTruck();
+        Truck truck = latestPlan.getTruck() != null ? latestPlan.getTruck() : mission.getTruck();
         if (truck == null) {
-            throw new BadRequestException("Route plan has no truck");
+            throw new BadRequestException("Mission has no assigned truck");
         }
 
         FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
         if (station == null) {
-            throw new BadRequestException("No compatible fuel station found");
+            status.setFuelStatus("CRITICAL");
+            status.setMessage("Aucune station-service compatible active trouvée.");
+            status.setDecisionReason("Aucune station compatible avec le type de carburant du camion n'est disponible.");
+            return status;
         }
 
-        int maxOrder = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(latestPlan)
-                .stream()
-                .map(RouteStop::getStopOrder)
-                .filter(o -> o != null)
-                .max(Integer::compareTo)
-                .orElse(0);
+        int suggestedOrder = insertFuelStationStop(latestPlan, station);
 
-        RouteStop fuelStop = new RouteStop();
-        fuelStop.setRoutePlan(latestPlan);
-        fuelStop.setStopOrder(maxOrder);
-        fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
-        fuelStop.setFuelStation(station);
-        fuelStop.setLat(station.getLat());
-        fuelStop.setLng(station.getLng());
-        fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-        fuelStop.setNotes("Inserted fuel stop");
-        routeStopRepository.save(fuelStop);
+        MissionFuelStatusResponse updatedStatus = buildMissionFuelStatus(mission, latestPlan);
+        updatedStatus.setRefuelStopInserted(true);
+        updatedStatus.setSuggestedInsertionOrder(suggestedOrder);
+        updatedStatus.setMessage("Station-service insérée avec succès dans l'itinéraire.");
+        updatedStatus.setRouteInsertionReason(
+                "La station a été insérée avant l'arrêt numéro " + suggestedOrder
+                        + " afin d'éviter un risque d'insuffisance de carburant pendant la mission."
+        );
 
-        status.setRefuelStopInserted(Boolean.TRUE);
-        status.setSuggestedInsertionOrder(maxOrder);
-        status.setRouteInsertionReason("Insertion en fin de tournée planifiée.");
-        status.setMessage("Station-service ajoutée avec succès.");
-        status.setDecisionReason("Le niveau carburant est faible, une insertion préventive a été réalisée.");
-        return status;
+        return updatedStatus;
+    }
+
+    private void autoInsertRefuelStopIfNeeded(Mission mission) {
+        try {
+            if (mission == null || mission.getId() == null) {
+                return;
+            }
+
+            RoutePlan latestPlan = getLatestRoutePlanOrThrow(mission);
+
+            if (hasPlannedFuelStop(latestPlan)) {
+                return;
+            }
+
+            MissionFuelStatusResponse fuelStatus = buildMissionFuelStatus(mission, latestPlan);
+
+            if (!"REFUEL_REQUIRED".equals(fuelStatus.getFuelStatus())) {
+                return;
+            }
+
+            Truck truck = latestPlan.getTruck() != null ? latestPlan.getTruck() : mission.getTruck();
+            if (truck == null) {
+                return;
+            }
+
+            FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
+            if (station == null) {
+                return;
+            }
+
+            insertFuelStationStop(latestPlan, station);
+        } catch (Exception e) {
+            System.out.println("AUTO REFUEL INSERT FAILED => " + e.getMessage());
+        }
+    }
+
+    private MissionFuelStatusResponse buildMissionFuelStatus(Mission mission, RoutePlan latestPlan) {
+        Truck truck = latestPlan.getTruck() != null ? latestPlan.getTruck() : mission.getTruck();
+
+        if (truck == null) {
+            throw new BadRequestException("Mission has no assigned truck: " + mission.getId());
+        }
+
+        double autonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
+        FuelStation nearestStation = fuelStationService.findNearestCompatibleStation(truck);
+        double distanceToStationKm = fuelStationService.distanceToNearestCompatibleStationKm(truck);
+
+        boolean refuelStopAlreadyInserted = hasPlannedFuelStop(latestPlan);
+
+        MissionFuelStatusResponse dto = new MissionFuelStatusResponse();
+        dto.setMissionId(mission.getId());
+        dto.setTruckId(truck.getId());
+        dto.setSafeAutonomyKm(autonomyKm);
+        dto.setDistanceToNearestStationKm(distanceToStationKm == Double.MAX_VALUE ? null : round(distanceToStationKm));
+        dto.setRefuelStopInserted(refuelStopAlreadyInserted);
+        dto.setRecommendedFuelStation(mapRecommendedFuelStation(truck, nearestStation));
+        dto.setAlertThresholdKm(fuelManagementService.getRefuelAlertAutonomyThresholdKm());
+        dto.setCriticalFuelThresholdLiters(fuelManagementService.getCriticalFuelThresholdLiters());
+        dto.setTriggerDistanceKm(round(distanceToStationKm + MIN_DISTANCE_BUFFER_TO_STATION_KM));
+
+        if (nearestStation == null) {
+            dto.setFuelStatus("CRITICAL");
+            dto.setMessage("Aucune station-service compatible active trouvée.");
+            dto.setDecisionReason("Le système ne trouve aucune station compatible avec le type de carburant du camion.");
+            return dto;
+        }
+
+        boolean canReachStationSafely = fuelManagementService.canCompleteDistance(
+                truck,
+                distanceToStationKm + MIN_DISTANCE_BUFFER_TO_STATION_KM
+        );
+
+        if (fuelManagementService.isFuelCritical(truck) || !canReachStationSafely) {
+            dto.setFuelStatus("CRITICAL");
+            dto.setMessage("Carburant critique. Le camion ne peut pas continuer en sécurité.");
+            dto.setDecisionReason(
+                    "Le carburant est critique ou bien l'autonomie sécurisée ("
+                            + round(autonomyKm)
+                            + " km) est inférieure à la distance nécessaire pour atteindre la station avec marge de sécurité ("
+                            + round(distanceToStationKm + MIN_DISTANCE_BUFFER_TO_STATION_KM)
+                            + " km)."
+            );
+            return dto;
+        }
+
+        if (refuelStopAlreadyInserted && !fuelManagementService.isRefuelRecommended(truck)) {
+            dto.setFuelStatus("NORMAL");
+            dto.setMessage("Niveau de carburant normal. Une station est déjà présente dans l'itinéraire.");
+            dto.setDecisionReason(
+                    "L'autonomie sécurisée actuelle est suffisante, mais un arrêt carburant a déjà été planifié auparavant."
+            );
+            return dto;
+        }
+
+        if (fuelManagementService.isRefuelRecommended(truck)) {
+            int suggestedOrder = estimateSuggestedInsertionOrder(latestPlan, autonomyKm);
+
+            dto.setFuelStatus("REFUEL_REQUIRED");
+            dto.setMessage("Alerte carburant déclenchée. Le camion doit passer par une station.");
+            dto.setDecisionReason(
+                    "L'autonomie sécurisée restante ("
+                            + round(autonomyKm)
+                            + " km) est inférieure ou égale au seuil d'alerte ("
+                            + fuelManagementService.getRefuelAlertAutonomyThresholdKm()
+                            + " km), tout en restant suffisante pour rejoindre la station recommandée."
+            );
+            dto.setSuggestedInsertionOrder(suggestedOrder);
+            dto.setRouteInsertionReason(
+                    "Insertion recommandée avant l'arrêt numéro " + suggestedOrder
+                            + " pour sécuriser la suite de la mission."
+            );
+            return dto;
+        }
+
+        dto.setFuelStatus("NORMAL");
+        dto.setMessage("Niveau de carburant normal.");
+        dto.setDecisionReason(
+                "L'autonomie sécurisée (" + round(autonomyKm)
+                        + " km) est supérieure au seuil d'alerte ("
+                        + fuelManagementService.getRefuelAlertAutonomyThresholdKm()
+                        + " km)."
+        );
+        return dto;
+    }
+
+    private boolean hasPlannedFuelStop(RoutePlan routePlan) {
+        return routeStopRepository.existsByRoutePlanAndStopTypeAndStatus(
+                routePlan,
+                RouteStop.StopType.FUEL_STATION,
+                RouteStop.StopStatus.PLANNED
+        );
+    }
+
+    private int insertFuelStationStop(RoutePlan routePlan, FuelStation station) {
+        List<RouteStop> existingStops = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(routePlan);
+
+        if (existingStops.isEmpty()) {
+            throw new BadRequestException("No route stops found for route plan: " + routePlan.getId());
+        }
+
+        int insertionOrder = findBestFuelInsertionOrder(
+                existingStops,
+                fuelManagementService.calculateEstimatedAutonomyKm(routePlan.getTruck())
+        );
+
+        List<RouteStop> reordered = new ArrayList<>();
+        boolean inserted = false;
+
+        for (RouteStop stop : existingStops) {
+            if (!inserted && stop.getStopOrder() != null && stop.getStopOrder() == insertionOrder) {
+                RouteStop fuelStop = new RouteStop();
+                fuelStop.setRoutePlan(routePlan);
+                fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
+                fuelStop.setFuelStation(station);
+                fuelStop.setLat(station.getLat());
+                fuelStop.setLng(station.getLng());
+                fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
+                fuelStop.setNotes("Station-service ajoutée automatiquement : autonomie insuffisante pour terminer la mission en sécurité.");
+                reordered.add(fuelStop);
+                inserted = true;
+            }
+
+            RouteStop cloned = new RouteStop();
+            cloned.setRoutePlan(routePlan);
+            cloned.setStopType(stop.getStopType());
+            cloned.setBin(stop.getBin());
+            cloned.setFuelStation(stop.getFuelStation());
+            cloned.setLat(stop.getLat());
+            cloned.setLng(stop.getLng());
+            cloned.setStatus(stop.getStatus());
+            cloned.setNotes(stop.getNotes());
+            reordered.add(cloned);
+        }
+
+        if (!inserted) {
+            RouteStop fuelStop = new RouteStop();
+            fuelStop.setRoutePlan(routePlan);
+            fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
+            fuelStop.setFuelStation(station);
+            fuelStop.setLat(station.getLat());
+            fuelStop.setLng(station.getLng());
+            fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
+            fuelStop.setNotes("Station-service ajoutée automatiquement : autonomie insuffisante pour terminer la mission en sécurité.");
+            reordered.add(fuelStop);
+        }
+
+        routeStopRepository.deleteAllInBatch(existingStops);
+        routeStopRepository.flush();
+
+        int order = 1;
+        for (RouteStop stop : reordered) {
+            stop.setStopOrder(order++);
+        }
+
+        routeStopRepository.saveAll(reordered);
+        routeStopRepository.flush();
+
+        for (RouteStop stop : reordered) {
+            if (stop.getStopType() == RouteStop.StopType.FUEL_STATION) {
+                return stop.getStopOrder();
+            }
+        }
+
+        return insertionOrder;
+    }
+
+    private int estimateSuggestedInsertionOrder(RoutePlan routePlan, double safeAutonomyKm) {
+        List<RouteStop> stops = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(routePlan);
+        if (stops.isEmpty()) {
+            return 2;
+        }
+        return findBestFuelInsertionOrder(stops, safeAutonomyKm);
+    }
+
+    private int findBestFuelInsertionOrder(List<RouteStop> stops, double safeAutonomyKm) {
+        if (stops.size() < 2) {
+            return 2;
+        }
+
+        double cumulativeDistance = 0.0;
+        double triggerDistance = Math.max(1.0, safeAutonomyKm - PREEMPTIVE_REFUEL_MARGIN_KM);
+
+        for (int i = 1; i < stops.size(); i++) {
+            RouteStop previous = stops.get(i - 1);
+            RouteStop current = stops.get(i);
+
+            double legDistance = haversineDistanceKm(
+                    previous.getLat(),
+                    previous.getLng(),
+                    current.getLat(),
+                    current.getLng()
+            );
+
+            cumulativeDistance += legDistance;
+
+            if (cumulativeDistance >= triggerDistance) {
+                return current.getStopOrder();
+            }
+        }
+
+        return stops.get(stops.size() - 1).getStopOrder();
     }
 
     private MissionRouteStopDto mapRouteStopToDto(RouteStop stop) {
@@ -481,7 +713,7 @@ public class MissionServiceImpl implements MissionService {
                             .queryParam("overview", "full")
                             .queryParam("geometries", "geojson")
                             .queryParam("steps", "false")
-                            .queryParam("annotations", "false")
+                            .queryParam("annotations", "true")
                             .build())
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -569,64 +801,28 @@ public class MissionServiceImpl implements MissionService {
         return result;
     }
 
-    private void debugMissionRoute(
-            Long missionId,
-            List<RouteStop> stops,
-            OsrmRouteResult full,
-            OsrmRouteResult collection,
-            OsrmRouteResult transfer,
-            List<String> warnings
-    ) {
-        System.out.println("==== MISSION ROUTE DEBUG ====");
-        System.out.println("missionId=" + missionId);
-
-        for (RouteStop stop : stops) {
-            System.out.println(
-                    "STOP order=" + stop.getStopOrder()
-                            + ", type=" + (stop.getStopType() != null ? stop.getStopType().name() : "null")
-                            + ", binId=" + (stop.getBin() != null ? stop.getBin().getId() : null)
-                            + ", fuelStationId=" + (stop.getFuelStation() != null ? stop.getFuelStation().getId() : null)
-                            + ", lat=" + stop.getLat()
-                            + ", lng=" + stop.getLng()
-            );
-        }
-
-        System.out.println("FULL route distanceKm=" + full.totalDistanceKm
-                + ", waypoints=" + full.snappedWaypoints.size()
-                + ", geometryPoints=" + full.routeCoordinates.size());
-
-        System.out.println("COLLECTION distanceKm=" + collection.totalDistanceKm
-                + ", waypoints=" + collection.snappedWaypoints.size()
-                + ", geometryPoints=" + collection.routeCoordinates.size());
-
-        System.out.println("TRANSFER distanceKm=" + transfer.totalDistanceKm
-                + ", waypoints=" + transfer.snappedWaypoints.size()
-                + ", geometryPoints=" + transfer.routeCoordinates.size());
-
-        if (!warnings.isEmpty()) {
-            for (String warning : warnings) {
-                System.out.println("ROUTE WARNING: " + warning);
-            }
-        }
-
-        System.out.println("============================");
-    }
-
     private double haversineKm(Double lat1, Double lng1, Double lat2, Double lng2) {
         if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) {
             return Double.MAX_VALUE;
         }
 
-        final double r = 6371.0;
+        return haversineDistanceKm(lat1, lng1, lat2, lng2);
+    }
+
+    private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
+        double earthRadiusKm = 6371.0;
+
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLng / 2) * Math.sin(dLng / 2);
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return r * c;
+
+        return earthRadiusKm * c;
     }
 
     private boolean isValidCoordinatePair(Double lat, Double lng) {
@@ -634,17 +830,6 @@ public class MissionServiceImpl implements MissionService {
                 && lat >= -90 && lat <= 90
                 && lng >= -180 && lng <= 180
                 && !(lat == 0.0 && lng == 0.0);
-    }
-
-    private double round(double value) {
-        return Math.round(value * 100.0) / 100.0;
-    }
-
-    private static class OsrmRouteResult {
-        private final List<RouteCoordinateDto> routeCoordinates = new ArrayList<>();
-        private final List<RouteCoordinateDto> snappedWaypoints = new ArrayList<>();
-        private final List<Double> legDistancesKm = new ArrayList<>();
-        private Double totalDistanceKm;
     }
 
     private Mission getMissionOrThrow(Long missionId) {
@@ -660,127 +845,22 @@ public class MissionServiceImpl implements MissionService {
         return plans.get(0);
     }
 
-    private MissionFuelStatusResponse buildMissionFuelStatus(Mission mission, RoutePlan latestPlan) {
-        MissionFuelStatusResponse response = new MissionFuelStatusResponse();
-
-        Truck truck = latestPlan.getTruck();
-        if (truck == null) {
-            response.setFuelStatus("UNKNOWN");
-            response.setMessage("Camion introuvable pour la mission.");
-            return response;
+    private RecommendedFuelStationDto mapRecommendedFuelStation(Truck truck, FuelStation station) {
+        if (truck == null || station == null) {
+            return null;
         }
 
-        double autonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
-
-        response.setMissionId(mission.getId());
-        response.setTruckId(truck.getId());
-        response.setSafeAutonomyKm(autonomyKm);
-        response.setRefuelStopInserted(Boolean.FALSE);
-
-        Double plannedDistanceKm = latestPlan.getTotalDistanceKm() != null
-                ? latestPlan.getTotalDistanceKm().doubleValue()
-                : null;
-
-        if (plannedDistanceKm != null && autonomyKm < plannedDistanceKm) {
-            response.setFuelStatus("LOW");
-            response.setMessage("Autonomie insuffisante pour couvrir la mission complète.");
-            response.setDecisionReason("Le camion peut rouler, mais son autonomie sécurisée est inférieure à la distance planifiée.");
-            response.setTriggerDistanceKm(round(plannedDistanceKm));
-        } else {
-            response.setFuelStatus("NORMAL");
-            response.setMessage("Autonomie suffisante.");
-            response.setDecisionReason("Le camion dispose d'une autonomie sécurisée suffisante.");
-            if (plannedDistanceKm != null) {
-                response.setTriggerDistanceKm(round(plannedDistanceKm));
-            }
-        }
-
-        if (autonomyKm <= 0.0) {
-            response.setFuelStatus("CRITICAL");
-            response.setMessage("Autonomie nulle ou invalide.");
-            response.setDecisionReason("Le calcul d'autonomie retourné est nul ou invalide.");
-        }
-
-        FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
-        if (station != null) {
-            RecommendedFuelStationDto dto = new RecommendedFuelStationDto();
-            dto.setTruckId(truck.getId());
-            dto.setStationId(station.getId());
-            dto.setStationName(station.getName());
-            dto.setLat(station.getLat());
-            dto.setLng(station.getLng());
-            response.setRecommendedFuelStation(dto);
-        }
-
-        return response;
+        RecommendedFuelStationDto dto = new RecommendedFuelStationDto();
+        dto.setTruckId(truck.getId());
+        dto.setStationId(station.getId());
+        dto.setStationName(station.getName());
+        dto.setLat(station.getLat());
+        dto.setLng(station.getLng());
+        return dto;
     }
 
-    private boolean hasPlannedFuelStop(RoutePlan routePlan) {
-        return routeStopRepository.findByRoutePlanOrderByStopOrderAsc(routePlan)
-                .stream()
-                .anyMatch(stop -> stop.getStopType() == RouteStop.StopType.FUEL_STATION);
-    }
-
-    private void autoInsertRefuelStopIfNeeded(Mission mission) {
-        try {
-            RoutePlan latestPlan = getLatestRoutePlanOrThrow(mission);
-            Truck truck = latestPlan.getTruck();
-            if (truck == null) {
-                return;
-            }
-
-            double autonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
-            double plannedDistanceKm = latestPlan.getTotalDistanceKm() != null
-                    ? latestPlan.getTotalDistanceKm().doubleValue()
-                    : 0.0;
-
-            if (plannedDistanceKm <= 0) {
-                return;
-            }
-
-            if (autonomyKm >= plannedDistanceKm + PREEMPTIVE_REFUEL_MARGIN_KM) {
-                return;
-            }
-
-            if (hasPlannedFuelStop(latestPlan)) {
-                return;
-            }
-
-            FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
-            if (station == null) {
-                return;
-            }
-
-            int maxOrder = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(latestPlan)
-                    .stream()
-                    .map(RouteStop::getStopOrder)
-                    .filter(o -> o != null)
-                    .max(Integer::compareTo)
-                    .orElse(0);
-
-            if (autonomyKm < MIN_DISTANCE_BUFFER_TO_STATION_KM) {
-                return;
-            }
-
-            RouteStop fuelStop = new RouteStop();
-            fuelStop.setRoutePlan(latestPlan);
-            fuelStop.setStopOrder(maxOrder);
-            fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
-            fuelStop.setFuelStation(station);
-            fuelStop.setLat(station.getLat());
-            fuelStop.setLng(station.getLng());
-            fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-            fuelStop.setNotes("Auto-inserted fuel stop due to low autonomy");
-            routeStopRepository.save(fuelStop);
-
-            System.out.println("AUTO REFUEL STOP INSERTED => missionId=" + mission.getId()
-                    + ", truckId=" + truck.getId()
-                    + ", stationId=" + station.getId()
-                    + ", autonomyKm=" + autonomyKm
-                    + ", plannedDistanceKm=" + plannedDistanceKm);
-        } catch (Exception e) {
-            System.out.println("AUTO REFUEL INSERT FAILED => " + e.getMessage());
-        }
+    private double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
     private MissionResponse mapMissionToResponse(Mission mission) {
@@ -815,6 +895,7 @@ public class MissionServiceImpl implements MissionService {
 
     private MissionBinResponse mapMissionBinToResponse(MissionBin missionBin) {
         MissionBinResponse dto = new MissionBinResponse();
+
         dto.setId(missionBin.getId());
 
         if (missionBin.getMission() != null) {
@@ -823,21 +904,49 @@ public class MissionServiceImpl implements MissionService {
 
         if (missionBin.getBin() != null) {
             dto.setBinId(missionBin.getBin().getId());
+            dto.setBinCode(missionBin.getBin().getBinCode());
+            dto.setLat(missionBin.getBin().getLat());
+            dto.setLng(missionBin.getBin().getLng());
         }
 
         dto.setVisitOrder(missionBin.getVisitOrder());
+        dto.setTargetFillThreshold(missionBin.getTargetFillThreshold());
         dto.setAssignedReason(missionBin.getAssignedReason());
         dto.setCollected(missionBin.isCollected());
         dto.setCollectedAt(missionBin.getCollectedAt());
-        dto.setDriverNote(missionBin.getDriverNote());
-        dto.setIssueType(missionBin.getIssueType());
-        dto.setPhotoUrl(missionBin.getPhotoUrl());
 
         if (missionBin.getCollectedBy() != null) {
             dto.setCollectedByDriverId(missionBin.getCollectedBy().getId());
             dto.setCollectedByDriverName(missionBin.getCollectedBy().getFullName());
         }
 
+        dto.setDriverNote(missionBin.getDriverNote());
+        dto.setIssueType(missionBin.getIssueType());
+        dto.setPhotoUrl(missionBin.getPhotoUrl());
+
+        if (missionBin.getAssignmentStatus() != null) {
+            dto.setAssignmentStatus(missionBin.getAssignmentStatus().name());
+        }
+
+        if (missionBin.getReassignedFromTruck() != null) {
+            dto.setReassignedFromTruckId(missionBin.getReassignedFromTruck().getId());
+        }
+
+        if (missionBin.getReassignedToTruck() != null) {
+            dto.setReassignedToTruckId(missionBin.getReassignedToTruck().getId());
+        }
+
+        dto.setPlannedArrival(missionBin.getPlannedArrival());
+        dto.setActualArrival(missionBin.getActualArrival());
+        dto.setSkippedReason(missionBin.getSkippedReason());
+
         return dto;
+    }
+
+    private static class OsrmRouteResult {
+        private final List<RouteCoordinateDto> routeCoordinates = new ArrayList<>();
+        private final List<RouteCoordinateDto> snappedWaypoints = new ArrayList<>();
+        private final List<Double> legDistancesKm = new ArrayList<>();
+        private Double totalDistanceKm;
     }
 }

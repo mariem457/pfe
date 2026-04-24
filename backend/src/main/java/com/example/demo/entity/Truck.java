@@ -79,12 +79,14 @@ public class Truck {
 
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<TruckIncident> incidents = new ArrayList<>();
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zone_id")
     private Zone zone;
+
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<RoutePlan> routePlans = new ArrayList<>();
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "truck_supported_waste_types",
@@ -94,12 +96,7 @@ public class Truck {
     @Enumerated(EnumType.STRING)
     private List<Bin.WasteType> supportedWasteTypes = new ArrayList<>();
 
-    public List<Bin.WasteType> getSupportedWasteTypes() {
-        return supportedWasteTypes;
-    }
-
-    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
-        this.supportedWasteTypes = supportedWasteTypes;
+    public Truck() {
     }
 
     @PrePersist
@@ -135,9 +132,6 @@ public class Truck {
         REFUELING,
         UNAVAILABLE,
         OUT_OF_SERVICE
-    }
-
-    public Truck() {
     }
 
     public Long getId() {
@@ -227,14 +221,6 @@ public class Truck {
     public BigDecimal getCurrentLoadKg() {
         return currentLoadKg;
     }
-    
-    public Zone getZone() {
-        return zone;
-    }
-
-    public void setZone(Zone zone) {
-        this.zone = zone;
-    }
 
     public void setCurrentLoadKg(BigDecimal currentLoadKg) {
         this.currentLoadKg = currentLoadKg;
@@ -304,7 +290,23 @@ public class Truck {
         return incidents;
     }
 
+    public Zone getZone() {
+        return zone;
+    }
+
+    public void setZone(Zone zone) {
+        this.zone = zone;
+    }
+
     public List<RoutePlan> getRoutePlans() {
         return routePlans;
+    }
+
+    public List<Bin.WasteType> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes;
     }
 }

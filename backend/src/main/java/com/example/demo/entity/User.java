@@ -30,6 +30,9 @@ public class User {
     @Column(name = "is_enabled", nullable = false)
     private Boolean isEnabled = true;
 
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
+
     @Column(name = "first_name", length = 100)
     private String firstName;
 
@@ -68,7 +71,9 @@ public class User {
         OffsetDateTime now = OffsetDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+
         if (this.isEnabled == null) this.isEnabled = true;
+        if (this.emailVerified == null) this.emailVerified = false;
         if (this.mustChangePassword == null) this.mustChangePassword = false;
         if (this.failedLoginAttempts == null) this.failedLoginAttempts = 0;
         if (this.tokenVersion == null) this.tokenVersion = 0;
@@ -100,6 +105,9 @@ public class User {
 
     public Boolean getIsEnabled() { return isEnabled; }
     public void setIsEnabled(Boolean enabled) { isEnabled = enabled; }
+
+    public Boolean getEmailVerified() { return emailVerified; }
+    public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }

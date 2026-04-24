@@ -51,7 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/reset-password-by-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/resend-verification").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-reset-code").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/auth/approve-driver").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/auth/reject-driver").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
@@ -75,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
 
+                        .requestMatchers(HttpMethod.GET, "/api/bins/*/qrcode").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers(HttpMethod.POST, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.PUT, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
@@ -83,6 +86,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
+
+                        .requestMatchers("/api/drivers/*/my-bins").hasAnyRole("DRIVER", "ADMIN")
+                        .requestMatchers("/api/drivers/me/truck").hasAnyRole("DRIVER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/drivers/bin-scan").hasRole("DRIVER")
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
 
                         .anyRequest().authenticated()

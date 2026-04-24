@@ -68,6 +68,30 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/pending-driver-requests")
+    public ResponseEntity<?> getPendingDriverRequests() {
+        return ResponseEntity.ok(authBusinessService.getPendingDriverRequests());
+    }
+
+    @PostMapping("/approve-driver-request")
+    public ResponseEntity<?> approveDriverRequest(@Valid @RequestBody ApproveDriverRequest request) {
+        authBusinessService.approveDriverRequest(request.getRequestId());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Demande validée avec succès."
+        ));
+    }
+
+    @PostMapping("/reject-driver-request")
+    public ResponseEntity<?> rejectDriverRequest(@Valid @RequestBody RejectDriverRequest request) {
+        authBusinessService.rejectDriverRequest(request.getRequestId());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Demande refusée avec succès."
+        ));
+    }
+
+    // Anciennes routes conservées pour compatibilité avec ton frontend opti3
     @PostMapping("/approve-driver")
     public ResponseEntity<?> approveDriver(@Valid @RequestBody ApproveDriverRequest request) {
         authBusinessService.approveDriver(request.getUserId());
@@ -182,7 +206,7 @@ public class AuthController {
         authBusinessService.forgotPassword(request, frontendUrl);
 
         return ResponseEntity.ok(Map.of(
-                "message", "Si un compte existe, les instructions de réinitialisation ont été envoyées."
+                "message", "Si un compte existe, un code de réinitialisation a été envoyé."
         ));
     }
 

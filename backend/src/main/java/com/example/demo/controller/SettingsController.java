@@ -1,8 +1,10 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.ChangePasswordRequest;
+import com.example.demo.dto.DriverProfileResponse;
 import com.example.demo.dto.SettingsProfileResponse;
 import com.example.demo.dto.UpdateSettingsProfileRequest;
+import com.example.demo.service.DriverService;
 import com.example.demo.service.UserService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,9 +14,11 @@ import org.springframework.web.bind.annotation.*;
 public class SettingsController {
 
     private final UserService userService;
+    private final DriverService driverService;
 
-    public SettingsController(UserService userService) {
+    public SettingsController(UserService userService, DriverService driverService) {
         this.userService = userService;
+        this.driverService = driverService;
     }
 
     @GetMapping("/profile")
@@ -39,5 +43,14 @@ public class SettingsController {
     ) {
         String username = authentication.getName();
         userService.changePasswordByUsername(username, request);
+    }
+
+    @GetMapping("/driver/profile")
+    public DriverProfileResponse getDriverProfile(Authentication authentication) {
+        if (authentication == null) {
+            throw new RuntimeException("Authentication required");
+        }
+
+        return driverService.getMyProfileByUsernameOrEmail(authentication.getName());
     }
 }

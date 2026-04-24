@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
-import com.example.demo.entity.Driver;
 import com.example.demo.entity.User;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.UserRepository;
@@ -19,9 +18,11 @@ public class UserService {
     private final DriverRepository driverRepo;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repo,
-                       DriverRepository driverRepo,
-                       PasswordEncoder passwordEncoder) {
+    public UserService(
+            UserRepository repo,
+            DriverRepository driverRepo,
+            PasswordEncoder passwordEncoder
+    ) {
         this.repo = repo;
         this.driverRepo = driverRepo;
         this.passwordEncoder = passwordEncoder;

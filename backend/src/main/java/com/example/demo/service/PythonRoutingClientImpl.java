@@ -10,10 +10,8 @@ public class PythonRoutingClientImpl implements PythonRoutingClient {
 
     private final WebClient webClient;
 
-    public PythonRoutingClientImpl(WebClient.Builder builder) {
-        this.webClient = builder
-                .baseUrl("http://127.0.0.1:8000")
-                .build();
+    public PythonRoutingClientImpl(WebClient webClient) {
+        this.webClient = webClient;
     }
 
     @Override

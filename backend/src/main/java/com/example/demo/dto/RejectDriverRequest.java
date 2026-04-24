@@ -1,11 +1,9 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotNull;
-
 public class RejectDriverRequest {
 
-    @NotNull(message = "L'identifiant utilisateur est obligatoire.")
     private Long userId;
+    private Long requestId;
 
     public Long getUserId() {
         return userId;
@@ -13,5 +11,13 @@ public class RejectDriverRequest {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public Long getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(Long requestId) {
+        this.requestId = requestId;
     }
 }

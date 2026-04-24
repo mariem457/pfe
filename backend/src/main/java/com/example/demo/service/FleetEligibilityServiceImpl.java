@@ -32,11 +32,7 @@ public class FleetEligibilityServiceImpl implements FleetEligibilityService {
             return false;
         }
 
-        if (!hasEnoughFuel(truck, estimatedDistanceKm)) {
-            return false;
-        }
-
-        return true;
+        return hasEnoughFuel(truck, estimatedDistanceKm);
     }
 
     @Override

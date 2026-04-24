@@ -1,17 +1,17 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public class ForgotPasswordRequest {
 
-    @NotBlank(message = "Le champ est obligatoire.")
-    private String usernameOrEmail;
+    private String email;
 
-    public String getUsernameOrEmail() {
-        return usernameOrEmail;
+    public ForgotPasswordRequest() {
     }
 
-    public void setUsernameOrEmail(String usernameOrEmail) {
-        this.usernameOrEmail = usernameOrEmail;
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

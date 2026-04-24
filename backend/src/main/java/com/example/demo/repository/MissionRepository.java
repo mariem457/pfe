@@ -24,7 +24,7 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     List<Mission> findByTruckAndPlannedDate(Truck truck, LocalDate plannedDate);
 
     List<Mission> findByZone(Zone zone);
-
+    List<Mission> findByDriverId(Long driverId);
     List<Mission> findByPlannedDate(LocalDate plannedDate);
    
 

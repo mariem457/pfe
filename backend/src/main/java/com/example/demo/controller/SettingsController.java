@@ -1,43 +1,28 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.ChangePasswordRequest;
-import com.example.demo.dto.SettingsProfileResponse;
-import com.example.demo.dto.UpdateSettingsProfileRequest;
-import com.example.demo.service.UserService;
+import com.example.demo.dto.DriverProfileResponse;
+import com.example.demo.service.DriverService;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/settings")
 public class SettingsController {
 
-    private final UserService userService;
+    private final DriverService driverService;
 
-    public SettingsController(UserService userService) {
-        this.userService = userService;
+    public SettingsController(DriverService driverService) {
+        this.driverService = driverService;
     }
 
     @GetMapping("/profile")
-    public SettingsProfileResponse getProfile(Authentication authentication) {
-        String username = authentication.getName();
-        return userService.getSettingsProfileByUsername(username);
-    }
+    public DriverProfileResponse getProfile(Authentication authentication) {
+        if (authentication == null) {
+            throw new RuntimeException("Authentication required");
+        }
 
-    @PutMapping("/profile")
-    public SettingsProfileResponse updateProfile(
-            Authentication authentication,
-            @RequestBody UpdateSettingsProfileRequest request
-    ) {
-        String username = authentication.getName();
-        return userService.updateSettingsProfileByUsername(username, request);
-    }
-
-    @PutMapping("/password")
-    public void changePassword(
-            Authentication authentication,
-            @RequestBody ChangePasswordRequest request
-    ) {
-        String username = authentication.getName();
-        userService.changePasswordByUsername(username, request);
+        return driverService.getMyProfileByUsernameOrEmail(authentication.getName());
     }
 }

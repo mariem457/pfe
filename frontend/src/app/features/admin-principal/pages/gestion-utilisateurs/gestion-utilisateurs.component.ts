@@ -29,7 +29,7 @@ interface Utilisateur {
   styleUrls: ['./gestion-utilisateurs.component.css']
 })
 export class GestionUtilisateursComponent implements OnInit {
-  termeRecherche: string = '';
+  termeRecherche = '';
   filtreSelectionne: FiltreUtilisateur = 'Tous';
 
   filtres: FiltreUtilisateur[] = ['Tous', 'Actifs', 'Inactifs', 'Chauffeurs', 'En attente'];
@@ -58,9 +58,35 @@ export class GestionUtilisateursComponent implements OnInit {
     this.errorMessage = '';
 
     this.userService.getUsers().subscribe({
-      next: (data) => {
-        this.utilisateurs = data.map(user => this.mapUserToUtilisateur(user));
-        this.loading = false;
+      next: (usersData) => {
+        const usersMapped = (usersData || []).map(user =>
+          this.mapUserToUtilisateur(user)
+        );
+
+        this.userService.getPendingDriverRequests().subscribe({
+          next: (pendingData) => {
+            const pendingMapped: Utilisateur[] = (pendingData || []).map(request => ({
+              id: request.id,
+              initiales: this.getInitiales(request.fullName || request.username || 'C'),
+              nom: request.fullName || request.username || 'Chauffeur',
+              courriel: request.email || '--',
+              telephone: request.phone || '--',
+              statut: 'En attente',
+              role: 'Chauffeur',
+              derniereActivite: 'En attente de validation',
+              accountStatus: 'PENDING',
+              isEnabled: false
+            }));
+
+            this.utilisateurs = [...usersMapped, ...pendingMapped];
+            this.loading = false;
+          },
+          error: (err) => {
+            console.error('Erreur chargement demandes en attente', err);
+            this.utilisateurs = usersMapped;
+            this.loading = false;
+          }
+        });
       },
       error: (err: any) => {
         console.error('Erreur chargement utilisateurs', err);
@@ -130,14 +156,10 @@ export class GestionUtilisateursComponent implements OnInit {
   }
 
   private formatDerniereActivite(lastLoginAt?: string): string {
-    if (!lastLoginAt) {
-      return 'Jamais connecté';
-    }
+    if (!lastLoginAt) return 'Jamais connecté';
 
     const lastDate = new Date(lastLoginAt);
-    if (isNaN(lastDate.getTime())) {
-      return 'Activité inconnue';
-    }
+    if (isNaN(lastDate.getTime())) return 'Activité inconnue';
 
     const now = new Date();
     const diffMs = now.getTime() - lastDate.getTime();
@@ -149,6 +171,7 @@ export class GestionUtilisateursComponent implements OnInit {
     if (minutes < 1) return 'À l’instant';
     if (minutes < 60) return `Il y a ${minutes} min`;
     if (hours < 24) return `Il y a ${hours} h`;
+
     return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
   }
 
@@ -157,9 +180,7 @@ export class GestionUtilisateursComponent implements OnInit {
   }
 
   approveDriver(utilisateur: Utilisateur): void {
-    if (!this.peutEtreValide(utilisateur)) {
-      return;
-    }
+    if (!this.peutEtreValide(utilisateur)) return;
 
     this.actionLoadingId = utilisateur.id;
     this.errorMessage = '';
@@ -179,9 +200,7 @@ export class GestionUtilisateursComponent implements OnInit {
   }
 
   rejectDriver(utilisateur: Utilisateur): void {
-    if (!this.peutEtreRefuse(utilisateur)) {
-      return;
-    }
+    if (!this.peutEtreRefuse(utilisateur)) return;
 
     this.actionLoadingId = utilisateur.id;
     this.errorMessage = '';

@@ -68,21 +68,26 @@ public class AuthController {
         ));
     }
 
-    @PostMapping("/approve-driver")
-    public ResponseEntity<?> approveDriver(@Valid @RequestBody ApproveDriverRequest request) {
-        authBusinessService.approveDriver(request.getUserId());
+    @GetMapping("/pending-driver-requests")
+    public ResponseEntity<?> getPendingDriverRequests() {
+        return ResponseEntity.ok(authBusinessService.getPendingDriverRequests());
+    }
+
+    @PostMapping("/approve-driver-request")
+    public ResponseEntity<?> approveDriverRequest(@Valid @RequestBody ApproveDriverRequest request) {
+        authBusinessService.approveDriverRequest(request.getRequestId());
 
         return ResponseEntity.ok(Map.of(
-                "message", "Compte chauffeur validé avec succès."
+                "message", "Demande validée avec succès."
         ));
     }
 
-    @PostMapping("/reject-driver")
-    public ResponseEntity<?> rejectDriver(@Valid @RequestBody RejectDriverRequest request) {
-        authBusinessService.rejectDriver(request.getUserId());
+    @PostMapping("/reject-driver-request")
+    public ResponseEntity<?> rejectDriverRequest(@Valid @RequestBody RejectDriverRequest request) {
+        authBusinessService.rejectDriverRequest(request.getRequestId());
 
         return ResponseEntity.ok(Map.of(
-                "message", "Compte chauffeur refusé avec succès."
+                "message", "Demande refusée avec succès."
         ));
     }
 
@@ -182,7 +187,7 @@ public class AuthController {
         authBusinessService.forgotPassword(request, frontendUrl);
 
         return ResponseEntity.ok(Map.of(
-                "message", "Si un compte existe, les instructions de réinitialisation ont été envoyées."
+                "message", "Si un compte existe, un code de réinitialisation a été envoyé."
         ));
     }
 
@@ -212,4 +217,5 @@ public class AuthController {
                 "message", "Code vérifié avec succès."
         ));
     }
+
 }

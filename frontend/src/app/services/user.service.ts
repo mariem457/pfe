@@ -17,6 +17,15 @@ export interface UserAdminListResponse {
   accountStatus?: AccountStatus;
 }
 
+export interface PendingDriverRequestResponse {
+  id: number;
+  fullName: string;
+  username: string;
+  email: string;
+  phone: string;
+  status: AccountStatus;
+}
+
 export interface UserStatsResponse {
   totalUsers: number;
   activeUsers: number;
@@ -64,6 +73,12 @@ export class UserService {
     return this.http.get<UserAdminListResponse[]>(this.baseUrl);
   }
 
+  getPendingDriverRequests(): Observable<PendingDriverRequestResponse[]> {
+    return this.http.get<PendingDriverRequestResponse[]>(
+      `${this.authUrl}/pending-driver-requests`
+    );
+  }
+
   getStats(): Observable<UserStatsResponse> {
     return this.http.get<UserStatsResponse>(`${this.baseUrl}/stats`);
   }
@@ -76,12 +91,16 @@ export class UserService {
     return this.http.post<any>(this.baseUrl, payload);
   }
 
-  approveDriver(userId: number): Observable<any> {
-    return this.http.post<any>(`${this.authUrl}/approve-driver`, { userId });
+  approveDriver(requestId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/approve-driver-request`, {
+      requestId
+    });
   }
 
-  rejectDriver(userId: number): Observable<any> {
-    return this.http.post<any>(`${this.authUrl}/reject-driver`, { userId });
+  rejectDriver(requestId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/reject-driver-request`, {
+      requestId
+    });
   }
 
   updateStatus(id: number, isEnabled: boolean): Observable<UserAdminListResponse> {

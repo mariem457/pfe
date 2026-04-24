@@ -8,9 +8,11 @@ import com.example.demo.dto.ResetPasswordRequest;
 import com.example.demo.dto.VerifyResetCodeRequest;
 import com.example.demo.entity.AccountStatus;
 import com.example.demo.entity.Driver;
+import com.example.demo.entity.DriverRegistrationRequestEntity;
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.entity.RefreshToken;
 import com.example.demo.entity.User;
+import com.example.demo.repository.DriverRegistrationRequestRepository;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.PasswordResetTokenRepository;
 import com.example.demo.repository.RefreshTokenRepository;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -31,6 +34,7 @@ public class AuthBusinessService {
 
     private final UserRepository userRepo;
     private final DriverRepository driverRepository;
+    private final DriverRegistrationRequestRepository driverRegistrationRequestRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JwtService jwtService;
@@ -41,6 +45,7 @@ public class AuthBusinessService {
     public AuthBusinessService(
             UserRepository userRepo,
             DriverRepository driverRepository,
+            DriverRegistrationRequestRepository driverRegistrationRequestRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             JwtService jwtService,
@@ -50,6 +55,7 @@ public class AuthBusinessService {
     ) {
         this.userRepo = userRepo;
         this.driverRepository = driverRepository;
+        this.driverRegistrationRequestRepository = driverRegistrationRequestRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.jwtService = jwtService;
@@ -59,69 +65,98 @@ public class AuthBusinessService {
     }
 
     public void registerDriver(DriverRegisterRequest request) {
-        if (userRepo.findByUsername(request.getUsername()).isPresent()) {
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim();
+
+        if (userRepo.findByUsername(username).isPresent()
+                || driverRegistrationRequestRepository.existsByUsername(username)) {
             throw new RuntimeException("Nom d'utilisateur déjà utilisé.");
         }
 
-        if (userRepo.findByEmail(request.getEmail()).isPresent()) {
+        if (userRepo.findByEmail(email).isPresent()
+                || driverRegistrationRequestRepository.existsByEmail(email)) {
             throw new RuntimeException("Email déjà utilisé.");
         }
 
+        DriverRegistrationRequestEntity pendingRequest = new DriverRegistrationRequestEntity();
+        pendingRequest.setFullName(request.getFullName().trim());
+        pendingRequest.setUsername(username);
+        pendingRequest.setEmail(email);
+        pendingRequest.setPhone(request.getPhone().trim());
+        pendingRequest.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        pendingRequest.setStatus(AccountStatus.PENDING);
+        pendingRequest.setEmailVerified(false);
+
+        String code = generateVerificationCode();
+        pendingRequest.setEmailVerificationCode(code);
+        pendingRequest.setEmailVerificationExpiry(OffsetDateTime.now().plusMinutes(10));
+        pendingRequest.setCreatedAt(OffsetDateTime.now());
+
+        driverRegistrationRequestRepository.save(pendingRequest);
+
+        emailService.sendVerificationEmail(email, code);
+    }
+
+    public List<DriverRegistrationRequestEntity> getPendingDriverRequests() {
+        return driverRegistrationRequestRepository.findByStatus(AccountStatus.PENDING);
+    }
+
+    public void approveDriverRequest(Long requestId) {
+        DriverRegistrationRequestEntity request = driverRegistrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Demande introuvable."));
+
+        if (request.getStatus() != AccountStatus.PENDING) {
+            throw new RuntimeException("Cette demande a déjà été traitée.");
+        }
+
+        if (!Boolean.TRUE.equals(request.getEmailVerified())) {
+            throw new RuntimeException("L'email du chauffeur n'a pas encore été vérifié.");
+        }
+
+        boolean usernameExists = userRepo.findByUsername(request.getUsername()).isPresent();
+        boolean emailExists = userRepo.findByEmail(request.getEmail()).isPresent();
+
+        if (usernameExists || emailExists) {
+            throw new RuntimeException("Un utilisateur avec ce nom d'utilisateur ou cet email existe déjà.");
+        }
+
         User user = new User();
-        user.setUsername(request.getUsername().trim());
-        user.setEmail(request.getEmail().trim());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(request.getPasswordHash());
         user.setRole("DRIVER");
         user.setMustChangePassword(false);
         user.setIsEnabled(true);
-        user.setAccountStatus(AccountStatus.PENDING);
+        user.setAccountStatus(AccountStatus.APPROVED);
+        user.setEmailVerified(true);
 
         User savedUser = userRepo.save(user);
 
         Driver driver = new Driver();
         driver.setUser(savedUser);
-        driver.setFullName(request.getFullName().trim());
-        driver.setPhone(request.getPhone().trim());
+        driver.setFullName(request.getFullName());
+        driver.setPhone(request.getPhone());
 
         driverRepository.save(driver);
+
+        request.setStatus(AccountStatus.APPROVED);
+        driverRegistrationRequestRepository.save(request);
+
+        emailService.sendDriverApprovalEmail(request.getEmail(), request.getFullName());
     }
 
-    public void approveDriver(Long userId) {
-        User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
+    public void rejectDriverRequest(Long requestId) {
+        DriverRegistrationRequestEntity request = driverRegistrationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Demande introuvable."));
 
-        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Cet utilisateur n'est pas un chauffeur.");
+        if (request.getStatus() != AccountStatus.PENDING) {
+            throw new RuntimeException("Cette demande a déjà été traitée.");
         }
 
-        user.setAccountStatus(AccountStatus.APPROVED);
-        userRepo.save(user);
+        request.setStatus(AccountStatus.REJECTED);
+        driverRegistrationRequestRepository.save(request);
 
-        Driver driver = driverRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
-
-        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
-            smsService.sendAccountApproved(driver.getPhone());
-        }
-    }
-
-    public void rejectDriver(Long userId) {
-        User user = userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable."));
-
-        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Cet utilisateur n'est pas un chauffeur.");
-        }
-
-        user.setAccountStatus(AccountStatus.REJECTED);
-        userRepo.save(user);
-
-        Driver driver = driverRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
-
-        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
-            smsService.sendAccountRejected(driver.getPhone());
-        }
+        emailService.sendDriverRejectionEmail(request.getEmail(), request.getFullName());
     }
 
     public RefreshToken createRefreshToken(User user, boolean rememberMe) {
@@ -151,7 +186,7 @@ public class AuthBusinessService {
         User user = refreshToken.getUser();
 
         String token = jwtService.generateToken(
-                user.getUsername(),
+                user.getEmail(),
                 user.getRole(),
                 user.getTokenVersion()
         );
@@ -160,18 +195,13 @@ public class AuthBusinessService {
                 token,
                 user.getRole(),
                 user.getId(),
-                user.getUsername(),
+                user.getEmail(),
                 user.getMustChangePassword()
         );
     }
 
     public void forgotPassword(ForgotPasswordRequest request, String frontendUrl) {
-        String identifier = request.getUsernameOrEmail() == null
-                ? ""
-                : request.getUsernameOrEmail().trim();
-
-        User user = userRepo.findByEmail(identifier)
-                .or(() -> userRepo.findByUsername(identifier))
+        User user = userRepo.findByEmail(request.getEmail())
                 .orElse(null);
 
         if (user == null) {
@@ -180,37 +210,35 @@ public class AuthBusinessService {
 
         passwordResetTokenRepository.deleteByUser(user);
 
-        if ("DRIVER".equalsIgnoreCase(user.getRole())) {
-            Driver driver = driverRepository.findByUser_Id(user.getId()).orElse(null);
-
-            if (driver == null || driver.getPhone() == null || driver.getPhone().isBlank()) {
-                return;
-            }
-
-            String code = generateVerificationCode();
-
-            PasswordResetToken resetCode = new PasswordResetToken();
-            resetCode.setToken(code);
-            resetCode.setUser(user);
-            resetCode.setUsed(false);
-            resetCode.setExpiryDate(OffsetDateTime.now().plusMinutes(10));
-
-            passwordResetTokenRepository.save(resetCode);
-            smsService.sendDriverResetCode(driver.getPhone(), code);
-            return;
-        }
+        String code = generateVerificationCode();
 
         PasswordResetToken resetToken = new PasswordResetToken();
-        resetToken.setToken(UUID.randomUUID().toString());
         resetToken.setUser(user);
+        resetToken.setToken(code);
         resetToken.setUsed(false);
         resetToken.setExpiryDate(OffsetDateTime.now().plusMinutes(30));
 
         passwordResetTokenRepository.save(resetToken);
 
-        String resetLink = frontendUrl + "/reset-password?token=" + resetToken.getToken();
-        emailService.sendResetPasswordEmail(user.getEmail(), resetLink);
+        emailService.sendResetPasswordCodeEmail(user.getEmail(), code);
     }
+    public void resendVerificationCode(String email) {
+    DriverRegistrationRequestEntity request = driverRegistrationRequestRepository
+            .findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("Demande introuvable."));
+
+    if (request.getStatus() != AccountStatus.PENDING) {
+        throw new RuntimeException("Cette demande n'est plus en attente.");
+    }
+
+    String code = generateVerificationCode();
+    request.setEmailVerificationCode(code);
+    request.setEmailVerificationExpiry(OffsetDateTime.now().plusMinutes(10));
+
+    driverRegistrationRequestRepository.save(request);
+
+    emailService.sendVerificationEmail(email, code);
+}
 
     public void verifyResetCode(VerifyResetCodeRequest request) {
         String identifier = request.getIdentifier() == null ? "" : request.getIdentifier().trim();
@@ -224,10 +252,6 @@ public class AuthBusinessService {
         }
 
         User user = resetCode.getUser();
-
-        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Réinitialisation par code non autorisée pour ce compte.");
-        }
 
         boolean matchesEmail = user.getEmail() != null && user.getEmail().equalsIgnoreCase(identifier);
         boolean matchesUsername = user.getUsername() != null && user.getUsername().equalsIgnoreCase(identifier);
@@ -268,10 +292,6 @@ public class AuthBusinessService {
         }
 
         User user = resetCode.getUser();
-
-        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Réinitialisation par code non autorisée pour ce compte.");
-        }
 
         boolean matchesEmail = user.getEmail() != null && user.getEmail().equalsIgnoreCase(identifier);
         boolean matchesUsername = user.getUsername() != null && user.getUsername().equalsIgnoreCase(identifier);

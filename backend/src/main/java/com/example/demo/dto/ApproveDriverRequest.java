@@ -4,14 +4,14 @@ import jakarta.validation.constraints.NotNull;
 
 public class ApproveDriverRequest {
 
-    @NotNull(message = "L'identifiant utilisateur est obligatoire.")
-    private Long userId;
+    @NotNull(message = "L'identifiant de la demande est obligatoire.")
+    private Long requestId;
 
-    public Long getUserId() {
-        return userId;
+    public Long getRequestId() {
+        return requestId;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setRequestId(Long requestId) {
+        this.requestId = requestId;
     }
 }

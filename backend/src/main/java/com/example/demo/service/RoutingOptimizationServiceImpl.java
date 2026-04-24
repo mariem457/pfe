@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -100,12 +101,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         if (routingCandidateTrucks.isEmpty()) {
             RoutingResponseDto empty = new RoutingResponseDto();
             empty.setMatrixSource("NONE");
-            saveExecutionLog(
-                    RoutingDecision.skip("No routing candidate trucks"),
-                    null,
-                    empty,
-                    0
-            );
+            saveExecutionLog(RoutingDecision.skip("No routing candidate trucks"), null, empty, 0);
             return empty;
         }
 
@@ -128,25 +124,14 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                     routingPayloadBuilderService.getLastRecommendedFuelStations()
             );
 
-            saveExecutionLog(
-                    decision,
-                    refuelRoutingRequest,
-                    refuelResponse,
-                    0
-            );
-
+            saveExecutionLog(decision, refuelRoutingRequest, refuelResponse, 0);
             return refuelResponse;
         }
 
         if (!decision.isShouldOptimize()) {
             RoutingResponseDto skipped = new RoutingResponseDto();
             skipped.setMatrixSource("SKIPPED");
-            saveExecutionLog(
-                    decision,
-                    null,
-                    skipped,
-                    0
-            );
+            saveExecutionLog(decision, null, skipped, 0);
             return skipped;
         }
 
@@ -409,6 +394,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         mission.setDriver(driver);
         mission.setTruck(truck);
         mission.setDepot(depot);
+        mission.setZone(truck.getZone());
         mission.setStatus("CREATED");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
         mission.setPriority("HIGH");
@@ -465,6 +451,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         mission.setDriver(driver);
         mission.setTruck(truck);
         mission.setDepot(resolveActiveDepot());
+        mission.setZone(truck.getZone());
         mission.setStatus("CREATED");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
         mission.setPriority("NORMAL");
@@ -558,96 +545,98 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         routePlan.setPlanStatus(RoutePlan.PlanStatus.PLANNED);
 
         if (routingMissionDto.getTotalDistanceKm() != null) {
-            routePlan.setTotalDistanceKm(
-                    BigDecimal.valueOf(routingMissionDto.getTotalDistanceKm())
-            );
+            routePlan.setTotalDistanceKm(BigDecimal.valueOf(routingMissionDto.getTotalDistanceKm()));
         }
 
         if (routingMissionDto.getTotalDurationMinutes() != null) {
-            routePlan.setEstimatedDurationMin(
-                    (int) Math.round(routingMissionDto.getTotalDurationMinutes())
-            );
+            routePlan.setEstimatedDurationMin((int) Math.round(routingMissionDto.getTotalDurationMinutes()));
         }
 
         RoutePlan savedPlan = routePlanRepository.save(routePlan);
 
-        int order = 1;
-        Depot depot = resolveActiveDepot();
+        Depot activeDepot = resolveActiveDepot();
+        Double depotLat = routingRequest != null && routingRequest.getDepot() != null
+                ? routingRequest.getDepot().getLat()
+                : activeDepot.getLat();
+        Double depotLng = routingRequest != null && routingRequest.getDepot() != null
+                ? routingRequest.getDepot().getLng()
+                : activeDepot.getLng();
+
+        if (!isValidCoordinatePair(depotLat, depotLng)) {
+            throw new BadRequestException("Depot coordinates are invalid while saving route plan");
+        }
+
+        System.out.println("SAVE ROUTE PLAN => truckId=" + truck.getId()
+                + ", depotLat=" + depotLat
+                + ", depotLng=" + depotLng
+                + ", missionDistanceKm=" + routingMissionDto.getTotalDistanceKm()
+                + ", missionDurationMin=" + routingMissionDto.getTotalDurationMinutes());
+
+        int nextOrder = 1;
 
         RouteStop depotStart = new RouteStop();
         depotStart.setRoutePlan(savedPlan);
-        depotStart.setStopOrder(order++);
+        depotStart.setStopOrder(nextOrder++);
         depotStart.setStopType(RouteStop.StopType.DEPOT_START);
-        depotStart.setLat(
-                routingRequest != null && routingRequest.getDepot() != null
-                        ? routingRequest.getDepot().getLat()
-                        : depot.getLat()
-        );
-        depotStart.setLng(
-                routingRequest != null && routingRequest.getDepot() != null
-                        ? routingRequest.getDepot().getLng()
-                        : depot.getLng()
-        );
+        depotStart.setLat(depotLat);
+        depotStart.setLng(depotLng);
         depotStart.setStatus(RouteStop.StopStatus.PLANNED);
         depotStart.setNotes("Route start from depot");
         routeStopRepository.save(depotStart);
 
-        RecommendedFuelStationDto stationDto =
-                findRecommendedFuelStationForTruck(routingResponse, truck.getId());
-
-        if (stationDto != null) {
-            FuelStation fs = fuelStationRepository.findById(stationDto.getStationId()).orElseThrow();
-
-            RouteStop fuelStop = new RouteStop();
-            fuelStop.setRoutePlan(savedPlan);
-            fuelStop.setStopOrder(order++);
-            fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
-            fuelStop.setFuelStation(fs);
-            fuelStop.setLat(fs.getLat());
-            fuelStop.setLng(fs.getLng());
-            fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-            fuelStop.setNotes("Recommended fuel stop");
-            routeStopRepository.save(fuelStop);
-        }
-
         if (routingMissionDto.getStops() != null) {
-            for (RoutingStopDto stopDto : routingMissionDto.getStops()) {
-                if (stopDto.getBinId() == null) {
-                    continue;
-                }
+            List<RoutingStopDto> orderedStops = routingMissionDto.getStops().stream()
+                    .filter(s -> s.getBinId() != null)
+                    .sorted(Comparator.comparing(
+                            s -> s.getOrderIndex() != null ? s.getOrderIndex() : Integer.MAX_VALUE
+                    ))
+                    .toList();
+
+            for (RoutingStopDto stopDto : orderedStops) {
+                int currentOrder = nextOrder++;
 
                 binRepository.findById(stopDto.getBinId()).ifPresent(bin -> {
+                    Double lat = bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat();
+                    Double lng = bin.getAccessLng() != null ? bin.getAccessLng() : bin.getLng();
+
+                    if (!isValidCoordinatePair(lat, lng)) {
+                        throw new BadRequestException("Bin " + bin.getId() + " has invalid routing coordinates");
+                    }
+
                     RouteStop stop = new RouteStop();
                     stop.setRoutePlan(savedPlan);
-                    stop.setStopOrder(stopDto.getOrderIndex() != null ? stopDto.getOrderIndex() + 1 : 999);
+                    stop.setStopOrder(currentOrder);
                     stop.setStopType(RouteStop.StopType.BIN_PICKUP);
                     stop.setBin(bin);
-                    stop.setLat(bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat());
-                    stop.setLng(bin.getAccessLng() != null ? bin.getAccessLng() : bin.getLng());
+                    stop.setLat(lat);
+                    stop.setLng(lng);
                     stop.setStatus(RouteStop.StopStatus.PLANNED);
                     stop.setNotes("Optimized route bin pickup");
                     routeStopRepository.save(stop);
+
+                    System.out.println("ROUTE STOP SAVED => order=" + currentOrder
+                            + ", type=BIN_PICKUP"
+                            + ", binId=" + bin.getId()
+                            + ", lat=" + lat
+                            + ", lng=" + lng);
                 });
             }
         }
 
         RouteStop depotReturn = new RouteStop();
         depotReturn.setRoutePlan(savedPlan);
-        depotReturn.setStopOrder(order + (routingMissionDto.getStops() != null ? routingMissionDto.getStops().size() : 0));
+        depotReturn.setStopOrder(nextOrder);
         depotReturn.setStopType(RouteStop.StopType.DEPOT_RETURN);
-        depotReturn.setLat(
-                routingRequest != null && routingRequest.getDepot() != null
-                        ? routingRequest.getDepot().getLat()
-                        : depot.getLat()
-        );
-        depotReturn.setLng(
-                routingRequest != null && routingRequest.getDepot() != null
-                        ? routingRequest.getDepot().getLng()
-                        : depot.getLng()
-        );
+        depotReturn.setLat(depotLat);
+        depotReturn.setLng(depotLng);
         depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
         depotReturn.setNotes("Return to depot");
         routeStopRepository.save(depotReturn);
+
+        System.out.println("ROUTE STOP SAVED => order=" + nextOrder
+                + ", type=DEPOT_RETURN"
+                + ", lat=" + depotLat
+                + ", lng=" + depotLng);
     }
 
     private void saveDroppedBins(RoutingRequestDto routingRequest, RoutingResponseDto routingResponse) {
@@ -726,7 +715,17 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     }
 
     private Depot resolveActiveDepot() {
-        return depotRepository.findByIsActiveTrue().get(0);
+        return depotRepository.findByIsActiveTrue()
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("No active depot found"));
+    }
+
+    private boolean isValidCoordinatePair(Double lat, Double lng) {
+        return lat != null && lng != null
+                && lat >= -90 && lat <= 90
+                && lng >= -180 && lng <= 180
+                && !(lat == 0.0 && lng == 0.0);
     }
 
     private String generateMissionCode() {

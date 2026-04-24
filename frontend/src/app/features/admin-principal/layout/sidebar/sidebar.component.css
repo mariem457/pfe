@@ -10,9 +10,10 @@
   width: 270px;
   height: 100vh;
   flex-shrink: 0;
-  background: var(--card-color, #ffffff);
-  border-right: 1px solid var(--border-color, #eef0f3);
-  color: var(--text-color, #111827);
+
+  background: var(--sidebar-color);
+  color: var(--text-color);
+  border-right: 1px solid var(--border-color);
 
   display: flex;
   flex-direction: column;
@@ -21,7 +22,8 @@
   box-sizing: border-box;
   overflow: hidden;
 
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  font-family: var(--admin-font, 'Poppins', sans-serif);
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
 /* ===============================
@@ -29,76 +31,74 @@
 =================================*/
 .brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 8px 8px 14px;
+  text-align: center;
 }
 
-.brand__icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: #16c784;
-  color: #ffffff;
-
+.brand__logo-wrap {
+  width: 120px;
+  height: 90px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   flex: 0 0 auto;
-
-  box-shadow: 0 8px 20px rgba(22, 199, 132, 0.22);
 }
 
-.brand__icon mat-icon {
-  font-size: 22px;
-  width: 22px;
-  height: 22px;
-  line-height: 22px;
-  color: #ffffff;
+.brand__logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  display: block;
+  transform: scale(1.75);
+  transform-origin: center;
 }
 
 .brand__text {
   min-width: 0;
+  text-align: center;
 }
 
 .brand__name {
-  margin: 0;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 800;
-  color: var(--text-color, #111827);
-  line-height: 1.2;
+  line-height: 1.15;
+  color: var(--text-color);
+  margin: 0;
 }
 
 .brand__tag {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--muted-color, #6b7280);
+  margin-top: 4px;
+  font-size: 14px;
   line-height: 1.35;
+  color: var(--muted-color);
 }
 
 /* ===============================
-   NAV (SCROLL AREA)
+   NAV
 =================================*/
 .nav {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
-  padding: 10px 6px;
-  margin-top: 12px;
-
+  padding: 12px 6px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .nav::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .nav::-webkit-scrollbar-thumb {
-  background: var(--border-color, #dbe3ee);
+  background: var(--border-color);
   border-radius: 999px;
 }
 
@@ -109,53 +109,81 @@
   display: flex;
   align-items: center;
   gap: 12px;
-
-  padding: 12px 14px;
-  border-radius: 16px;
-
+  padding: 13px 14px;
+  border-radius: 18px;
   text-decoration: none;
-  color: var(--text-color, #111827);
+  color: var(--text-color);
   font-weight: 700;
-
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  font-size: 15px;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
 
-.nav a mat-icon {
+.nav a:hover {
+  background: var(--hover-bg);
+  transform: translateY(-1px);
+}
+
+.nav a mat-icon,
+.nav-icon {
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
   font-size: 20px;
   line-height: 22px;
-  opacity: 0.9;
+  color: var(--muted-color);
+  opacity: 1;
+  transition: color 0.2s ease;
 }
 
-.nav a:hover {
-  background: var(--soft-bg, #f3fbf7);
+.nav-icon,
+.logout-icon {
+  font-family: 'Material Icons' !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.nav-link-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-label {
+  color: inherit;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
+}
+
+.nav a span {
+  color: inherit;
+}
+
+/* Active */
 .nav a.active {
   background: #16c784;
   color: #ffffff;
-  box-shadow: 0 12px 22px rgba(22, 199, 132, 0.25);
+  box-shadow: 0 12px 24px rgba(22, 199, 132, 0.24);
 }
 
-.nav a.active mat-icon {
+.nav a.active mat-icon,
+.nav a.active .nav-icon {
   color: #ffffff;
-  opacity: 1;
 }
 
 /* ===============================
    FOOTER
 =================================*/
 .sidebar-footer {
-  margin-top: auto;
   padding-top: 14px;
+  margin-top: auto;
 }
 
 .divider {
   height: 1px;
-  background: var(--border-color, #eef0f3);
+  background: var(--border-color);
   margin-bottom: 14px;
 }
 
@@ -173,30 +201,33 @@
   border-radius: 999px;
   background: #16c784;
   color: #ffffff;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-weight: 900;
   flex: 0 0 auto;
 }
 
 .user__meta {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .user__name {
   font-size: 14px;
   font-weight: 800;
-  color: var(--text-color, #111827);
+  color: var(--text-color);
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .user__email {
-  font-size: 12px;
-  color: var(--muted-color, #6b7280);
   margin-top: 2px;
-  word-break: break-word;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-color);
+  white-space: nowrap;
 }
 
 /* LOGOUT */
@@ -204,34 +235,69 @@
   display: flex;
   align-items: center;
   gap: 10px;
-
   padding: 10px 12px;
   border-radius: 14px;
-
   text-decoration: none;
   font-weight: 800;
   color: #ef4444;
-
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.logout mat-icon {
+.logout mat-icon,
+.logout-icon {
   color: #ef4444;
+  font-size: 22px;
+  line-height: 22px;
 }
 
 .logout:hover {
   background: rgba(239, 68, 68, 0.08);
+  transform: translateY(-1px);
 }
 
 /* ===============================
    DARK MODE POLISH
 =================================*/
-body.dark .nav a:hover,
-body.dark-mode .nav a:hover {
-  background: rgba(255, 255, 255, 0.06);
+body.dark-mode .sidebar {
+  background: var(--sidebar-color);
+  border-color: var(--border-color);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
 }
 
-body.dark .logout:hover,
+body.dark-mode .brand__logo-wrap {
+  background: rgba(22, 199, 132, 0.14);
+}
+
+body.dark-mode .nav a:not(.active) mat-icon,
+body.dark-mode .nav a:not(.active) .nav-icon {
+  color: #94a3b8;
+}
+
+body.dark-mode .nav a:hover {
+  background: #162033;
+}
+
+body.dark-mode .divider {
+  background: #334155;
+}
+
 body.dark-mode .logout:hover {
   background: rgba(239, 68, 68, 0.12);
+}
+
+/* ===============================
+   RESPONSIVE
+=================================*/
+@media (max-width: 900px) {
+  .sidebar {
+    width: 250px;
+  }
+
+  .brand__name {
+    font-size: 16px;
+  }
+
+  .brand__tag {
+    font-size: 11px;
+  }
 }

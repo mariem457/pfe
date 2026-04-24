@@ -14,8 +14,9 @@
 }
 
 .map-title {
-  margin: 0;
-  font-size: 30px;
+  margin: 10;
+  padding-left: 16px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.5px;
   line-height: 1.1;
@@ -24,6 +25,7 @@
 
 .map-subtitle {
   margin: 6px 0 0;
+  padding-left: 16px;
   color: #64748b;
   font-size: 15px;
   line-height: 1.6;
@@ -352,6 +354,38 @@
   box-shadow: 0 0 0 3px rgba(255,255,255,0.88);
 }
 
+.legend-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #cbd5e1;
+}
+
+.legend-ring-low {
+  border: 2px solid #ffffff;
+  background: #94a3b8;
+  box-shadow: 0 0 0 1px #cbd5e1;
+}
+
+.legend-ring-warning {
+  border: 3px solid #f59e0b;
+  background: #94a3b8;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.28);
+}
+
+.legend-ring-alert {
+  border: 3px solid #ef4444;
+  background: #94a3b8;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.32);
+}
+
+.legend-ring-critical {
+  border: 4px solid #dc2626;
+  background: #94a3b8;
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+}
+
 .legend-heat {
   width: 22px;
   height: 12px;
@@ -424,6 +458,23 @@
   font-weight: 800;
   margin-bottom: 6px;
   color: #0f172a;
+}
+
+/* ================= BIN MARKER VISUAL STATES ================= */
+:host ::ng-deep .bin-marker-normal {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.18));
+}
+
+:host ::ng-deep .bin-marker-warning {
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.35));
+}
+
+:host ::ng-deep .bin-marker-alert {
+  filter: drop-shadow(0 0 9px rgba(239, 68, 68, 0.45));
+}
+
+:host ::ng-deep .bin-marker-critical {
+  filter: drop-shadow(0 0 14px rgba(220, 38, 38, 0.65));
 }
 
 /* ================= MODAL ================= */

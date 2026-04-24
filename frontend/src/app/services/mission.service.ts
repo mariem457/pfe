@@ -52,6 +52,8 @@ export interface MissionRouteStop {
   stopOrder: number;
   stopType: string | null;
   binId: number | null;
+  fuelStationId?: number | null;
+  fuelStationName?: string | null;
   lat: number;
   lng: number;
 }
@@ -67,6 +69,11 @@ export interface MissionRouteResponse {
   snappedWaypoints: RouteCoordinate[];
   matrixSource?: string | null;
   geometrySource?: string | null;
+  stopLegDistancesKm?: number[];
+
+  // optional if backend enhanced later
+  collectionRouteCoordinates?: RouteCoordinate[];
+  transferRouteCoordinates?: RouteCoordinate[];
 }
 
 @Injectable({

@@ -10,7 +10,7 @@ import { ParametreComponent } from './pages/parametre/parametre.component';
 import { RapportComponent } from './pages/rapport/rapport.component';
 import { PublicReportsComponent } from './pages/public-reports/public-reports.component';
 import { MissionsComponent } from './pages/missions/missions.component';
-import { SmartRoutingComponent } from './pages/smart-routing/smart-routing.component';
+
 
 const routes: Routes = [
   {
@@ -23,7 +23,7 @@ const routes: Routes = [
       { path: 'trucks', component: TrucksComponent, data: { title: 'Trucks' } },
       { path: 'missions', component: MissionsComponent, data: { title: 'Missions' } },
       { path: 'optimisation', component: OptimisationComponent, data: { title: 'Optimisation' } },
-      { path: 'smart-routing', component: SmartRoutingComponent, data: { title: 'Routage Intelligent' } },
+      
       { path: 'parametres', component: ParametreComponent, data: { title: 'Paramètres' } },
       { path: 'rapport', component: RapportComponent, data: { title: 'Rapport' } },
       { path: 'public-reports', component: PublicReportsComponent, data: { title: 'Rapports Publics' } }

@@ -1,4 +1,21 @@
 <section class="login-page">
+
+  <div *ngIf="showSuccessToast" class="success-toast">
+    <span class="material-icons">check_circle</span>
+    <span>{{ successMessage }}</span>
+    <button type="button" class="toast-close" (click)="hideSuccess()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div *ngIf="showErrorToast" class="error-toast">
+    <span class="material-icons">error</span>
+    <span>{{ errorMessage }}</span>
+    <button type="button" class="toast-close error-close" (click)="hideError()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
   <div class="login-card">
 
     <div class="logo-wrap">
@@ -61,13 +78,9 @@
         </a>
       </div>
 
-      <button type="submit" class="btn-login">
-        Se connecter
+      <button type="submit" class="btn-login" [disabled]="isLoading || showSuccessToast">
+        {{ isLoading ? 'Connexion...' : 'Se connecter' }}
       </button>
-
-      <p *ngIf="errorMessage" class="login-error">
-        {{ errorMessage }}
-      </p>
 
       <a routerLink="/" class="back-link">
         <span class="material-icons">arrow_back</span>

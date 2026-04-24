@@ -71,6 +71,8 @@ export interface FleetMapRouteStop {
   stopOrder: number;
   stopType: string | null;
   binId: number | null;
+  fuelStationId?: number | null;
+  fuelStationName?: string | null;
   lat: number;
   lng: number;
 }
@@ -143,6 +145,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   @Input() missionBins: FleetMapMissionBinItem[] = [];
   @Input() missionRouteCoordinates: FleetMapRouteCoordinate[] = [];
+  @Input() collectionRouteCoordinates: FleetMapRouteCoordinate[] = [];
+  @Input() transferRouteCoordinates: FleetMapRouteCoordinate[] = [];
   @Input() missionRouteStops: FleetMapRouteStop[] = [];
   @Input() snappedWaypoints: FleetMapRouteCoordinate[] = [];
   @Input() matrixSource: string | null = null;
@@ -167,6 +171,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private missionMarkers = new Map<number, L.Layer>();
   private missionPolyline?: L.Polyline;
   private missionRealRoutePolyline?: L.Polyline;
+  private missionCollectionPolyline?: L.Polyline;
+  private missionTransferPolyline?: L.Polyline;
   private missionRouteStopMarkers = new Map<number, L.Layer>();
   private snappedWaypointMarkers = new Map<number, L.Layer>();
   private snappedConnectorLines = new Map<number, L.Polyline>();
@@ -186,7 +192,6 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   addBinSuccess = '';
 
   selectedBin: FleetMapSelectedBinDetails | null = null;
-
   displayMode: MapDisplayMode = 'both';
   heatMetric: HeatMetricMode = 'fillLevel';
 
@@ -273,6 +278,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       (
         changes['missionBins'] ||
         changes['missionRouteCoordinates'] ||
+        changes['collectionRouteCoordinates'] ||
+        changes['transferRouteCoordinates'] ||
         changes['missionRouteStops'] ||
         changes['snappedWaypoints'] ||
         changes['planningMissions'] ||
@@ -527,19 +534,31 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
 
     (this.missionRouteCoordinates || []).forEach((p) => {
-      if (p?.lat != null && p?.lng != null && this.isInsideParis(p.lat, p.lng)) {
+      if (p?.lat != null && p?.lng != null) {
+        boundsPoints.push([p.lat, p.lng]);
+      }
+    });
+
+    (this.collectionRouteCoordinates || []).forEach((p) => {
+      if (p?.lat != null && p?.lng != null) {
+        boundsPoints.push([p.lat, p.lng]);
+      }
+    });
+
+    (this.transferRouteCoordinates || []).forEach((p) => {
+      if (p?.lat != null && p?.lng != null) {
         boundsPoints.push([p.lat, p.lng]);
       }
     });
 
     (this.missionRouteStops || []).forEach((s) => {
-      if (s?.lat != null && s?.lng != null && this.isInsideParis(s.lat, s.lng)) {
+      if (s?.lat != null && s?.lng != null) {
         boundsPoints.push([s.lat, s.lng]);
       }
     });
 
     (this.snappedWaypoints || []).forEach((p) => {
-      if (p?.lat != null && p?.lng != null && this.isInsideParis(p.lat, p.lng)) {
+      if (p?.lat != null && p?.lng != null) {
         boundsPoints.push([p.lat, p.lng]);
       }
     });
@@ -688,14 +707,16 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       if (bin.lat == null || bin.lng == null) return;
       if (!this.isInsideParis(bin.lat, bin.lng)) return;
 
-      const color = this.getBinColor(bin);
+      const typeColor = this.getBinColor(bin);
+      const visual = this.getFillVisual(bin);
 
       const marker = L.circleMarker([bin.lat, bin.lng], {
-        radius: 8,
-        color,
-        fillColor: color,
-        fillOpacity: 0.9,
-        weight: 2
+        radius: visual.radius,
+        color: visual.borderColor,
+        fillColor: typeColor,
+        fillOpacity: visual.fillOpacity,
+        weight: visual.borderWeight,
+        className: visual.className
       });
 
       marker.addTo(map).bindPopup(this.buildBinPopup(bin));
@@ -793,6 +814,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
 
     this.clearMissionMarkers();
+    this.selectedBin = null;
 
     const bins = (this.missionBins || [])
       .filter(b => b.lat != null && b.lng != null)
@@ -801,13 +823,19 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     const routeCoords = (this.missionRouteCoordinates || [])
       .filter(p => p.lat != null && p.lng != null);
 
+    const collectionCoords = (this.collectionRouteCoordinates || [])
+      .filter(p => p.lat != null && p.lng != null);
+
+    const transferCoords = (this.transferRouteCoordinates || [])
+      .filter(p => p.lat != null && p.lng != null);
+
     const routeStops = (this.missionRouteStops || [])
       .filter(s => s.lat != null && s.lng != null);
 
     const snapped = (this.snappedWaypoints || [])
       .filter(p => p.lat != null && p.lng != null);
 
-    if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length) {
+    if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length && !collectionCoords.length && !transferCoords.length) {
       this.fitToDataArea();
       return;
     }
@@ -874,19 +902,30 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       let color = '#111827';
       let fillColor = '#ffffff';
       let radius = 6;
+      let popupTitle = 'Route stop';
+      let extraHtml = '';
 
       if (stop.stopType === 'DEPOT_START') {
         color = '#16a34a';
         fillColor = '#16a34a';
-        radius = 7;
+        radius = 8;
+        popupTitle = 'Dépôt de départ';
       } else if (stop.stopType === 'DEPOT_RETURN') {
         color = '#dc2626';
         fillColor = '#dc2626';
-        radius = 7;
+        radius = 8;
+        popupTitle = 'Dépôt de retour';
       } else if (stop.stopType === 'BIN_PICKUP') {
         color = '#111827';
         fillColor = '#ffffff';
         radius = 5;
+        popupTitle = 'Bac à collecter';
+      } else if (stop.stopType === 'FUEL_STATION') {
+        color = '#f59e0b';
+        fillColor = '#f59e0b';
+        radius = 7;
+        popupTitle = 'Station-service';
+        extraHtml = `<div><b>Station:</b> ${stop.fuelStationName ?? '—'}</div>`;
       }
 
       const marker = L.circleMarker([stop.lat, stop.lng], {
@@ -898,11 +937,12 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       });
 
       marker.addTo(this.map!).bindPopup(`
-        <div style="min-width:180px">
-          <div style="font-weight:700; margin-bottom:6px;">Route stop</div>
+        <div style="min-width:200px">
+          <div style="font-weight:700; margin-bottom:6px;">${popupTitle}</div>
           <div><b>Order:</b> ${stop.stopOrder}</div>
           <div><b>Type:</b> ${stop.stopType ?? '—'}</div>
           <div><b>Bin ID:</b> ${stop.binId ?? '—'}</div>
+          ${extraHtml}
         </div>
       `);
 
@@ -956,7 +996,32 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       boundsPoints.push([snappedPoint.lat, snappedPoint.lng]);
     });
 
-    if (routeCoords.length >= 2) {
+    if (collectionCoords.length >= 2 || transferCoords.length >= 2) {
+      if (transferCoords.length >= 2) {
+        const transferLatLngs: L.LatLngExpression[] = transferCoords.map(p => [p.lat, p.lng]);
+
+        this.missionTransferPolyline = L.polyline(transferLatLngs, {
+          color: '#94a3b8',
+          weight: 4,
+          opacity: 0.9,
+          dashArray: '10 8'
+        }).addTo(this.map!);
+
+        boundsPoints.push(...transferLatLngs);
+      }
+
+      if (collectionCoords.length >= 2) {
+        const collectionLatLngs: L.LatLngExpression[] = collectionCoords.map(p => [p.lat, p.lng]);
+
+        this.missionCollectionPolyline = L.polyline(collectionLatLngs, {
+          color: '#2563eb',
+          weight: 6,
+          opacity: 0.95
+        }).addTo(this.map!);
+
+        boundsPoints.push(...collectionLatLngs);
+      }
+    } else if (routeCoords.length >= 2) {
       const realLatLngs: L.LatLngExpression[] = routeCoords.map(p => [p.lat, p.lng]);
 
       this.missionRealRoutePolyline = L.polyline(realLatLngs, {
@@ -1326,18 +1391,28 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       this.missionRealRoutePolyline.removeFrom(this.map);
       this.missionRealRoutePolyline = undefined;
     }
+
+    if (this.missionCollectionPolyline) {
+      this.missionCollectionPolyline.removeFrom(this.map);
+      this.missionCollectionPolyline = undefined;
+    }
+
+    if (this.missionTransferPolyline) {
+      this.missionTransferPolyline.removeFrom(this.map);
+      this.missionTransferPolyline = undefined;
+    }
   }
 
   private getWasteTypeColor(wasteType?: string | null): string {
     switch ((wasteType || '').toUpperCase()) {
       case 'GRAY':
-        return '#222222';
+        return '#475569';
       case 'GREEN':
-        return '#2E7D32';
+        return '#16a34a';
       case 'YELLOW':
-        return '#F9A825';
+        return '#facc15';
       case 'WHITE':
-        return '#1E88E5';
+        return '#2563eb';
       default:
         return '#64748b';
     }
@@ -1345,6 +1420,54 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   private getBinColor(bin: any): string {
     return this.getWasteTypeColor(bin?.wasteType);
+  }
+
+  private getFillVisual(bin: any): {
+    radius: number;
+    borderColor: string;
+    borderWeight: number;
+    fillOpacity: number;
+    className: string;
+  } {
+    const fill = Number(bin?.fillLevel ?? 0);
+
+    if (fill >= 95) {
+      return {
+        radius: 11,
+        borderColor: '#dc2626',
+        borderWeight: 4,
+        fillOpacity: 1,
+        className: 'bin-marker-critical'
+      };
+    }
+
+    if (fill >= 80) {
+      return {
+        radius: 10,
+        borderColor: '#ef4444',
+        borderWeight: 3,
+        fillOpacity: 0.96,
+        className: 'bin-marker-alert'
+      };
+    }
+
+    if (fill >= 50) {
+      return {
+        radius: 9,
+        borderColor: '#f59e0b',
+        borderWeight: 3,
+        fillOpacity: 0.93,
+        className: 'bin-marker-warning'
+      };
+    }
+
+    return {
+      radius: 8,
+      borderColor: '#ffffff',
+      borderWeight: 2,
+      fillOpacity: 0.9,
+      className: 'bin-marker-normal'
+    };
   }
 
   private escapeHtml(value: any): string {
@@ -1365,13 +1488,19 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     const zone = this.escapeHtml(bin.zoneName ?? '—');
     const cluster = bin.clusterId ?? '—';
 
+    let fillLabel = 'Faible';
+    if (fill >= 95) fillLabel = 'Critique';
+    else if (fill >= 80) fillLabel = 'Très élevé';
+    else if (fill >= 50) fillLabel = 'Élevé';
+    else if (fill >= 25) fillLabel = 'Modéré';
+
     return `
       <div class="bin-popup-card">
         <div class="bin-popup-title">${code}</div>
         <div><b>Zone:</b> ${zone}</div>
         <div><b>Cluster:</b> ${cluster}</div>
         <div><b>Type:</b> ${wasteType}</div>
-        <div><b>Fill:</b> ${fill}%</div>
+        <div><b>Fill:</b> ${fill}% (${fillLabel})</div>
         <div><b>Battery:</b> ${battery}%</div>
         <div><b>Status:</b> ${status}</div>
       </div>
@@ -1461,7 +1590,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
 
     this.trucksSub = this.realtime.trucks$.subscribe((trucks) => {
-      if (!this.map) return;
+      if (!this.map || !this.showTrucks) return;
 
       const keep = new Set<string>();
 
@@ -1523,7 +1652,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   }
 
   private upsertTruckMarker(id: string, pos: LatLng): void {
-    if (!this.map) return;
+    if (!this.map || !this.showTrucks) return;
 
     const existing = this.truckMarkers.get(id);
 

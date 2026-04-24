@@ -30,7 +30,7 @@ export class BinService {
   }
 
   getBinsStatus(): Observable<BinStatusDto[]> {
-    return this.http.get<BinStatusDto[]>(`${this.baseUrl}/status`);
+    return this.http.get<BinStatusDto[]>(this.baseUrl);
   }
 
   getAllBins(): Observable<any[]> {

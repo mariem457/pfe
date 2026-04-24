@@ -1,139 +1,236 @@
-<div class="settings-wrapper">
-  <div class="settings-page">
+<div class="st-wrap">
+  <div class="st-page">
 
-    <h2>Paramètres</h2>
-    <p class="subtitle">Gérez votre compte et les préférences de l'application</p>
-<div *ngIf="forcePasswordChange" class="message info-message">
-  Vous devez changer votre mot de passe avant de continuer.
-</div>
-    <!-- Profile Settings -->
-    <div class="card">
-      <h3>Paramètres du Profil</h3>
-
-      <div *ngIf="loadingProfile" class="message info-message">
-        Chargement du profil...
+    <div class="st-head">
+      <div class="st-headText">
+        <h1 class="st-title">Paramètres</h1>
+        <p class="st-subtitle">Gérez votre compte, vos préférences et la sécurité de votre espace municipal</p>
       </div>
 
-      <div class="row">
-        <div class="form-group">
+      <div class="st-headMeta">
+        <span class="st-chip">
+          <span class="material-icons">settings</span>
+          Configuration du compte
+        </span>
+      </div>
+    </div>
+
+    <div *ngIf="forcePasswordChange" class="st-alert st-alert--info">
+      <span class="material-icons">info</span>
+      <div>
+        <strong>Action requise</strong>
+        <p>Vous devez changer votre mot de passe avant de continuer.</p>
+      </div>
+    </div>
+
+    <!-- PROFIL -->
+    <section class="st-card">
+      <div class="st-cardHead">
+        <div class="st-cardTitleWrap">
+          <div class="st-cardIcon">
+            <span class="material-icons">person</span>
+          </div>
+          <div>
+            <h2>Profil</h2>
+            <p>Informations personnelles et professionnelles associées à votre compte.</p>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="loadingProfile" class="st-alert st-alert--soft">
+        <span class="material-icons">hourglass_top</span>
+        <div>
+          <strong>Chargement en cours</strong>
+          <p>Récupération des informations du profil...</p>
+        </div>
+      </div>
+
+      <div class="st-grid st-grid--2">
+        <div class="st-field">
           <label>Prénom</label>
-          <input type="text" [(ngModel)]="profile.firstName" />
+          <input type="text" [(ngModel)]="profile.firstName" placeholder="Votre prénom" />
         </div>
 
-        <div class="form-group">
+        <div class="st-field">
           <label>Nom</label>
-          <input type="text" [(ngModel)]="profile.lastName" />
+          <input type="text" [(ngModel)]="profile.lastName" placeholder="Votre nom" />
         </div>
       </div>
 
-      <div class="form-group">
-        <label>Email professionnel</label>
-        <input type="email" [(ngModel)]="profile.email" />
+      <div class="st-grid">
+        <div class="st-field">
+          <label>Email professionnel</label>
+          <input type="email" [(ngModel)]="profile.email" placeholder="nom@organisation.tn" />
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Fonction</label>
-        <input type="text" [(ngModel)]="profile.function" placeholder="Ex: Responsable propreté" />
+      <div class="st-grid st-grid--2">
+        <div class="st-field">
+          <label>Fonction</label>
+          <input type="text" [(ngModel)]="profile.function" placeholder="Ex: Responsable propreté" />
+        </div>
+
+        <div class="st-field">
+          <label>Organisation</label>
+          <input type="text" [(ngModel)]="profile.organization" placeholder="Ex: Municipalité de Tunis" />
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Organisation</label>
-        <input type="text" [(ngModel)]="profile.organization" />
-      </div>
-
-      <div *ngIf="successMessage" class="message success-message">
-        {{ successMessage }}
-      </div>
-
-      <div *ngIf="errorMessage" class="message error-message">
-        {{ errorMessage }}
-      </div>
-
-      <button class="btn-primary" (click)="saveProfile()" [disabled]="savingProfile">
-        {{ savingProfile ? 'Enregistrement...' : 'Enregistrer les modifications' }}
-      </button>
-    </div>
-
-    <!-- Notifications -->
-    <div class="card">
-      <h3>Notifications</h3>
-
-      <div class="toggle-item">
+      <div *ngIf="successMessage" class="st-alert st-alert--success">
+        <span class="material-icons">check_circle</span>
         <div>
+          <strong>Mise à jour effectuée</strong>
+          <p>{{ successMessage }}</p>
+        </div>
+      </div>
+
+      <div *ngIf="errorMessage" class="st-alert st-alert--error">
+        <span class="material-icons">error</span>
+        <div>
+          <strong>Une erreur est survenue</strong>
+          <p>{{ errorMessage }}</p>
+        </div>
+      </div>
+
+      <div class="st-actions">
+        <button class="st-btn st-btn--primary" (click)="saveProfile()" [disabled]="savingProfile">
+          {{ savingProfile ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+        </button>
+      </div>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section class="st-card">
+      <div class="st-cardHead">
+        <div class="st-cardTitleWrap">
+          <div class="st-cardIcon st-cardIcon--amber">
+            <span class="material-icons">notifications</span>
+          </div>
+          <div>
+            <h2>Notifications</h2>
+            <p>Choisissez les alertes et informations que vous souhaitez recevoir.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="st-toggleItem">
+        <div class="st-toggleText">
           <strong>Alertes de poubelle pleine</strong>
-          <p>Recevez une notification lorsque les poubelles atteignent 85% de capacité</p>
+          <p>Recevez une notification lorsque les poubelles atteignent 85% de capacité.</p>
         </div>
-        <label class="switch">
+        <label class="st-switch">
           <input type="checkbox" [(ngModel)]="notifications.fullBinAlerts">
-          <span class="slider"></span>
+          <span class="st-slider"></span>
         </label>
       </div>
 
-      <div class="toggle-item">
-        <div>
+      <div class="st-toggleItem">
+        <div class="st-toggleText">
           <strong>Mises à jour d’optimisation des itinéraires</strong>
-          <p>Recevez des suggestions d’itinéraires générées par l’IA</p>
+          <p>Recevez des suggestions d’itinéraires générées par l’IA.</p>
         </div>
-        <label class="switch">
+        <label class="st-switch">
           <input type="checkbox" [(ngModel)]="notifications.routeOptimizationUpdates">
-          <span class="slider"></span>
+          <span class="st-slider"></span>
         </label>
       </div>
-    </div>
+    </section>
 
-    <!-- System Preferences -->
-    <div class="card">
-      <h3>Préférences du Système</h3>
-
-      <div class="form-group">
-        <label>Langue</label>
-        <select [(ngModel)]="preferences.langue">
-          <option value="Français">Français</option>
-          <option value="Anglais">Anglais</option>
-        </select>
+    <!-- PREFERENCES -->
+    <section class="st-card">
+      <div class="st-cardHead">
+        <div class="st-cardTitleWrap">
+          <div class="st-cardIcon st-cardIcon--blue">
+            <span class="material-icons">tune</span>
+          </div>
+          <div>
+            <h2>Préférences du système</h2>
+            <p>Définissez la langue et le fuseau horaire utilisés dans votre interface.</p>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Fuseau horaire</label>
-        <select [(ngModel)]="preferences.fuseauHoraire">
-          <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
-          <option value="Africa/Tunis">Africa/Tunis (CET)</option>
-          <option value="UTC">UTC</option>
-        </select>
+      <div class="st-grid st-grid--2">
+        <div class="st-field">
+          <label>Langue</label>
+          <div class="st-selectWrap">
+            <select [(ngModel)]="preferences.langue">
+              <option value="Français">Français</option>
+              <option value="Anglais">Anglais</option>
+            </select>
+            <span class="st-caret"></span>
+          </div>
+        </div>
+
+        <div class="st-field">
+          <label>Fuseau horaire</label>
+          <div class="st-selectWrap">
+            <select [(ngModel)]="preferences.fuseauHoraire">
+              <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+              <option value="Africa/Tunis">Africa/Tunis (CET)</option>
+              <option value="UTC">UTC</option>
+            </select>
+            <span class="st-caret"></span>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Security -->
-    <div class="card">
-      <h3>Sécurité</h3>
-
-      <div class="form-group">
-        <label>Mot de passe actuel</label>
-        <input type="password" [(ngModel)]="security.currentPassword" />
+    <!-- SECURITE -->
+    <section class="st-card">
+      <div class="st-cardHead">
+        <div class="st-cardTitleWrap">
+          <div class="st-cardIcon st-cardIcon--red">
+            <span class="material-icons">lock</span>
+          </div>
+          <div>
+            <h2>Sécurité</h2>
+            <p>Mettez à jour votre mot de passe pour renforcer la sécurité de votre compte.</p>
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Nouveau mot de passe</label>
-        <input type="password" [(ngModel)]="security.newPassword" />
+      <div class="st-grid">
+        <div class="st-field">
+          <label>Mot de passe actuel</label>
+          <input type="password" [(ngModel)]="security.currentPassword" placeholder="••••••••" />
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Confirmer le mot de passe</label>
-        <input type="password" [(ngModel)]="security.confirmPassword" />
+      <div class="st-grid st-grid--2">
+        <div class="st-field">
+          <label>Nouveau mot de passe</label>
+          <input type="password" [(ngModel)]="security.newPassword" placeholder="••••••••" />
+        </div>
+
+        <div class="st-field">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" [(ngModel)]="security.confirmPassword" placeholder="••••••••" />
+        </div>
       </div>
 
-      <div *ngIf="passwordSuccessMessage" class="message success-message">
-        {{ passwordSuccessMessage }}
+      <div *ngIf="passwordSuccessMessage" class="st-alert st-alert--success">
+        <span class="material-icons">check_circle</span>
+        <div>
+          <strong>Mot de passe mis à jour</strong>
+          <p>{{ passwordSuccessMessage }}</p>
+        </div>
       </div>
 
-      <div *ngIf="passwordErrorMessage" class="message error-message">
-        {{ passwordErrorMessage }}
+      <div *ngIf="passwordErrorMessage" class="st-alert st-alert--error">
+        <span class="material-icons">error</span>
+        <div>
+          <strong>Impossible de mettre à jour le mot de passe</strong>
+          <p>{{ passwordErrorMessage }}</p>
+        </div>
       </div>
 
-      <button class="btn-danger" (click)="updatePassword()" [disabled]="savingPassword">
-        {{ savingPassword ? 'Mise à jour...' : 'Mettre à jour le mot de passe' }}
-      </button>
-    </div>
+      <div class="st-actions">
+        <button class="st-btn st-btn--danger" (click)="updatePassword()" [disabled]="savingPassword">
+          {{ savingPassword ? 'Mise à jour...' : 'Mettre à jour le mot de passe' }}
+        </button>
+      </div>
+    </section>
 
   </div>
 </div>

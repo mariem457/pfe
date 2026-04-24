@@ -1,18 +1,19 @@
 import math
+from collections import Counter
+
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
 from config.settings import DEFAULT_MAX_ROUTE_MINUTES
 from models.routing_models import (
+    RouteCoordinateDto,
+    RoutingMissionDto,
     RoutingRequestDto,
     RoutingResponseDto,
-    RoutingMissionDto,
     RoutingStopDto,
-    RouteCoordinateDto
 )
 from services.incident_service import filter_eligible_trucks
 from services.matrix_service import create_matrices
 from services.osrm_service import call_osrm_route
-
 
 DEFAULT_BIN_DROPOUT_PENALTY = 10000
 MANDATORY_BASE_PENALTY = 100000
@@ -47,11 +48,24 @@ def is_truck_compatible_with_bin(truck, bin_dto) -> bool:
     return bin_waste_type in normalized_supported
 
 
+def is_truck_spatially_compatible_with_bin(truck, bin_dto) -> bool:
+    truck_zone = getattr(truck, "zoneId", None)
+    bin_zone = getattr(bin_dto, "zoneId", None)
+
+    if truck_zone is not None and bin_zone is not None and truck_zone != bin_zone:
+        return False
+
+    return True
+
+
 def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int]:
     compatible_vehicle_indices = []
 
     for vehicle_index, truck in enumerate(eligible_trucks):
-        if is_truck_compatible_with_bin(truck, bin_dto):
+        if (
+            is_truck_compatible_with_bin(truck, bin_dto)
+            and is_truck_spatially_compatible_with_bin(truck, bin_dto)
+        ):
             compatible_vehicle_indices.append(int(vehicle_index))
 
     return compatible_vehicle_indices
@@ -97,12 +111,6 @@ def resolve_run_start_minute_of_day(current_run: str | None) -> int:
 
 
 def resolve_relative_time_window(bin_dto, current_run: str | None, run_max_minutes: int):
-    """
-    Convert absolute minutes-of-day window to minutes relative to current run start.
-    Returns:
-      - (start_rel, end_rel) if the window intersects the current run
-      - None if no usable window exists for this run
-    """
     start_abs = getattr(bin_dto, "windowStartMinutes", None)
     end_abs = getattr(bin_dto, "windowEndMinutes", None)
 
@@ -217,9 +225,9 @@ def sort_opportunistic_bins(opportunistic_bins):
         key=lambda b: (
             float(b.opportunisticScore or 0.0),
             float(b.feedbackScore or 0.0),
-            -float(b.predictedHoursToFull or 999999.0)
+            -float(b.predictedHoursToFull or 999999.0),
         ),
-        reverse=True
+        reverse=True,
     )
 
 
@@ -230,7 +238,7 @@ def build_sub_request(original_request: RoutingRequestDto, selected_bins) -> Rou
         currentRun=original_request.currentRun,
         bins=selected_bins,
         trucks=original_request.trucks,
-        activeIncidents=original_request.activeIncidents
+        activeIncidents=original_request.activeIncidents,
     )
 
 
@@ -244,10 +252,14 @@ def build_response_from_solution(
     matrix_source,
     solution,
     routing,
-    manager
+    manager,
 ) -> RoutingResponseDto:
     missions = []
     served_bin_ids = set()
+
+    all_stops_counts = []
+    all_durations = []
+    all_distances = []
 
     for v in range(len(eligible_trucks)):
         index = routing.Start(v)
@@ -270,7 +282,7 @@ def build_response_from_solution(
                 stops.append(
                     RoutingStopDto(
                         binId=selected_bin.id,
-                        orderIndex=order
+                        orderIndex=order,
                     )
                 )
                 order += 1
@@ -296,7 +308,7 @@ def build_response_from_solution(
             except Exception as e:
                 print(
                     f"OSRM route geometry failed for truck {eligible_trucks[v].id}: {e}",
-                    flush=True
+                    flush=True,
                 )
 
             mission = RoutingMissionDto(
@@ -304,9 +316,25 @@ def build_response_from_solution(
                 totalDistanceKm=round(total_dist / 1000, 2),
                 totalDurationMinutes=round(total_time, 2),
                 stops=stops,
-                routeCoordinates=route_coordinates
+                routeCoordinates=route_coordinates,
             )
             missions.append(mission)
+
+            stops_count = len(stops)
+            duration = round(total_time, 2)
+            distance_km = round(total_dist / 1000, 2)
+
+            all_stops_counts.append(stops_count)
+            all_durations.append(duration)
+            all_distances.append(distance_km)
+
+            print(
+                f"[MISSION] truckId={eligible_trucks[v].id} | "
+                f"stops={stops_count} | "
+                f"duration={duration} min | "
+                f"distance={distance_km} km",
+                flush=True,
+            )
 
     all_bin_ids = {b.id for b in request.bins}
     dropped_bin_ids = sorted(all_bin_ids - served_bin_ids)
@@ -316,13 +344,33 @@ def build_response_from_solution(
     print(f"Dropped bins count: {len(dropped_bin_ids)}", flush=True)
     print(f"Dropped bin ids: {dropped_bin_ids}", flush=True)
 
+    if all_stops_counts:
+        avg_stops = sum(all_stops_counts) / len(all_stops_counts)
+        avg_duration = sum(all_durations) / len(all_durations)
+        avg_distance = sum(all_distances) / len(all_distances)
+
+        print("\n========== BALANCING STATS ==========", flush=True)
+        print(
+            f"Stops -> min={min(all_stops_counts)}, max={max(all_stops_counts)}, avg={round(avg_stops, 2)}",
+            flush=True,
+        )
+        print(
+            f"Duration -> min={min(all_durations)}, max={max(all_durations)}, avg={round(avg_duration, 2)}",
+            flush=True,
+        )
+        print(
+            f"Distance -> min={min(all_distances)}, max={max(all_distances)}, avg={round(avg_distance, 2)}",
+            flush=True,
+        )
+        print("=====================================\n", flush=True)
+
     return RoutingResponseDto(
         missions=missions,
         matrixSource=matrix_source,
         excludedTrucks=excluded_trucks,
         warningTrucks=warning_trucks,
         recommendedFuelStations=[],
-        droppedBinIds=dropped_bin_ids
+        droppedBinIds=dropped_bin_ids,
     )
 
 
@@ -330,7 +378,7 @@ def solve_single_pass(
     request: RoutingRequestDto,
     eligible_trucks,
     excluded_trucks,
-    warning_trucks
+    warning_trucks,
 ) -> RoutingResponseDto:
     if not request.bins:
         print("No bins received in this pass. Returning empty response.", flush=True)
@@ -340,7 +388,7 @@ def solve_single_pass(
             excludedTrucks=excluded_trucks,
             warningTrucks=warning_trucks,
             recommendedFuelStations=[],
-            droppedBinIds=[]
+            droppedBinIds=[],
         )
 
     distance_matrix, duration_matrix, matrix_source = create_matrices(request)
@@ -350,17 +398,15 @@ def solve_single_pass(
 
     run_max_minutes = resolve_run_max_minutes(request.currentRun)
 
-    print(
-        f"Current run={request.currentRun}, run_max_minutes={run_max_minutes}",
-        flush=True
-    )
+    print(f"Current run={request.currentRun}, run_max_minutes={run_max_minutes}", flush=True)
+    print(f"Truck capacities={capacities}", flush=True)
+    print(f"Bin demands={demands}", flush=True)
 
     manager = pywrapcp.RoutingIndexManager(
         len(distance_matrix),
         len(eligible_trucks),
-        0
+        0,
     )
-
     routing = pywrapcp.RoutingModel(manager)
 
     def duration_callback(from_i, to_i):
@@ -369,8 +415,12 @@ def solve_single_pass(
 
         travel_minutes = duration_matrix[from_node][to_node]
         service_minutes = DEFAULT_SERVICE_TIME_MINUTES if from_node != 0 else 0
-
         return travel_minutes + service_minutes
+
+    def distance_callback(from_i, to_i):
+        from_node = manager.IndexToNode(from_i)
+        to_node = manager.IndexToNode(to_i)
+        return distance_matrix[from_node][to_node]
 
     def demand_callback(from_i):
         return demands[manager.IndexToNode(from_i)]
@@ -380,17 +430,18 @@ def solve_single_pass(
         return 0 if node == 0 else 1
 
     duration_transit = routing.RegisterTransitCallback(duration_callback)
+    distance_transit = routing.RegisterTransitCallback(distance_callback)
     demand = routing.RegisterUnaryTransitCallback(demand_callback)
     stop_transit = routing.RegisterUnaryTransitCallback(stop_callback)
 
-    routing.SetArcCostEvaluatorOfAllVehicles(duration_transit)
+    routing.SetArcCostEvaluatorOfAllVehicles(distance_transit)
 
     routing.AddDimensionWithVehicleCapacity(
         demand,
         0,
         capacities,
         True,
-        "Capacity"
+        "Capacity",
     )
 
     routing.AddDimension(
@@ -398,7 +449,7 @@ def solve_single_pass(
         60,
         run_max_minutes,
         True,
-        "Time"
+        "Time",
     )
 
     max_possible_stops = len(request.bins)
@@ -407,14 +458,14 @@ def solve_single_pass(
         0,
         max_possible_stops,
         True,
-        "Stops"
+        "Stops",
     )
 
     time_dimension = routing.GetDimensionOrDie("Time")
     stops_dimension = routing.GetDimensionOrDie("Stops")
 
-    time_dimension.SetGlobalSpanCostCoefficient(100)
-    stops_dimension.SetGlobalSpanCostCoefficient(1000)
+    time_dimension.SetGlobalSpanCostCoefficient(30)
+    stops_dimension.SetGlobalSpanCostCoefficient(100)
 
     for vehicle_idx in range(len(eligible_trucks)):
         start_index = routing.Start(vehicle_idx)
@@ -432,7 +483,7 @@ def solve_single_pass(
         stops_dimension.SetCumulVarSoftUpperBound(
             end_index,
             soft_upper_bound,
-            10000
+            30000,
         )
 
         routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(end_index))
@@ -443,7 +494,19 @@ def solve_single_pass(
         penalty = compute_drop_penalty(bin_dto)
         category = normalize_category(bin_dto)
 
-        compatible_vehicle_indices = get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto)
+        compatible_vehicle_indices = get_compatible_vehicle_indices_for_bin(
+            eligible_trucks, bin_dto
+        )
+
+        print(
+            f"COMPAT DEBUG -> binId={bin_dto.id}, "
+            f"zoneId={getattr(bin_dto, 'zoneId', None)}, "
+            f"wasteType={getattr(bin_dto, 'wasteType', None)}, "
+            f"compatibleVehicles={compatible_vehicle_indices}, "
+            f"compatibleCount={len(compatible_vehicle_indices)}",
+            flush=True,
+        )
+
         node_index = manager.NodeToIndex(node)
 
         if compatible_vehicle_indices:
@@ -454,12 +517,17 @@ def solve_single_pass(
                     routing.VehicleVar(node_index).RemoveValue(vehicle_index)
         else:
             print(
-                f"No compatible truck for binId={bin_dto.id}, wasteType={getattr(bin_dto, 'wasteType', None)}. "
-                f"Bin will be droppable only via penalty.",
-                flush=True
+                f"No compatible truck for binId={bin_dto.id}, "
+                f"wasteType={getattr(bin_dto, 'wasteType', None)}, "
+                f"zoneId={getattr(bin_dto, 'zoneId', None)}, "
+                f"clusterId={getattr(bin_dto, 'clusterId', None)}. "
+                f"Bin will be handled by category rules.",
+                flush=True,
             )
 
-        relative_window = resolve_relative_time_window(bin_dto, request.currentRun, run_max_minutes)
+        relative_window = resolve_relative_time_window(
+            bin_dto, request.currentRun, run_max_minutes
+        )
 
         if relative_window is not None:
             start_rel, end_rel = relative_window
@@ -468,25 +536,28 @@ def solve_single_pass(
                 f"TimeWindow applied -> binId={bin_dto.id}, "
                 f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
                 f"relative=({start_rel}, {end_rel})",
-                flush=True
+                flush=True,
             )
         else:
             print(
                 f"No usable time window for current run -> binId={bin_dto.id}, "
                 f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
                 f"currentRun={request.currentRun}",
-                flush=True
+                flush=True,
             )
 
-        routing.AddDisjunction([node_index], penalty)
+        if category != "MANDATORY":
+            routing.AddDisjunction([node_index], penalty)
 
         print(
-            f"Optional bin configured -> "
+            f"Bin configured -> "
             f"binId={bin_dto.id}, "
             f"node={node}, "
             f"category={category}, "
             f"reason={bin_dto.decisionReason}, "
             f"wasteType={getattr(bin_dto, 'wasteType', None)}, "
+            f"zoneId={getattr(bin_dto, 'zoneId', None)}, "
+            f"clusterId={getattr(bin_dto, 'clusterId', None)}, "
             f"timeWindow=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
             f"compatibleVehicles={compatible_vehicle_indices}, "
             f"priority={bin_dto.predictedPriority}, "
@@ -495,14 +566,15 @@ def solve_single_pass(
             f"postponementCount={bin_dto.postponementCount}, "
             f"opportunisticScore={bin_dto.opportunisticScore}, "
             f"mandatory={bin_dto.mandatory}, "
-            f"dropPenalty={penalty}",
-            flush=True
+            f"dropPenalty={penalty}, "
+            f"droppable={category != 'MANDATORY'}",
+            flush=True,
         )
 
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-    params.time_limit.seconds = 10
+    params.time_limit.seconds = 20
 
     print("Solving OR-Tools routing problem...", flush=True)
     solution = routing.SolveWithParameters(params)
@@ -515,7 +587,7 @@ def solve_single_pass(
             excludedTrucks=excluded_trucks,
             warningTrucks=warning_trucks,
             recommendedFuelStations=[],
-            droppedBinIds=[b.id for b in request.bins]
+            droppedBinIds=[b.id for b in request.bins],
         )
 
     return build_response_from_solution(
@@ -528,7 +600,7 @@ def solve_single_pass(
         matrix_source=matrix_source,
         solution=solution,
         routing=routing,
-        manager=manager
+        manager=manager,
     )
 
 
@@ -544,19 +616,16 @@ def count_served_mandatory(response: RoutingResponseDto, mandatory_bin_ids: set[
 
 
 def count_served_total(response: RoutingResponseDto) -> int:
-    total_dropped = len(response.droppedBinIds or [])
-    total_bins = total_dropped
-
+    served = 0
     for mission in response.missions or []:
-        total_bins += len(mission.stops or [])
-
-    return total_bins
+        served += len(mission.stops or [])
+    return served
 
 
 def choose_best_response(
     pass1_response: RoutingResponseDto | None,
     pass2_response: RoutingResponseDto | None,
-    mandatory_bin_ids: set[int]
+    mandatory_bin_ids: set[int],
 ) -> RoutingResponseDto:
     if pass1_response is None and pass2_response is None:
         return RoutingResponseDto(
@@ -565,7 +634,7 @@ def choose_best_response(
             excludedTrucks=[],
             warningTrucks=[],
             recommendedFuelStations=[],
-            droppedBinIds=[]
+            droppedBinIds=[],
         )
 
     if pass1_response is None:
@@ -581,7 +650,7 @@ def choose_best_response(
         f"Pass comparison => "
         f"pass1_mandatory_served={pass1_mandatory_served}, "
         f"pass2_mandatory_served={pass2_mandatory_served}",
-        flush=True
+        flush=True,
     )
 
     if pass2_mandatory_served < pass1_mandatory_served:
@@ -595,11 +664,14 @@ def choose_best_response(
         f"Pass comparison => "
         f"pass1_total_served={pass1_total_served}, "
         f"pass2_total_served={pass2_total_served}",
-        flush=True
+        flush=True,
     )
 
     if pass2_total_served > pass1_total_served:
-        print("Choosing PASS 2 because it served more bins without hurting mandatory coverage.", flush=True)
+        print(
+            "Choosing PASS 2 because it served more bins without hurting mandatory coverage.",
+            flush=True,
+        )
         return pass2_response
 
     print("Choosing PASS 1 by default.", flush=True)
@@ -609,20 +681,14 @@ def choose_best_response(
 def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
     print(
         f"Optimizing with {len(request.bins)} bins and {len(request.trucks)} trucks",
-        flush=True
+        flush=True,
     )
-    print(
-        f"Active incidents received: {len(request.activeIncidents)}",
-        flush=True
-    )
-    print(
-        f"Current run received: {request.currentRun}",
-        flush=True
-    )
+    print(f"Active incidents received: {len(request.activeIncidents)}", flush=True)
+    print(f"Current run received: {request.currentRun}", flush=True)
 
     eligible_trucks, excluded_trucks, warning_trucks = filter_eligible_trucks(
         request.trucks,
-        request.activeIncidents
+        request.activeIncidents,
     )
 
     print(f"Eligible trucks after status/incident filtering: {len(eligible_trucks)}", flush=True)
@@ -637,8 +703,11 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             excludedTrucks=excluded_trucks,
             warningTrucks=warning_trucks,
             recommendedFuelStations=[],
-            droppedBinIds=[]
+            droppedBinIds=[],
         )
+
+    zone_counter = Counter([getattr(t, "zoneId", None) for t in eligible_trucks])
+    print(f"Eligible truck zones: {dict(zone_counter)}", flush=True)
 
     mandatory_bins, opportunistic_bins, reportable_bins = split_bins_by_category(request.bins)
     opportunistic_bins = sort_opportunistic_bins(opportunistic_bins)
@@ -647,16 +716,17 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         f"Split bins => mandatory={len(mandatory_bins)}, "
         f"opportunistic={len(opportunistic_bins)}, "
         f"reportable={len(reportable_bins)}",
-        flush=True
+        flush=True,
     )
 
     if opportunistic_bins:
         print("Sorted opportunistic bins by opportunisticScore:", flush=True)
         for b in opportunistic_bins:
             print(
-                f"  binId={b.id}, opportunisticScore={b.opportunisticScore}, "
-                f"feedbackScore={b.feedbackScore}, predictedHoursToFull={b.predictedHoursToFull}",
-                flush=True
+                f"binId={b.id}, opportunisticScore={b.opportunisticScore}, "
+                f"feedbackScore={b.feedbackScore}, predictedHoursToFull={b.predictedHoursToFull}, "
+                f"zoneId={b.zoneId}, clusterId={b.clusterId}",
+                flush=True,
             )
 
     pass1_response = None
@@ -671,7 +741,7 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             pass1_request,
             eligible_trucks,
             excluded_trucks,
-            warning_trucks
+            warning_trucks,
         )
     else:
         print("No mandatory bins found. Skipping PASS 1.", flush=True)
@@ -685,7 +755,7 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             pass2_request,
             eligible_trucks,
             excluded_trucks,
-            warning_trucks
+            warning_trucks,
         )
     else:
         print("No bins available for PASS 2.", flush=True)
@@ -697,19 +767,20 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
             fallback_request,
             eligible_trucks,
             excluded_trucks,
-            warning_trucks
+            warning_trucks,
         )
 
     best_response = choose_best_response(
         pass1_response=pass1_response,
         pass2_response=pass2_response,
-        mandatory_bin_ids=mandatory_bin_ids
+        mandatory_bin_ids=mandatory_bin_ids,
     )
 
     print(
         f"Final selected response => missions={len(best_response.missions)}, "
+        f"served={count_served_total(best_response)}, "
         f"dropped={len(best_response.droppedBinIds)}",
-        flush=True
+        flush=True,
     )
 
     return best_response

@@ -1,9 +1,16 @@
 <section class="it-pr">
 
   <div class="it-prHead">
-    <div>
+    <div class="it-prHeadText">
       <h1 class="it-prTitle">Signalements publics</h1>
-      <p class="it-prSub">Validation et suivi des signalements citoyens</p>
+      <p class="it-prSub">Validation, qualification et suivi des signalements citoyens</p>
+    </div>
+
+    <div class="it-prHeadMeta">
+      <span class="it-prMetaChip">
+        <span class="material-icons">public</span>
+        Interface municipalité
+      </span>
     </div>
   </div>
 
@@ -52,7 +59,7 @@
   <div class="it-prFilter">
     <div class="it-prSearch">
       <span class="material-icons it-prSIcon">search</span>
-      <input [(ngModel)]="query" placeholder="Rechercher des signalements..." />
+      <input [(ngModel)]="query" placeholder="Rechercher par code, lieu ou description..." />
     </div>
 
     <div class="it-prSelect">
@@ -68,7 +75,7 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="it-loading">Chargement...</div>
+  <div *ngIf="loading" class="it-loading">Chargement des signalements...</div>
   <div *ngIf="!loading && error" class="it-error">{{ error }}</div>
 
   <div class="it-prList" *ngIf="!loading && !error">
@@ -103,7 +110,7 @@
           <b>{{ r.location }}</b>
         </div>
 
-        <p class="it-prDesc">{{ r.description }}</p>
+        <p class="it-prDesc">{{ r.description || 'Aucune description fournie.' }}</p>
 
         <div class="it-prChips">
           <span class="it-chip">
@@ -136,47 +143,51 @@
         </div>
 
         <div class="it-prActions">
-          <button
-            class="it-btn it-btn--green"
-            *ngIf="canValidate(r)"
-            (click)="validate(r)"
-            [disabled]="actingId === r.id">
-            {{ actingId === r.id ? 'Validation...' : 'Valider' }}
-          </button>
+          <div class="it-prActionsMain">
+            <button
+              class="it-btn it-btn--green"
+              *ngIf="canValidate(r)"
+              (click)="validate(r)"
+              [disabled]="actingId === r.id">
+              {{ actingId === r.id ? 'Validation...' : 'Valider' }}
+            </button>
 
-          <button
-            class="it-btn it-btn--danger"
-            *ngIf="canReject(r)"
-            (click)="reject(r)"
-            [disabled]="actingId === r.id">
-            {{ actingId === r.id ? 'Rejet...' : 'Rejeter' }}
-          </button>
+            <button
+              class="it-btn it-btn--danger"
+              *ngIf="canReject(r)"
+              (click)="reject(r)"
+              [disabled]="actingId === r.id">
+              {{ actingId === r.id ? 'Rejet...' : 'Rejeter' }}
+            </button>
 
-          <button class="it-btn it-btn--ghost" (click)="qualify(r)">
-            Qualifier
-          </button>
+            <button
+              class="it-btn it-btn--green"
+              *ngIf="canAssign(r)"
+              (click)="assignToTruck(r)">
+              Affecter
+            </button>
+          </div>
 
-          <button class="it-btn it-btn--ghost" (click)="viewHistory(r)">
-            Historique
-          </button>
+          <div class="it-prActionsSecondary">
+            <button class="it-btn it-btn--ghost" (click)="qualify(r)">
+              Qualifier
+            </button>
 
-          <button class="it-btn it-btn--ghost" (click)="viewOnMap(r)">
-            Voir sur la carte
-          </button>
+            <button class="it-btn it-btn--ghost" (click)="viewHistory(r)">
+              Historique
+            </button>
 
-          <button
-            class="it-btn it-btn--green"
-            *ngIf="canAssign(r)"
-            (click)="assignToTruck(r)">
-            Affecter à un camion
-          </button>
+            <button class="it-btn it-btn--ghost" (click)="viewOnMap(r)">
+              Carte
+            </button>
 
-          <button
-            class="it-btn it-btn--ghost"
-            *ngIf="canResolve(r)"
-            (click)="resolveReport(r)">
-            Marquer résolu
-          </button>
+            <button
+              class="it-btn it-btn--ghost"
+              *ngIf="canResolve(r)"
+              (click)="resolveReport(r)">
+              Marquer résolu
+            </button>
+          </div>
         </div>
       </div>
 

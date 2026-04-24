@@ -25,7 +25,7 @@ interface Poubelle {
   styleUrls: ['./gestion-poubelles.component.css']
 })
 export class GestionPoubellesComponent implements OnInit {
-  termeRecherche: string = '';
+  termeRecherche = '';
   filtreSelectionne: FiltrePoubelle = 'Toutes';
 
   filtres: FiltrePoubelle[] = ['Toutes', 'Actives', 'Pleines', 'Maintenance'];
@@ -44,20 +44,37 @@ export class GestionPoubellesComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
-    this.binService.getBinsStatus().subscribe({
-      next: (data) => {
-        this.poubelles = data.map(item => this.mapBinStatusToPoubelle(item));
+    this.binService.getBins().subscribe({
+      next: (data: any[]) => {
+        this.poubelles = (data || []).map((item: any) =>
+          this.mapBinToPoubelle(item as BinStatusDto)
+        );
         this.loading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Erreur chargement poubelles', error);
-        this.errorMessage = 'Impossible de charger les poubelles depuis le backend';
+
+        if (error?.status === 0) {
+          this.errorMessage = 'Backend inaccessible ou problème CORS.';
+        } else if (error?.status === 401) {
+          this.errorMessage = 'Non authentifié. Token manquant ou expiré.';
+        } else if (error?.status === 403) {
+          this.errorMessage = 'Accès refusé.';
+        } else if (error?.status === 404) {
+          this.errorMessage = 'Endpoint /api/bins introuvable.';
+        } else {
+          this.errorMessage =
+            error?.error?.message ||
+            error?.error?.error ||
+            'Impossible de charger les poubelles depuis le backend';
+        }
+
         this.loading = false;
       }
     });
   }
 
-  private mapBinStatusToPoubelle(item: BinStatusDto): Poubelle {
+  private mapBinToPoubelle(item: BinStatusDto): Poubelle {
     const niveau = item.fillLevel ?? 0;
 
     return {
@@ -119,35 +136,35 @@ export class GestionPoubellesComponent implements OnInit {
   }
 
   get nombrePoubellesPleines(): number {
-    return this.poubelles.filter(poubelle => poubelle.statut === 'Full').length;
+    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Full').length;
   }
 
   get nombrePoubellesActives(): number {
-    return this.poubelles.filter(poubelle => poubelle.statut === 'Active').length;
+    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Active').length;
   }
 
   get nombrePoubellesMaintenance(): number {
-    return this.poubelles.filter(poubelle => poubelle.statut === 'Maintenance').length;
+    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Maintenance').length;
   }
 
   get poubellesFiltrees(): Poubelle[] {
     let resultat = [...this.poubelles];
 
     if (this.filtreSelectionne === 'Actives') {
-      resultat = resultat.filter(poubelle => poubelle.statut === 'Active');
+      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Active');
     }
 
     if (this.filtreSelectionne === 'Pleines') {
-      resultat = resultat.filter(poubelle => poubelle.statut === 'Full');
+      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Full');
     }
 
     if (this.filtreSelectionne === 'Maintenance') {
-      resultat = resultat.filter(poubelle => poubelle.statut === 'Maintenance');
+      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Maintenance');
     }
 
     if (this.termeRecherche.trim()) {
       const terme = this.termeRecherche.toLowerCase();
-      resultat = resultat.filter(poubelle =>
+      resultat = resultat.filter((poubelle: Poubelle) =>
         poubelle.nom.toLowerCase().includes(terme) ||
         poubelle.zone.toLowerCase().includes(terme) ||
         poubelle.code.toLowerCase().includes(terme)
@@ -155,6 +172,30 @@ export class GestionPoubellesComponent implements OnInit {
     }
 
     return resultat;
+  }
+
+  get poubellesParZone(): { zone: string; bins: Poubelle[] }[] {
+    const grouped = this.poubellesFiltrees.reduce((acc, bin) => {
+      const zone = bin.zone || 'Zone inconnue';
+      if (!acc[zone]) {
+        acc[zone] = [];
+      }
+      acc[zone].push(bin);
+      return acc;
+    }, {} as Record<string, Poubelle[]>);
+
+    return Object.keys(grouped)
+      .sort((a, b) => a.localeCompare(b))
+      .map(zone => ({
+        zone,
+        bins: grouped[zone].sort((a, b) => b.niveauRemplissage - a.niveauRemplissage)
+      }));
+  }
+
+  getMoyenneRemplissage(bins: Poubelle[]): number {
+    if (!bins.length) return 0;
+    const total = bins.reduce((sum, bin) => sum + (bin.niveauRemplissage || 0), 0);
+    return Math.round(total / bins.length);
   }
 
   getClasseStatut(statut: StatutPoubelle): string {
@@ -165,7 +206,13 @@ export class GestionPoubellesComponent implements OnInit {
 
   getLibelleStatut(statut: StatutPoubelle): string {
     if (statut === 'Active') return 'Active';
-    if (statut === 'Full') return 'Full';
+    if (statut === 'Full') return 'Pleine';
     return 'Maintenance';
+  }
+
+  getClasseRemplissage(niveau: number): string {
+    if (niveau >= 80) return 'fill-high';
+    if (niveau >= 50) return 'fill-medium';
+    return 'fill-low';
   }
 }

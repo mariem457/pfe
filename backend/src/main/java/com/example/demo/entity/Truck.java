@@ -79,7 +79,10 @@ public class Truck {
 
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<TruckIncident> incidents = new ArrayList<>();
-
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "zone_id")
+    private Zone zone;
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<RoutePlan> routePlans = new ArrayList<>();
     @ElementCollection(fetch = FetchType.EAGER)
@@ -223,6 +226,14 @@ public class Truck {
 
     public BigDecimal getCurrentLoadKg() {
         return currentLoadKg;
+    }
+    
+    public Zone getZone() {
+        return zone;
+    }
+
+    public void setZone(Zone zone) {
+        this.zone = zone;
     }
 
     public void setCurrentLoadKg(BigDecimal currentLoadKg) {

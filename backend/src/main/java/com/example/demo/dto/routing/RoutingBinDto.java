@@ -5,12 +5,16 @@ public class RoutingBinDto {
     private Long id;
     private Double lat;
     private Double lng;
+
+    private Long zoneId;
+    private Integer clusterId;
+
     private Double fillLevel;
     private Double predictedPriority;
     private Double estimatedLoadKg;
     private Double predictedHoursToFull;
-    private Boolean mandatory;
 
+    private Boolean mandatory;
     private String wasteType;
 
     private String decisionCategory;
@@ -23,8 +27,6 @@ public class RoutingBinDto {
 
     private Boolean collectionAllowedNow;
     private String collectionWindowExplanation;
-
-    // NEW — time windows in minutes from start of day
     private Integer windowStartMinutes;
     private Integer windowEndMinutes;
 
@@ -53,6 +55,22 @@ public class RoutingBinDto {
 
     public void setLng(Double lng) {
         this.lng = lng;
+    }
+
+    public Long getZoneId() {
+        return zoneId;
+    }
+
+    public void setZoneId(Long zoneId) {
+        this.zoneId = zoneId;
+    }
+
+    public Integer getClusterId() {
+        return clusterId;
+    }
+
+    public void setClusterId(Integer clusterId) {
+        this.clusterId = clusterId;
     }
 
     public Double getFillLevel() {

@@ -9,19 +9,19 @@
     </div>
 
     <div class="it-headerActions">
-      <div class="it-lastUpdate">
+      <div class="it-lastUpdate" aria-live="polite">
         Dernière mise à jour : {{ lastUpdatedLabel }}
       </div>
 
-      <button class="it-secondaryBtn" (click)="reloadBins()">
+      <button class="it-secondaryBtn" type="button" (click)="reloadBins()">
         Actualiser
       </button>
 
-      <button class="it-primaryBtn" (click)="openCreateModal()">
+      <button class="it-primaryBtn" type="button" (click)="openCreateModal()">
         Ajouter un bac
       </button>
 
-      <button class="it-exportBtn" (click)="exportCsv()">
+      <button class="it-exportBtn" type="button" (click)="exportCsv()">
         Exporter
       </button>
     </div>
@@ -56,11 +56,14 @@
 
   <div class="it-filterBar">
     <div class="it-search">
-      <input [(ngModel)]="query" placeholder="Rechercher par code ou zone..." />
+      <input
+        [(ngModel)]="query"
+        placeholder="Rechercher par code ou zone..."
+        aria-label="Rechercher par code ou zone" />
     </div>
 
     <div class="it-select">
-      <select [(ngModel)]="statusFilter">
+      <select [(ngModel)]="statusFilter" aria-label="Filtrer par état">
         <option value="All">Tous les états</option>
         <option value="Plein">Plein</option>
         <option value="Partiel">Partiel</option>
@@ -71,7 +74,7 @@
     </div>
 
     <div class="it-select">
-      <select [(ngModel)]="activityFilter">
+      <select [(ngModel)]="activityFilter" aria-label="Filtrer par statut administratif">
         <option value="All">Tous les statuts</option>
         <option value="Actif">Actifs</option>
         <option value="Inactif">Inactifs</option>
@@ -80,7 +83,7 @@
     </div>
 
     <div class="it-select">
-      <select [(ngModel)]="batteryFilter">
+      <select [(ngModel)]="batteryFilter" aria-label="Filtrer par batterie">
         <option value="All">Toutes les batteries</option>
         <option value="Low">Batterie faible (&lt; 20%)</option>
         <option value="Normal">Batterie normale</option>
@@ -89,7 +92,7 @@
     </div>
 
     <div class="it-select">
-      <select [(ngModel)]="sortBy">
+      <select [(ngModel)]="sortBy" aria-label="Trier les bacs">
         <option value="fill_desc">Remplissage : élevé → faible</option>
         <option value="fill_asc">Remplissage : faible → élevé</option>
         <option value="battery_desc">Batterie : élevée → faible</option>
@@ -99,16 +102,16 @@
       <span class="it-caret"></span>
     </div>
 
-    <button class="it-resetBtn" (click)="resetFilters()">
+    <button class="it-resetBtn" type="button" (click)="resetFilters()">
       Réinitialiser
     </button>
   </div>
 
-  <div *ngIf="loading" class="it-stateBox">
+  <div *ngIf="loading" class="it-stateBox" aria-live="polite">
     Chargement des bacs...
   </div>
 
-  <div *ngIf="!loading && error" class="it-stateBox it-stateBox--error">
+  <div *ngIf="!loading && error" class="it-stateBox it-stateBox--error" aria-live="assertive">
     {{ error }}
   </div>
 
@@ -117,7 +120,7 @@
   </div>
 
   <div class="it-tableWrap" *ngIf="!loading && !error && filteredRows.length > 0">
-    <table class="it-table">
+    <table class="it-table" role="table">
       <thead>
         <tr>
           <th>Code</th>
@@ -133,7 +136,13 @@
       </thead>
 
       <tbody>
-        <tr *ngFor="let r of filteredRows; trackBy: trackByBin">
+        <tr
+          *ngFor="let r of filteredRows; trackBy: trackByBin"
+          [ngClass]="{
+            'it-rowDanger': r.fill >= 90 && r.status !== 'Maintenance',
+            'it-rowWarning': r.fill >= 70 && r.fill < 90 && r.status !== 'Maintenance'
+          }">
+
           <td class="it-id">{{ r.id }}</td>
 
           <td>
@@ -159,10 +168,10 @@
             <span
               class="it-badge"
               [ngClass]="{
-                'is-full': r.status==='Plein',
-                'is-partial': r.status==='Partiel',
-                'is-empty': r.status==='Vide',
-                'is-maint': r.status==='Maintenance'
+                'is-full': r.status === 'Plein',
+                'is-partial': r.status === 'Partiel',
+                'is-empty': r.status === 'Vide',
+                'is-maint': r.status === 'Maintenance'
               }">
               {{ r.status }}
             </span>
@@ -190,19 +199,19 @@
 
           <td class="it-actionsCell">
             <div class="it-actions">
-              <button class="it-actionBtn it-actionBtn--light" (click)="openViewModal(r)">
+              <button class="it-actionBtn it-actionBtn--light" type="button" (click)="openViewModal(r)">
                 Voir
               </button>
 
-              <button class="it-actionBtn it-actionBtn--light" (click)="openEditModal(r)">
+              <button class="it-actionBtn it-actionBtn--light" type="button" (click)="openEditModal(r)">
                 Modifier
               </button>
 
-              <button class="it-actionBtn it-actionBtn--map" (click)="openMap(r)">
+              <button class="it-actionBtn it-actionBtn--map" type="button" (click)="openMap(r)">
                 Carte
               </button>
 
-              <button class="it-actionBtn it-actionBtn--dark" (click)="toggleActivation(r)">
+              <button class="it-actionBtn it-actionBtn--dark" type="button" (click)="toggleActivation(r)">
                 {{ r.isActive ? 'Désactiver' : 'Activer' }}
               </button>
             </div>
@@ -212,21 +221,28 @@
     </table>
   </div>
 
-  <div *ngIf="showFormModal" class="it-modalOverlay" (click)="closeFormModal()">
+  <div
+    *ngIf="showFormModal"
+    class="it-modalOverlay"
+    (click)="closeFormModal()"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="it-modal-title">
+
     <div class="it-modal" (click)="$event.stopPropagation()">
 
       <div class="it-modalHeader">
-        <h3>
+        <h3 id="it-modal-title">
           {{
             modalMode === 'create' ? 'Ajouter un bac' :
             modalMode === 'edit' ? 'Modifier le bac' :
             'Détails du bac'
           }}
         </h3>
-        <button class="it-closeBtn" (click)="closeFormModal()">✕</button>
+        <button class="it-closeBtn" type="button" (click)="closeFormModal()" aria-label="Fermer">✕</button>
       </div>
 
-      <div *ngIf="formError" class="it-formError">
+      <div *ngIf="formError" class="it-formError" aria-live="assertive">
         {{ formError }}
       </div>
 
@@ -314,13 +330,14 @@
       </div>
 
       <div class="it-modalActions">
-        <button class="it-secondaryBtn" (click)="closeFormModal()">
+        <button class="it-secondaryBtn" type="button" (click)="closeFormModal()">
           Fermer
         </button>
 
         <button
           *ngIf="modalMode !== 'view'"
           class="it-primaryBtn"
+          type="button"
           (click)="saveBin()">
           {{ modalMode === 'create' ? 'Ajouter' : 'Enregistrer' }}
         </button>

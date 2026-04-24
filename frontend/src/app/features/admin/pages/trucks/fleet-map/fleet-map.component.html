@@ -63,7 +63,11 @@
         Géométrie : {{ geometrySource }}
       </span>
 
-      <span class="live-badge" *ngIf="showTrucks">En direct</span>
+      <span class="source-badge" *ngIf="missionRouteStops?.length">
+        Itinéraire complet : dépôt + collecte + retour
+      </span>
+
+      <span class="live-badge" *ngIf="showTrucks && !missionRouteStops?.length">En direct</span>
     </div>
   </div>
 
@@ -182,23 +186,23 @@
       <div class="legend-title">Niveau de remplissage</div>
 
       <div class="legend-item">
-        <span class="legend-dot fill-low"></span>
-        <span>0% à 24% · Faible</span>
+        <span class="legend-ring legend-ring-low"></span>
+        <span>0% à 49% · Normal</span>
       </div>
 
       <div class="legend-item">
-        <span class="legend-dot fill-medium"></span>
-        <span>25% à 49% · Modéré</span>
-      </div>
-
-      <div class="legend-item">
-        <span class="legend-dot fill-high"></span>
+        <span class="legend-ring legend-ring-warning"></span>
         <span>50% à 79% · Élevé</span>
       </div>
 
       <div class="legend-item">
-        <span class="legend-dot fill-critical"></span>
-        <span>80% à 100% · Critique</span>
+        <span class="legend-ring legend-ring-alert"></span>
+        <span>80% à 94% · Alerte</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-ring legend-ring-critical"></span>
+        <span>95% à 100% · Critique</span>
       </div>
     </div>
 
@@ -250,6 +254,35 @@
       <div class="legend-item">
         <span class="legend-dot legend-traffic"></span>
         <span>Matrice : {{ matrixSource }}</span>
+      </div>
+    </div>
+
+    <div class="legend-section" *ngIf="missionRouteStops?.length">
+      <div class="legend-title">Itinéraire mission</div>
+
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#16a34a;"></span>
+        <span>Dépôt départ</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#dc2626;"></span>
+        <span>Dépôt retour</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#f59e0b;"></span>
+        <span>Station carburant</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-line" style="background:#2563eb; height:4px; width:24px; border-radius:999px; display:inline-block;"></span>
+        <span>Trajet de collecte</span>
+      </div>
+
+      <div class="legend-item">
+        <span class="legend-line" style="background:#94a3b8; height:4px; width:24px; border-radius:999px; display:inline-block; opacity:0.9;"></span>
+        <span>Transfert dépôt</span>
       </div>
     </div>
   </div>

@@ -99,12 +99,13 @@
   </div>
 
   <div class="toolbar">
-    <div class="search-box">
+    <div class="search-box search-box--withIcon">
+      <span class="material-icons search-icon">search</span>
       <input
-        type="text"
-        placeholder="Rechercher par code, chauffeur, zone..."
-        [(ngModel)]="searchTerm"
-      />
+         type="text"
+          placeholder="Rechercher par code, chauffeur, zone..."
+          [(ngModel)]="searchTerm"
+        />
     </div>
 
     <div class="filter-box">
@@ -123,7 +124,6 @@
   </div>
 
   <div class="content-grid">
-    <!-- LEFT -->
     <div class="missions-list card">
       <div class="card-header">
         <div>
@@ -318,7 +318,6 @@
       </div>
     </div>
 
-    <!-- RIGHT -->
     <div class="mission-details card" *ngIf="selectedMission() as mission">
       <div class="card-header card-header--detail">
         <div>
@@ -374,6 +373,20 @@
       </div>
 
       <div class="details-inline-meta">
+        <div style="margin-top:10px;">
+          <button class="btn btn-outline btn-small" (click)="openDebugMode()">
+            Debug Route
+          </button>
+
+          <button
+            class="btn btn-outline btn-small"
+            *ngIf="debugMode()"
+            (click)="closeDebugMode()"
+          >
+            Close Debug
+          </button>
+        </div>
+
         <div class="inline-meta-item">
           <span>Source trafic</span>
           <strong [class]="matrixSourceClass()">{{ matrixSourceLabel() }}</strong>
@@ -422,6 +435,22 @@
       </div>
 
       <div *ngIf="activeTab() === 'overview'" class="tab-panel">
+        <div *ngIf="debugMode()" class="card" style="margin-bottom:15px; padding:14px;">
+          <h3 style="margin-top:0;">Route Debug</h3>
+
+          <div style="margin-bottom:12px; font-weight:700; font-size:16px;">
+            Total distance: {{ getTotalDistance().toFixed(2) }} km
+          </div>
+
+          <div *ngIf="!routeDistances().length">
+            No distances computed
+          </div>
+
+          <div *ngFor="let d of routeDistances(); let i = index" style="margin-bottom:6px;">
+            Segment {{ i + 1 }} → {{ d.toFixed(2) }} km
+          </div>
+        </div>
+
         <div class="progress-section">
           <div class="progress-header">
             <span>Progression</span>
@@ -455,13 +484,15 @@
             *ngIf="!loadingRoute()"
             [showHeader]="true"
             [title]="'Carte de la mission'"
-            [subtitle]="'Visualisation des bacs affectés et des camions en direct'"
-            [showTrucks]="true"
+            [subtitle]="'Visualisation des bacs affectés et de l’itinéraire'"
+            [showTrucks]="false"
             [showBins]="false"
             [showReports]="false"
             [allowAddBins]="false"
             [missionBins]="missionMapBins()"
             [missionRouteCoordinates]="missionRouteCoordinates()"
+            [collectionRouteCoordinates]="collectionRouteCoordinates()"
+            [transferRouteCoordinates]="transferRouteCoordinates()"
             [missionRouteStops]="missionMapRouteStops()"
             [snappedWaypoints]="snappedWaypoints()"
             [matrixSource]="routeMatrixSource()"

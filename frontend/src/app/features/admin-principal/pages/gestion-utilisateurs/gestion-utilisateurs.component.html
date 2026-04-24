@@ -1,147 +1,359 @@
 <div class="page">
 
-  <div class="cartes-statistiques">
-    <div class="carte-statistique">
-      <div class="texte-statistique">
-        <p>Total<br>Utilisateurs</p>
-        <h2>{{ nombreTotalUtilisateurs }}</h2>
+  <div class="page-header">
+    <div>
+      <h1>Gestion des utilisateurs</h1>
+      <p>Consultez les chauffeurs, le compte de maintenance et le compte municipal.</p>
+    </div>
+
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        type="text"
+        placeholder="Rechercher un utilisateur..."
+        [(ngModel)]="termeRecherche" />
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon stat-total">
+        <span class="material-icons">groups</span>
       </div>
-      <div class="icone-statistique icone-bleue">
-        👥
+      <div>
+        <p>Total utilisateurs</p>
+        <h2>{{ totalUtilisateurs }}</h2>
       </div>
     </div>
 
-    <div class="carte-statistique">
-      <div class="texte-statistique">
-        <p>Utilisateurs<br>Actifs</p>
-        <h2>{{ nombreUtilisateursActifs }}</h2>
+    <div class="stat-card">
+      <div class="stat-icon stat-driver">
+        <span class="material-icons">local_shipping</span>
       </div>
-      <div class="icone-statistique icone-verte">
-        👤
-      </div>
-    </div>
-
-    <div class="carte-statistique">
-      <div class="texte-statistique">
-        <p>Chauffeurs</p>
-        <h2>{{ nombreChauffeurs }}</h2>
-      </div>
-      <div class="icone-statistique icone-violette">
-        🛡
+      <div>
+        <p>Total chauffeurs</p>
+        <h2>{{ totalChauffeurs }}</h2>
       </div>
     </div>
 
-    <div class="carte-statistique">
-      <div class="texte-statistique">
-        <p>Inactifs</p>
-        <h2>{{ nombreUtilisateursInactifs }}</h2>
+    <div class="stat-card">
+      <div class="stat-icon stat-pending">
+        <span class="material-icons">schedule</span>
       </div>
-      <div class="icone-statistique icone-grise">
-        👤
+      <div>
+        <p>Chauffeurs en attente</p>
+        <h2>{{ chauffeursEnAttente }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-maintenance">
+        <span class="material-icons">engineering</span>
+      </div>
+      <div>
+        <p>Maintenance</p>
+        <h2>{{ totalMaintenance }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-municipality">
+        <span class="material-icons">location_city</span>
+      </div>
+      <div>
+        <p>Municipalité</p>
+        <h2>{{ totalMunicipalite }}</h2>
       </div>
     </div>
   </div>
 
-  <div class="barre-filtres">
-    <div class="groupe-filtres">
-      <button
-        *ngFor="let filtre of filtres"
-        (click)="selectionnerFiltre(filtre)"
-        [class.actif]="filtreSelectionne === filtre">
-        {{ filtre }}
-      </button>
-    </div>
+  <div class="filters-bar">
+    <button
+      type="button"
+      *ngFor="let filtre of filtres"
+      [class.active]="filtreSelectionne === filtre"
+      (click)="selectionnerFiltre(filtre)">
 
-    <div class="zone-recherche">
-      <div class="champ-recherche">
-        <span class="icone-recherche">⌕</span>
-        <input
-          type="text"
-          placeholder="Rechercher un utilisateur..."
-          [(ngModel)]="termeRecherche"
-        />
-      </div>
+      <span *ngIf="filtre === 'Tous'">Tous les utilisateurs</span>
+      <span *ngIf="filtre === 'Chauffeurs'">Chauffeurs</span>
+      <span *ngIf="filtre === 'Chauffeurs en attente'">
+        Chauffeurs en attente d’acceptation
+      </span>
+      <span *ngIf="filtre === 'Maintenance'">Maintenance</span>
+      <span *ngIf="filtre === 'Municipalité'">Municipalité</span>
 
-      <button class="bouton-filtre">
-        ⌁
-      </button>
-    </div>
+      <span class="filter-count" *ngIf="filtre === 'Tous'">
+        {{ totalUtilisateurs }}
+      </span>
+      <span class="filter-count" *ngIf="filtre === 'Chauffeurs'">
+        {{ totalChauffeurs }}
+      </span>
+      <span class="filter-count" *ngIf="filtre === 'Chauffeurs en attente'">
+        {{ chauffeursEnAttente }}
+      </span>
+      <span class="filter-count" *ngIf="filtre === 'Maintenance'">
+        {{ totalMaintenance }}
+      </span>
+      <span class="filter-count" *ngIf="filtre === 'Municipalité'">
+        {{ totalMunicipalite }}
+      </span>
+    </button>
+  </div>
+
+  <div class="table-title">
+    <h2>{{ titreFiltreActuel }}</h2>
+    <p>{{ utilisateursFiltres.length }} utilisateur(s) affiché(s)</p>
+  </div>
+
+  <div *ngIf="successMessage" class="message-success">
+    {{ successMessage }}
+  </div>
+
+  <div *ngIf="errorMessage" class="message-error">
+    {{ errorMessage }}
   </div>
 
   <div *ngIf="loading" class="message-info">
     Chargement des utilisateurs...
   </div>
 
-  <div *ngIf="errorMessage" class="message-erreur">
-    {{ errorMessage }}
-  </div>
+  <div class="table-card" *ngIf="!loading">
+    <table>
+      <thead>
+        <tr>
+          <th>Nom complet</th>
+          <th>Email</th>
+          <th>Numéro de téléphone</th>
+          <th>Rôle</th>
+          <th>Statut du compte</th>
+          <th>Date d’inscription</th>
+          <th>Dernière connexion</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
 
-  <div *ngIf="!loading && !errorMessage" class="bloc-utilisateurs">
-    <div class="entete-bloc">
-      <h2>Utilisateurs ({{ utilisateursFiltres.length }})</h2>
-      <p>Liste complète des utilisateurs avec leurs informations et permissions</p>
-    </div>
+      <tbody>
+        <tr
+          *ngFor="let utilisateur of utilisateursFiltres; trackBy: trackByUtilisateurId"
+          [ngClass]="{
+            'row-pending': utilisateur.statut === 'En attente',
+            'row-rejected': utilisateur.statut === 'Refusé',
+            'row-disabled': utilisateur.statut === 'Désactivé'
+          }">
 
-    <div *ngIf="utilisateursFiltres.length === 0" class="message-info">
+          <td>
+           <div class="user-cell">
+  <div class="avatar">{{ utilisateur.initiales }}</div>
+  <span class="user-name">{{ utilisateur.nom }}</span>
+</div>
+          </td>
+
+          <td>{{ utilisateur.email }}</td>
+          <td>{{ utilisateur.telephone }}</td>
+
+          <td>
+            <span class="role-badge" [ngClass]="obtenirClasseRole(utilisateur.role)">
+              {{ utilisateur.role }}
+            </span>
+          </td>
+
+          <td>
+            <span class="status-badge" [ngClass]="obtenirClasseStatut(utilisateur.statut)">
+              {{ utilisateur.statut }}
+            </span>
+          </td>
+
+          <td>{{ utilisateur.dateInscription }}</td>
+          <td>{{ utilisateur.derniereConnexion }}</td>
+
+          <td class="text-right actions-cell">
+            <button
+              class="action-btn action-view"
+              type="button"
+              title="Voir détails"
+              (click)="openDetails(utilisateur)">
+              <span class="material-icons">visibility</span>
+            </button>
+
+            <ng-container *ngIf="peutValiderOuRefuser(utilisateur)">
+              <button
+                class="action-btn action-validate"
+                type="button"
+                title="Valider"
+                (click)="openConfirm('validate', utilisateur)">
+                <span class="material-icons">check</span>
+              </button>
+
+              <button
+                class="action-btn action-reject"
+                type="button"
+                title="Refuser"
+                (click)="openConfirm('reject', utilisateur)">
+                <span class="material-icons">close</span>
+              </button>
+            </ng-container>
+
+            <ng-container *ngIf="peutDesactiverOuSupprimer(utilisateur)">
+              <button
+                class="action-btn action-disable"
+                type="button"
+                title="Désactiver"
+                (click)="openConfirm('disable', utilisateur)">
+                <span class="material-icons">block</span>
+              </button>
+
+              <button
+                class="action-btn action-delete"
+                type="button"
+                title="Supprimer"
+                (click)="openConfirm('delete', utilisateur)">
+                <span class="material-icons">delete</span>
+              </button>
+            </ng-container>
+
+            <ng-container *ngIf="peutSupprimerRefuse(utilisateur)">
+              <button
+                class="action-btn action-delete"
+                type="button"
+                title="Supprimer"
+                (click)="openConfirm('delete', utilisateur)">
+                <span class="material-icons">delete</span>
+              </button>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="utilisateursFiltres.length === 0" class="empty-state">
       Aucun utilisateur trouvé.
     </div>
 
-    <div class="carte-utilisateur" *ngFor="let utilisateur of utilisateursFiltres">
+    <div class="table-footer">
+      Affichage de {{ utilisateursFiltres.length }} utilisateur(s) sur {{ totalUtilisateurs }}
+    </div>
+  </div>
 
-      <div class="partie-gauche">
-        <div class="avatar">
-          {{ utilisateur.initiales }}
-        </div>
+  <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
 
-        <div class="infos-utilisateur">
-          <div class="ligne-nom">
-            <h3>{{ utilisateur.nom }}</h3>
-
-            <span class="badge-statut" [ngClass]="obtenirClasseStatut(utilisateur.statut)">
-              {{ utilisateur.statut }}
-            </span>
+      <ng-container *ngIf="modalMode === 'details' && selectedUtilisateur">
+        <div class="modal-header">
+          <div>
+            <h3>Détails utilisateur</h3>
+            <p>Informations du compte sélectionné.</p>
           </div>
 
-          <div class="ligne-infos">
-            <span>✉ {{ utilisateur.courriel }}</span>
-            <span>📞 {{ utilisateur.telephone }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="partie-droite">
-        <div class="bloc-role-activite">
-          <span class="badge-role" [ngClass]="obtenirClasseRole(utilisateur.role)">
-            {{ utilisateur.role }}
-          </span>
-
-          <span class="derniere-activite">
-            {{ utilisateur.derniereActivite }}
-          </span>
-        </div>
-
-        <div class="bloc-actions" *ngIf="utilisateur.role === 'Chauffeur'">
-          <button
-            class="btn-approve"
-            *ngIf="peutEtreValide(utilisateur)"
-            (click)="approveDriver(utilisateur)"
-            [disabled]="estEnCoursAction(utilisateur)">
-            {{ estEnCoursAction(utilisateur) ? '...' : 'Approuver' }}
-          </button>
-
-          <button
-            class="btn-reject"
-            *ngIf="peutEtreRefuse(utilisateur)"
-            (click)="rejectDriver(utilisateur)"
-            [disabled]="estEnCoursAction(utilisateur)">
-            {{ estEnCoursAction(utilisateur) ? '...' : 'Refuser' }}
+          <button class="modal-close" type="button" (click)="closeModal()">
+            <span class="material-icons">close</span>
           </button>
         </div>
 
-        <button class="bouton-menu">
-          ⋮
-        </button>
-      </div>
+        <div class="details-profile">
+          <div class="avatar avatar-large">{{ selectedUtilisateur.initiales }}</div>
+          <div>
+            <h4>{{ selectedUtilisateur.nom }}</h4>
+
+            <div class="details-badges">
+              <span
+                class="role-badge"
+                [ngClass]="obtenirClasseRole(selectedUtilisateur.role)">
+                {{ selectedUtilisateur.role }}
+              </span>
+
+              <span
+                class="status-badge"
+                [ngClass]="obtenirClasseStatut(selectedUtilisateur.statut)">
+                {{ selectedUtilisateur.statut }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+       <div class="details-grid">
+  <div>
+    <label>Nom d'utilisateur</label>
+    <p>{{ selectedUtilisateur.username }}</p>
+  </div>
+
+  <div>
+    <label>Nom complet</label>
+    <p>{{ selectedUtilisateur.nom }}</p>
+  </div>
+
+  <div>
+    <label>Email</label>
+    <p>{{ selectedUtilisateur.email }}</p>
+  </div>
+
+  <div>
+    <label>Numéro de téléphone</label>
+    <p>{{ selectedUtilisateur.telephone }}</p>
+  </div>
+
+  <div>
+    <label>Rôle</label>
+    <p>{{ selectedUtilisateur.role }}</p>
+  </div>
+
+  <div>
+    <label>Statut du compte</label>
+    <p>{{ selectedUtilisateur.statut }}</p>
+  </div>
+
+  <div>
+    <label>Date d’inscription</label>
+    <p>{{ selectedUtilisateur.dateInscription }}</p>
+  </div>
+
+  <div>
+    <label>Dernière connexion</label>
+    <p>{{ selectedUtilisateur.derniereConnexion }}</p>
+  </div>
+</div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" type="button" (click)="closeModal()">
+            Fermer
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="modalMode === 'confirm' && selectedUtilisateur">
+        <div class="modal-header">
+          <div>
+            <h3>{{ confirmationTitle }}</h3>
+            <p>{{ selectedUtilisateur.nom }}</p>
+          </div>
+
+          <button class="modal-close" type="button" (click)="closeModal()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+
+        <div class="confirm-box">
+          <span class="material-icons">help_outline</span>
+          <p>{{ confirmationMessage }}</p>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn-secondary"
+            type="button"
+            (click)="closeModal()"
+            [disabled]="actionLoading">
+            Annuler
+          </button>
+
+          <button
+            class="btn-primary"
+            type="button"
+            (click)="confirmerAction()"
+            [disabled]="actionLoading">
+            {{ actionLoading ? 'Traitement...' : 'Confirmer' }}
+          </button>
+        </div>
+      </ng-container>
 
     </div>
   </div>

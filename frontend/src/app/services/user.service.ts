@@ -10,11 +10,15 @@ export interface UserAdminListResponse {
   username: string;
   fullName: string;
   email: string;
-  phone: string;
+  phone?: string;
   role: string;
   isEnabled: boolean;
-  lastLoginAt?: string;
   accountStatus?: AccountStatus;
+  lastLoginAt?: string;
+
+  createdAt?: string;
+  registrationDate?: string;
+  created_at?: string;
 }
 
 export interface UserStatsResponse {
@@ -41,13 +45,12 @@ export interface CreateDriverResponse {
   accountStatus: string;
 }
 
-export interface CreateUserRequest {
+export interface CreateMaintenanceRequest {
   fullName: string;
   username: string;
   email: string;
   phone: string;
-  role: string;
-  isEnabled: boolean;
+  password: string;
 }
 
 @Injectable({
@@ -72,8 +75,8 @@ export class UserService {
     return this.http.post<CreateDriverResponse>(this.driversUrl, payload);
   }
 
-  createUser(payload: CreateUserRequest): Observable<any> {
-    return this.http.post<any>(this.baseUrl, payload);
+  createMaintenance(payload: CreateMaintenanceRequest): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/maintenance`, payload);
   }
 
   approveDriver(userId: number): Observable<any> {
@@ -92,5 +95,13 @@ export class UserService {
 
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  disableDriver(userId: number): Observable<UserAdminListResponse> {
+    return this.updateStatus(userId, false);
+  }
+
+  deleteDriver(userId: number): Observable<void> {
+    return this.deleteUser(userId);
   }
 }

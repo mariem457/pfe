@@ -1,6 +1,8 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 
 :root {
+  --admin-font: 'Inter', sans-serif;
+
   --bg-color: #f3f6fb;
   --card-color: #ffffff;
   --text-color: #0f172a;
@@ -10,7 +12,6 @@
   --input-bg: #ffffff;
   --hover-bg: #f8fafc;
 
-  /* extra vars for dashboard dark mode */
   --soft-bg: #f8fafc;
   --soft-hover-bg: #f1f5f9;
   --overlay-bg: rgba(15, 23, 42, 0.35);
@@ -57,14 +58,126 @@ body {
   background: var(--bg-color);
   color: var(--text-color);
   transition: background 0.25s ease, color 0.25s ease;
+  font-family: var(--admin-font);
 }
 
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--admin-font) !important;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* ===== ADMIN FONT FIX WITHOUT BREAKING ICONS ===== */
+app-admin-principal,
+app-admin-principal :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.admin-principal,
+.admin-principal :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.admin-layout,
+.admin-layout :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.admin-sidebar,
+.admin-sidebar :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.admin-content,
+.admin-content :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.admin-page,
+.admin-page :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.sidebar,
+.sidebar :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined),
+.layout-sidebar,
+.layout-sidebar :not(mat-icon):not(.mat-icon):not(.material-icons):not(.material-symbols-outlined) {
+  font-family: var(--admin-font) !important;
+}
+
+app-admin-principal h1,
+app-admin-principal h2,
+app-admin-principal h3,
+.admin-principal h1,
+.admin-principal h2,
+.admin-principal h3,
+.page-title {
+  font-family: var(--admin-font) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.04em;
+}
+
+app-admin-principal p,
+app-admin-principal span,
+app-admin-principal a,
+app-admin-principal button,
+app-admin-principal input,
+app-admin-principal select {
+  font-family: var(--admin-font) !important;
+}
+
+/* ===== FIX MATERIAL ICONS ===== */
+mat-icon,
+.mat-icon,
+.material-icons {
+  font-family: 'Material Icons' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  line-height: 1;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+/* ===== DARK MODE GLOBAL ===== */
 body.dark-mode {
   background: var(--bg-color) !important;
   color: var(--text-color) !important;
 }
 
-/* admin/dashboard only */
+body.dark-mode,
+body.dark-mode app-root,
+body.dark-mode .app-shell,
+body.dark-mode .layout,
+body.dark-mode .layout-shell,
+body.dark-mode .main-layout,
+body.dark-mode .dashboard-layout,
+body.dark-mode .page-layout,
+body.dark-mode .main-content,
+body.dark-mode .content,
+body.dark-mode .content-area,
+body.dark-mode .content-wrapper,
+body.dark-mode .page-content,
+body.dark-mode .router-container,
+body.dark-mode .municipality-content,
+body.dark-mode .municipality-page,
+body.dark-mode .dashboard-content,
+body.dark-mode .dashboard-page {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
 body.dark-mode .card,
 body.dark-mode .kpi-card,
 body.dark-mode .it-panel,
@@ -86,7 +199,6 @@ body.dark-mode .content-card {
   border-color: var(--border-color) !important;
 }
 
-/* admin sidebar only */
 body.dark-mode .sidebar,
 body.dark-mode .it-sidebar,
 body.dark-mode .layout-sidebar,
@@ -96,7 +208,6 @@ body.dark-mode aside {
   border-color: var(--border-color) !important;
 }
 
-/* forms */
 body.dark-mode input,
 body.dark-mode select,
 body.dark-mode textarea {
@@ -110,7 +221,6 @@ body.dark-mode select option {
   color: #f8fafc;
 }
 
-/* helper text */
 body.dark-mode .muted,
 body.dark-mode .it-muted,
 body.dark-mode .subtitle,
@@ -118,15 +228,50 @@ body.dark-mode .card-subtitle {
   color: var(--muted-color) !important;
 }
 
-mat-icon {
-  color: inherit;
+body.dark-mode .head-page,
+body.dark-mode .page-header,
+body.dark-mode .topbar,
+body.dark-mode .toolbar,
+body.dark-mode .header-bar,
+body.dark-mode .overview-bar,
+body.dark-mode .page-topbar {
+  background: var(--card-color) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+}
+
+body.dark-mode .head-page h1,
+body.dark-mode .head-page h2,
+body.dark-mode .head-page h3,
+body.dark-mode .page-header h1,
+body.dark-mode .page-header h2,
+body.dark-mode .page-header h3,
+body.dark-mode .topbar h1,
+body.dark-mode .topbar h2,
+body.dark-mode .topbar h3,
+body.dark-mode .toolbar h1,
+body.dark-mode .toolbar h2,
+body.dark-mode .toolbar h3 {
+  color: var(--text-color) !important;
+}
+
+body.dark-mode .mat-drawer-content,
+body.dark-mode .mat-sidenav-content,
+body.dark-mode .router-outlet-container,
+body.dark-mode .mat-app-background {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+body.dark-mode .leaflet-container {
+  background: #0b1220;
 }
 
 body.dark-mode .landing-page {
   background: linear-gradient(135deg, #08131f 0%, #0f172a 50%, #102235 100%) !important;
 }
 
-/* ===== FIX DARK MODE FOOTER ===== */
 body.dark-mode app-footer,
 body.dark-mode app-footer footer,
 body.dark-mode app-footer .footer {
@@ -159,70 +304,23 @@ body.dark-mode app-footer button {
 body.dark-mode app-footer hr {
   border-color: #334155 !important;
 }
-/* ===== MUNICIPALITY / LAYOUT DARK MODE FINAL FIX ===== */
 
-body.dark-mode,
-body.dark-mode app-root,
-body.dark-mode .app-shell,
-body.dark-mode .layout,
-body.dark-mode .layout-shell,
-body.dark-mode .main-layout,
-body.dark-mode .dashboard-layout,
-body.dark-mode .page-layout,
-body.dark-mode .main-content,
-body.dark-mode .content,
-body.dark-mode .content-area,
-body.dark-mode .content-wrapper,
-body.dark-mode .page-content,
-body.dark-mode .router-container,
-body.dark-mode .municipality-content,
-body.dark-mode .municipality-page,
-body.dark-mode .dashboard-content,
-body.dark-mode .dashboard-page {
-  background: var(--bg-color) !important;
-  color: var(--text-color) !important;
+/* snackbars */
+.success-snackbar {
+  background: #e8f5e9 !important;
+  color: #1b5e20 !important;
+  border: 1px solid #c8e6c9;
+  border-radius: 10px !important;
 }
 
-/* page header / top shell */
-body.dark-mode .head-page,
-body.dark-mode .page-header,
-body.dark-mode .topbar,
-body.dark-mode .toolbar,
-body.dark-mode .header-bar,
-body.dark-mode .overview-bar,
-body.dark-mode .page-topbar {
-  background: var(--card-color) !important;
-  color: var(--text-color) !important;
-  border: 1px solid var(--border-color) !important;
-  box-shadow: none !important;
+.error-snackbar {
+  background: #ffebee !important;
+  color: #b71c1c !important;
+  border: 1px solid #ffcdd2;
+  border-radius: 10px !important;
 }
 
-/* titles inside parent layout */
-body.dark-mode .head-page h1,
-body.dark-mode .head-page h2,
-body.dark-mode .head-page h3,
-body.dark-mode .page-header h1,
-body.dark-mode .page-header h2,
-body.dark-mode .page-header h3,
-body.dark-mode .topbar h1,
-body.dark-mode .topbar h2,
-body.dark-mode .topbar h3,
-body.dark-mode .toolbar h1,
-body.dark-mode .toolbar h2,
-body.dark-mode .toolbar h3 {
-  color: var(--text-color) !important;
-}
-
-/* angular / material containers */
-body.dark-mode .mat-drawer-content,
-body.dark-mode .mat-sidenav-content,
-body.dark-mode .router-outlet-container,
-body.dark-mode .mat-app-background {
-  background: var(--bg-color) !important;
-  color: var(--text-color) !important;
-}
-
-/* optional: map zone around leaflet */
-body.dark-mode .leaflet-container {
-  background: #0b1220;
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
 }

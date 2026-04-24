@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class RoutingDepotDto(BaseModel):
@@ -11,6 +12,10 @@ class RoutingBinDto(BaseModel):
     id: int
     lat: float
     lng: float
+
+    zoneId: Optional[int] = None
+    clusterId: Optional[int] = None
+
     fillLevel: float
     predictedPriority: float
     estimatedLoadKg: float
@@ -27,7 +32,6 @@ class RoutingBinDto(BaseModel):
     reportable: Optional[bool] = None
     opportunisticScore: Optional[float] = None
 
-    # NEW — time windows in minutes from start of day
     windowStartMinutes: Optional[int] = None
     windowEndMinutes: Optional[int] = None
 
@@ -40,7 +44,9 @@ class RoutingTruckDto(BaseModel):
     fuelLevelLiters: Optional[float] = None
     fuelConsumptionPerKm: Optional[float] = None
     status: Optional[str] = None
-    supportedWasteTypes: Optional[List[str]] = []
+    supportedWasteTypes: List[str] = Field(default_factory=list)
+
+    zoneId: Optional[int] = None
 
 
 class RoutingIncidentDto(BaseModel):

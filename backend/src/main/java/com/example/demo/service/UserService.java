@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
+import com.example.demo.entity.Driver;
 import com.example.demo.entity.User;
+import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,10 +16,14 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository repo;
+    private final DriverRepository driverRepo;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repo, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository repo,
+                       DriverRepository driverRepo,
+                       PasswordEncoder passwordEncoder) {
         this.repo = repo;
+        this.driverRepo = driverRepo;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -202,6 +208,7 @@ public class UserService {
         if (!repo.existsById(id)) {
             throw new IllegalArgumentException("user not found");
         }
+
         repo.deleteById(id);
     }
 
@@ -235,6 +242,7 @@ public class UserService {
 
     private UserAdminListResponse toAdminListResponse(User u) {
         UserAdminListResponse r = new UserAdminListResponse();
+
         r.id = u.getId();
         r.username = u.getUsername();
         r.fullName = buildFullName(u);
@@ -242,7 +250,22 @@ public class UserService {
         r.phone = "--";
         r.role = u.getRole();
         r.isEnabled = u.getIsEnabled();
+        r.accountStatus = u.getAccountStatus() != null ? u.getAccountStatus().name() : null;
         r.lastLoginAt = u.getLastLoginAt();
+        r.createdAt = u.getCreatedAt();
+
+        if ("DRIVER".equalsIgnoreCase(u.getRole())) {
+            driverRepo.findByUser(u).ifPresent(driver -> {
+                r.fullName = driver.getFullName() != null && !driver.getFullName().isBlank()
+                        ? driver.getFullName()
+                        : u.getUsername();
+
+                r.phone = driver.getPhone() != null && !driver.getPhone().isBlank()
+                        ? driver.getPhone()
+                        : "--";
+            });
+        }
+
         return r;
     }
 

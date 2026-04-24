@@ -29,11 +29,14 @@ export class MissionsComponent implements OnInit {
   selectedMission = signal<MissionResponse | null>(null);
   missionBins = signal<MissionBinResponse[]>([]);
   missionRouteCoordinates = signal<RouteCoordinate[]>([]);
+  collectionRouteCoordinates = signal<RouteCoordinate[]>([]);
+  transferRouteCoordinates = signal<RouteCoordinate[]>([]);
   missionRouteStops = signal<MissionRouteStop[]>([]);
   snappedWaypoints = signal<RouteCoordinate[]>([]);
 
   routeMatrixSource = signal<string | null>(null);
   routeGeometrySource = signal<string>('OSRM');
+  routeTotalDistanceKm = signal<number>(0);
 
   loading = signal(false);
   loadingBins = signal(false);
@@ -52,6 +55,9 @@ export class MissionsComponent implements OnInit {
 
   searchTerm = '';
   selectedStatus = 'ALL';
+
+  debugMode = signal(false);
+  routeDistances = signal<number[]>([]);
 
   constructor(private missionService: MissionService) {}
 
@@ -184,6 +190,8 @@ export class MissionsComponent implements OnInit {
         stopOrder: stop.stopOrder,
         stopType: stop.stopType,
         binId: stop.binId,
+        fuelStationId: stop.fuelStationId ?? null,
+        fuelStationName: stop.fuelStationName ?? null,
         lat: stop.lat,
         lng: stop.lng
       }))
@@ -265,10 +273,15 @@ export class MissionsComponent implements OnInit {
           this.selectedMission.set(null);
           this.missionBins.set([]);
           this.missionRouteCoordinates.set([]);
+          this.collectionRouteCoordinates.set([]);
+          this.transferRouteCoordinates.set([]);
           this.missionRouteStops.set([]);
           this.snappedWaypoints.set([]);
           this.routeMatrixSource.set(null);
           this.routeGeometrySource.set('OSRM');
+          this.routeTotalDistanceKm.set(0);
+          this.routeDistances.set([]);
+          this.debugMode.set(false);
           return;
         }
 
@@ -297,10 +310,15 @@ export class MissionsComponent implements OnInit {
     this.activeTab.set('overview');
     this.missionBins.set([]);
     this.missionRouteCoordinates.set([]);
+    this.collectionRouteCoordinates.set([]);
+    this.transferRouteCoordinates.set([]);
     this.missionRouteStops.set([]);
     this.snappedWaypoints.set([]);
     this.routeMatrixSource.set(null);
     this.routeGeometrySource.set('OSRM');
+    this.routeTotalDistanceKm.set(0);
+    this.routeDistances.set([]);
+    this.debugMode.set(false);
     this.loadMissionBins(mission.id);
     this.loadMissionRoute(mission.id);
   }
@@ -326,18 +344,26 @@ export class MissionsComponent implements OnInit {
     this.missionService.getMissionRoute(missionId).subscribe({
       next: (data: MissionRouteResponse) => {
         this.missionRouteCoordinates.set(data?.routeCoordinates ?? []);
+        this.collectionRouteCoordinates.set(data?.collectionRouteCoordinates ?? []);
+        this.transferRouteCoordinates.set(data?.transferRouteCoordinates ?? []);
         this.missionRouteStops.set(data?.routeStops ?? []);
         this.snappedWaypoints.set(data?.snappedWaypoints ?? []);
         this.routeMatrixSource.set(data?.matrixSource ?? null);
         this.routeGeometrySource.set(data?.geometrySource ?? 'OSRM');
+        this.routeTotalDistanceKm.set(data?.totalDistanceKm ?? 0);
+        this.routeDistances.set(data?.stopLegDistancesKm ?? []);
         this.loadingRoute.set(false);
       },
       error: () => {
         this.missionRouteCoordinates.set([]);
+        this.collectionRouteCoordinates.set([]);
+        this.transferRouteCoordinates.set([]);
         this.missionRouteStops.set([]);
         this.snappedWaypoints.set([]);
         this.routeMatrixSource.set(null);
         this.routeGeometrySource.set('OSRM');
+        this.routeTotalDistanceKm.set(0);
+        this.routeDistances.set([]);
         this.loadingRoute.set(false);
       }
     });
@@ -537,5 +563,21 @@ export class MissionsComponent implements OnInit {
   binStatusClass(bin: MissionBinResponse): string {
     if (bin.collected) return 'badge success';
     return 'badge neutral';
+  }
+
+  openDebugMode(): void {
+    this.debugMode.set(true);
+  }
+
+  closeDebugMode(): void {
+    this.debugMode.set(false);
+  }
+
+  getTotalDistance(): number {
+    if (this.routeTotalDistanceKm() > 0) {
+      return this.routeTotalDistanceKm();
+    }
+
+    return this.routeDistances().reduce((sum, d) => sum + d, 0);
   }
 }

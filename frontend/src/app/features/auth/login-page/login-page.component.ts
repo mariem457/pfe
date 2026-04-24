@@ -18,6 +18,13 @@ export class LoginPageComponent {
   showPassword = false;
   errorMessage = '';
 
+  successMessage = '';
+  showSuccessToast = false;
+
+  showErrorToast = false;
+
+  isLoading = false;
+
   constructor(
     private router: Router,
     private authService: AuthService
@@ -31,21 +38,41 @@ export class LoginPageComponent {
     this.router.navigate(['/forgot-password']);
   }
 
-  login(): void {
-    this.errorMessage = '';
+  showSuccess(message: string): void {
+    this.successMessage = message;
+    this.showSuccessToast = true;
+  }
 
-    console.log('email =', this.email);
-    console.log('password =', this.password);
+  hideSuccess(): void {
+    this.showSuccessToast = false;
+    this.successMessage = '';
+  }
+
+  showError(message: string): void {
+    this.errorMessage = message;
+    this.showErrorToast = true;
+  }
+
+  hideError(): void {
+    this.showErrorToast = false;
+    this.errorMessage = '';
+  }
+
+  login(): void {
+    this.hideError();
+    this.hideSuccess();
 
     if (!this.email || !this.email.trim()) {
-      this.errorMessage = "L'email est obligatoire.";
+      this.showError("L'email est obligatoire.");
       return;
     }
 
     if (!this.password || !this.password.trim()) {
-      this.errorMessage = 'Le mot de passe est obligatoire.';
+      this.showError('Le mot de passe est obligatoire.');
       return;
     }
+
+    this.isLoading = true;
 
     this.authService.login(
       this.email.trim(),
@@ -53,54 +80,69 @@ export class LoginPageComponent {
       this.rememberMe
     ).subscribe({
       next: (res) => {
-        localStorage.setItem('accessToken', res.token);
+        this.showSuccess('Utilisateur connecté avec succès');
 
-        if (res.mustChangePassword) {
-          if (res.role === 'MUNICIPALITY') {
-            this.router.navigate(['/municipality/parametres'], {
-              queryParams: { forcePasswordChange: 'true' }
-            });
-            return;
-          }
+        const navigateAfterToast = () => {
+          this.hideSuccess();
 
-          if (res.role === 'ADMIN') {
-            this.router.navigate(['/admin/parametres'], {
-              queryParams: { forcePasswordChange: 'true' }
-            });
-            return;
-          }
+          if (res.mustChangePassword) {
+            if (res.role === 'MUNICIPALITY') {
+              this.router.navigate(['/municipality/parametres'], {
+                queryParams: { forcePasswordChange: 'true' }
+              });
+              return;
+            }
 
-          if (res.role === 'MAINTENANCE') {
-            this.router.navigate(['/maintenance/parametres'], {
-              queryParams: { forcePasswordChange: 'true' }
-            });
-            return;
+            if (res.role === 'ADMIN') {
+              this.router.navigate(['/admin/parametres'], {
+                queryParams: { forcePasswordChange: 'true' }
+              });
+              return;
+            }
+
+            if (res.role === 'MAINTENANCE') {
+              this.router.navigate(['/maintenance/parametres'], {
+                queryParams: { forcePasswordChange: 'true' }
+              });
+              return;
+            }
+
+            if (res.role === 'DRIVER') {
+              this.router.navigate(['/chauffeur/parametres'], {
+                queryParams: { forcePasswordChange: 'true' }
+              });
+              return;
+            }
           }
 
           if (res.role === 'DRIVER') {
-            this.router.navigate(['/chauffeur/parametres'], {
-              queryParams: { forcePasswordChange: 'true' }
-            });
-            return;
+            this.router.navigate(['/chauffeur']);
+          } else if (res.role === 'ADMIN') {
+            this.router.navigate(['/admin']);
+          } else if (res.role === 'MUNICIPALITY') {
+            this.router.navigate(['/municipality']);
+          } else if (res.role === 'MAINTENANCE') {
+            this.router.navigate(['/maintenance']);
+          } else {
+            this.router.navigate(['/']);
           }
-        }
+        };
 
-        if (res.role === 'DRIVER') {
-          this.router.navigate(['/chauffeur']);
-        } else if (res.role === 'ADMIN') {
-          this.router.navigate(['/admin']);
-        } else if (res.role === 'MUNICIPALITY') {
-          this.router.navigate(['/municipality']);
-        } else if (res.role === 'MAINTENANCE') {
-          this.router.navigate(['/maintenance']);
-        } else {
-          this.router.navigate(['/']);
-        }
+        setTimeout(() => {
+          navigateAfterToast();
+        }, 10000);
       },
       error: (err) => {
+        this.isLoading = false;
         console.error('Login error:', err);
-        this.errorMessage =
-          err?.error?.message || 'Login failed. Vérifiez votre email et votre mot de passe.';
+
+        this.showError(
+          err?.error?.message || 'Les identifications sont erronées'
+        );
+
+        setTimeout(() => {
+          this.hideError();
+        }, 5000);
       }
     });
   }

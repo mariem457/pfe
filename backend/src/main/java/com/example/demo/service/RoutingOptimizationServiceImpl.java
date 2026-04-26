@@ -699,7 +699,6 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                 .findFirst()
                 .orElse(null);
     }
-
     private Driver resolveDriverForTruck(Truck truck) {
         if (truck == null) {
             throw new BadRequestException("Truck is null while resolving driver");
@@ -709,9 +708,17 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             throw new BadRequestException("Truck code is missing for truck id: " + truck.getId());
         }
 
-        return driverRepository.findByVehicleCode(truck.getTruckCode())
+        String truckCode = truck.getTruckCode().trim();
+
+        return driverRepository.findAll()
+                .stream()
+                .filter(driver -> driver.getVehicleCode() != null)
+                .filter(driver -> driver.getVehicleCode().trim().equalsIgnoreCase(truckCode))
+                .findFirst()
                 .orElseThrow(() -> new BadRequestException(
-                        "No driver mapped to truck code: " + truck.getTruckCode()
+                        "Truck " + truck.getId()
+                                + " has no assigned driver. Expected vehicle_code="
+                                + truckCode
                 ));
     }
 

@@ -15,4 +15,5 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
     Optional<Driver> findByVehicleCode(String vehicleCode);
 
     Optional<Driver> findByUser(User user);
+    Optional<Driver> findByVehicleCodeIgnoreCase(String vehicleCode);
 }

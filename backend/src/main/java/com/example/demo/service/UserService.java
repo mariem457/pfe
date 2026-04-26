@@ -206,11 +206,13 @@ public class UserService {
 
     @Transactional
     public void delete(Long id) {
-        if (!repo.existsById(id)) {
-            throw new IllegalArgumentException("user not found");
+        User user = getOrThrow(id);
+
+        if ("DRIVER".equalsIgnoreCase(user.getRole())) {
+            driverRepo.findByUser(user).ifPresent(driverRepo::delete);
         }
 
-        repo.deleteById(id);
+        repo.delete(user);
     }
 
     private User getOrThrow(Long id) {

@@ -1,5 +1,18 @@
 <div class="page">
 
+  <div
+    *ngIf="successMessage || errorMessage"
+    class="admin-toast"
+    [class.toast-success]="successMessage"
+    [class.toast-error]="errorMessage">
+
+    <span class="material-icons">
+      {{ successMessage ? 'check_circle' : 'error' }}
+    </span>
+
+    <p>{{ successMessage || errorMessage }}</p>
+  </div>
+
   <div class="page-header">
     <div>
       <h1>Gestion des utilisateurs</h1>
@@ -105,14 +118,6 @@
     <p>{{ utilisateursFiltres.length }} utilisateur(s) affiché(s)</p>
   </div>
 
-  <div *ngIf="successMessage" class="message-success">
-    {{ successMessage }}
-  </div>
-
-  <div *ngIf="errorMessage" class="message-error">
-    {{ errorMessage }}
-  </div>
-
   <div *ngIf="loading" class="message-info">
     Chargement des utilisateurs...
   </div>
@@ -127,7 +132,6 @@
           <th>Rôle</th>
           <th>Statut du compte</th>
           <th>Date d’inscription</th>
-          <th>Dernière connexion</th>
           <th class="text-right">Actions</th>
         </tr>
       </thead>
@@ -142,10 +146,10 @@
           }">
 
           <td>
-           <div class="user-cell">
-  <div class="avatar">{{ utilisateur.initiales }}</div>
-  <span class="user-name">{{ utilisateur.nom }}</span>
-</div>
+            <div class="user-cell">
+              <div class="avatar">{{ utilisateur.initiales }}</div>
+              <span class="user-name">{{ utilisateur.nom }}</span>
+            </div>
           </td>
 
           <td>{{ utilisateur.email }}</td>
@@ -164,7 +168,6 @@
           </td>
 
           <td>{{ utilisateur.dateInscription }}</td>
-          <td>{{ utilisateur.derniereConnexion }}</td>
 
           <td class="text-right actions-cell">
             <button
@@ -270,47 +273,47 @@
           </div>
         </div>
 
-       <div class="details-grid">
-  <div>
-    <label>Nom d'utilisateur</label>
-    <p>{{ selectedUtilisateur.username }}</p>
-  </div>
+        <div class="details-grid">
+          <div>
+            <label>Nom d'utilisateur</label>
+            <p>{{ selectedUtilisateur.username }}</p>
+          </div>
 
-  <div>
-    <label>Nom complet</label>
-    <p>{{ selectedUtilisateur.nom }}</p>
-  </div>
+          <div>
+            <label>Nom complet</label>
+            <p>{{ selectedUtilisateur.nom }}</p>
+          </div>
 
-  <div>
-    <label>Email</label>
-    <p>{{ selectedUtilisateur.email }}</p>
-  </div>
+          <div>
+            <label>Email</label>
+            <p>{{ selectedUtilisateur.email }}</p>
+          </div>
 
-  <div>
-    <label>Numéro de téléphone</label>
-    <p>{{ selectedUtilisateur.telephone }}</p>
-  </div>
+          <div>
+            <label>Numéro de téléphone</label>
+            <p>{{ selectedUtilisateur.telephone }}</p>
+          </div>
 
-  <div>
-    <label>Rôle</label>
-    <p>{{ selectedUtilisateur.role }}</p>
-  </div>
+          <div>
+            <label>Rôle</label>
+            <p>{{ selectedUtilisateur.role }}</p>
+          </div>
 
-  <div>
-    <label>Statut du compte</label>
-    <p>{{ selectedUtilisateur.statut }}</p>
-  </div>
+          <div>
+            <label>Statut du compte</label>
+            <p>{{ selectedUtilisateur.statut }}</p>
+          </div>
 
-  <div>
-    <label>Date d’inscription</label>
-    <p>{{ selectedUtilisateur.dateInscription }}</p>
-  </div>
+          <div>
+            <label>Date d’inscription</label>
+            <p>{{ selectedUtilisateur.dateInscription }}</p>
+          </div>
 
-  <div>
-    <label>Dernière connexion</label>
-    <p>{{ selectedUtilisateur.derniereConnexion }}</p>
-  </div>
-</div>
+          <div>
+            <label>Dernière connexion</label>
+            <p>{{ selectedUtilisateur.derniereConnexion }}</p>
+          </div>
+        </div>
 
         <div class="modal-actions">
           <button class="btn-secondary" type="button" (click)="closeModal()">

@@ -7,6 +7,7 @@ public class DriverProfileResponse {
     private String username;
     private String driverId;
     private String assignedTruck;
+    private Long assignedTruckId;
     private String shiftSchedule;
     private Integer binsCollected;
     private Integer efficiency;
@@ -23,6 +24,7 @@ public class DriverProfileResponse {
             String username,
             String driverId,
             String assignedTruck,
+            Long assignedTruckId,
             String shiftSchedule,
             Integer binsCollected,
             Integer efficiency,
@@ -35,6 +37,7 @@ public class DriverProfileResponse {
         this.username = username;
         this.driverId = driverId;
         this.assignedTruck = assignedTruck;
+        this.assignedTruckId = assignedTruckId;
         this.shiftSchedule = shiftSchedule;
         this.binsCollected = binsCollected;
         this.efficiency = efficiency;
@@ -59,6 +62,9 @@ public class DriverProfileResponse {
 
     public String getAssignedTruck() { return assignedTruck; }
     public void setAssignedTruck(String assignedTruck) { this.assignedTruck = assignedTruck; }
+
+    public Long getAssignedTruckId() { return assignedTruckId; }
+    public void setAssignedTruckId(Long assignedTruckId) { this.assignedTruckId = assignedTruckId; }
 
     public String getShiftSchedule() { return shiftSchedule; }
     public void setShiftSchedule(String shiftSchedule) { this.shiftSchedule = shiftSchedule; }

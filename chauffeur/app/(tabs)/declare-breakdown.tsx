@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -18,27 +20,34 @@ import {
   View,
   useColorScheme,
 } from "react-native";
-import { BASE_URL } from "../../lib/api";
-import { getToken, getUserId } from "../../lib/storage";
+import { declareTruckIncident } from "../../lib/truckApi";
 
-const panneTypes = [
-  "Panne camion",
-  "Panne moteur",
-  "Problème carburant",
-  "Pneu crevé",
-  "Problème GPS",
-  "Problème frein",
-  "Accident",
-  "Autre",
+const incidentTypes = [
+  { label: "Panne camion", value: "BREAKDOWN" },
+  { label: "Trafic", value: "TRAFFIC_BLOCK" },
+  { label: "Carburant faible", value: "FUEL_LOW" },
+  { label: "Retard", value: "DELAY" },
+  { label: "Manuel", value: "OTHER" },
 ];
+
+const PRIMARY_GREEN = "#059669";
+const SECONDARY_GREEN = "#10B981";
 
 export default function DeclareBreakdownScreen() {
   const isDark = useColorScheme() === "dark";
 
   const [selectedType, setSelectedType] = useState("");
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
+  const [locationMode, setLocationMode] = useState<"AUTO" | "MANUAL">("AUTO");
   const [location, setLocation] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const selectedTypeLabel =
+    incidentTypes.find((item) => item.value === selectedType)?.label || "";
 
   const colors = isDark
     ? {
@@ -50,6 +59,7 @@ export default function DeclareBreakdownScreen() {
         inputBorder: "#2A3642",
         placeholder: "#6B7280",
         backText: "#CBD5E1",
+        modalBg: "#1F2937",
       }
     : {
         gradient: ["#EEF3F2", "#F7F8FA"] as const,
@@ -60,13 +70,52 @@ export default function DeclareBreakdownScreen() {
         inputBorder: "#E5E7EB",
         placeholder: "#9CA3AF",
         backText: "#64748B",
+        modalBg: "#FFFFFF",
       };
+
+  useEffect(() => {
+    if (locationMode === "AUTO") {
+      fillCurrentLocation();
+    }
+  }, [locationMode]);
+
+  async function fillCurrentLocation() {
+    try {
+      setLocationLoading(true);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert("Erreur", "Permission de localisation refusée.");
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const latitude = currentLocation.coords.latitude;
+      const longitude = currentLocation.coords.longitude;
+
+      setLocation(`${latitude}, ${longitude}`);
+    } catch (error) {
+      console.log("Erreur localisation:", error);
+      Alert.alert("Erreur", "Impossible de récupérer la localisation.");
+    } finally {
+      setLocationLoading(false);
+    }
+  }
 
   async function handleSubmit() {
     Keyboard.dismiss();
 
     if (!selectedType) {
-      Alert.alert("Erreur", "Veuillez sélectionner le type de panne.");
+      Alert.alert("Erreur", "Veuillez sélectionner le type d'incident.");
+      return;
+    }
+
+    if (!location.trim()) {
+      Alert.alert("Erreur", "Veuillez renseigner la localisation.");
       return;
     }
 
@@ -78,45 +127,31 @@ export default function DeclareBreakdownScreen() {
     try {
       setLoading(true);
 
-      const token = await getToken();
-      const userId = await getUserId();
+      let lat: number | null = null;
+      let lng: number | null = null;
 
-      if (!token || !userId) {
-        Alert.alert("Erreur", "Session expirée. Veuillez vous reconnecter.");
-        router.replace("/login");
-        return;
+      if (location.includes(",")) {
+        const parts = location.split(",");
+        lat = parseFloat(parts[0].trim());
+        lng = parseFloat(parts[1].trim());
       }
 
-      const payload = {
-        driverUserId: userId,
-        type: selectedType,
-        location: location.trim(),
+      await declareTruckIncident({
+        incidentType: selectedType,
         description: description.trim(),
-        createdAt: new Date().toISOString(),
-      };
-
-      console.log("TRUCK BREAKDOWN:", payload);
-
-      /*
-      await fetch(`${BASE_URL}/api/incidents/truck-breakdown`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        lat,
+        lng,
       });
-      */
 
-      Alert.alert("Succès", "Panne déclarée avec succès.", [
+      Alert.alert("Succès", "Incident déclaré avec succès.", [
         {
           text: "OK",
           onPress: () => router.back(),
         },
       ]);
     } catch (error) {
-      console.log("Erreur déclaration panne:", error);
-      Alert.alert("Erreur", "Impossible de déclarer la panne.");
+      console.log("Erreur déclaration incident:", error);
+      Alert.alert("Erreur", "Impossible de déclarer l'incident.");
     } finally {
       setLoading(false);
     }
@@ -142,13 +177,13 @@ export default function DeclareBreakdownScreen() {
               <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
                 <Ionicons name="arrow-back" size={18} color={colors.backText} />
                 <Text style={[styles.backText, { color: colors.backText }]}>
-                  Back
+                  Retour
                 </Text>
               </TouchableOpacity>
 
               <View style={styles.centerContent}>
                 <LinearGradient
-                  colors={["#DC2626", "#EF4444"] as const}
+                  colors={[PRIMARY_GREEN, SECONDARY_GREEN] as const}
                   style={styles.logoBox}
                 >
                   <Ionicons name="warning-outline" size={34} color="#FFFFFF" />
@@ -156,46 +191,113 @@ export default function DeclareBreakdownScreen() {
 
                 <View style={[styles.card, { backgroundColor: colors.card }]}>
                   <Text style={[styles.title, { color: colors.text }]}>
-                    Déclarer une panne
+                    Déclarer un incident
                   </Text>
 
                   <Text style={[styles.subtitle, { color: colors.subtext }]}>
-                    Remplissez les informations de la panne
+                    Remplissez les informations de l'incident
                   </Text>
 
                   <Text style={[styles.label, { color: colors.subtext }]}>
-                    Type de panne
+                    Type d'incident
                   </Text>
 
-                  <View style={styles.typesGrid}>
-                    {panneTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        activeOpacity={0.85}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={[
+                      styles.dropdownButton,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.inputBorder,
+                      },
+                    ]}
+                    onPress={() => setDropdownVisible(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        {
+                          color: selectedType ? colors.text : colors.placeholder,
+                        },
+                      ]}
+                    >
+                      {selectedTypeLabel || "Sélectionner un type d'incident"}
+                    </Text>
+
+                    <Ionicons
+                      name="chevron-down"
+                      size={20}
+                      color={colors.subtext}
+                    />
+                  </TouchableOpacity>
+
+                  <Text style={[styles.label, { color: colors.subtext }]}>
+                    Mode de localisation
+                  </Text>
+
+                  <View style={styles.locationModeRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={[
+                        styles.modeButton,
+                        {
+                          backgroundColor:
+                            locationMode === "AUTO"
+                              ? PRIMARY_GREEN
+                              : colors.inputBg,
+                          borderColor:
+                            locationMode === "AUTO"
+                              ? PRIMARY_GREEN
+                              : colors.inputBorder,
+                        },
+                      ]}
+                      onPress={() => setLocationMode("AUTO")}
+                    >
+                      <Text
                         style={[
-                          styles.typeButton,
+                          styles.modeButtonText,
                           {
-                            backgroundColor:
-                              selectedType === type ? "#EF4444" : colors.inputBg,
-                            borderColor:
-                              selectedType === type ? "#EF4444" : colors.inputBorder,
+                            color:
+                              locationMode === "AUTO" ? "#FFFFFF" : colors.text,
                           },
                         ]}
-                        onPress={() => setSelectedType(type)}
                       >
-                        <Text
-                          style={[
-                            styles.typeText,
-                            {
-                              color:
-                                selectedType === type ? "#FFFFFF" : colors.text,
-                            },
-                          ]}
-                        >
-                          {type}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        Automatique
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={[
+                        styles.modeButton,
+                        {
+                          backgroundColor:
+                            locationMode === "MANUAL"
+                              ? PRIMARY_GREEN
+                              : colors.inputBg,
+                          borderColor:
+                            locationMode === "MANUAL"
+                              ? PRIMARY_GREEN
+                              : colors.inputBorder,
+                        },
+                      ]}
+                      onPress={() => {
+                        setLocationMode("MANUAL");
+                        setLocation("");
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.modeButtonText,
+                          {
+                            color:
+                              locationMode === "MANUAL" ? "#FFFFFF" : colors.text,
+                          },
+                        ]}
+                      >
+                        Manuelle
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   <Text style={[styles.label, { color: colors.subtext }]}>
@@ -219,12 +321,34 @@ export default function DeclareBreakdownScreen() {
                     />
 
                     <TextInput
-                      value={location}
+                      value={
+                        locationLoading && locationMode === "AUTO"
+                          ? "Récupération de la localisation..."
+                          : location
+                      }
                       onChangeText={setLocation}
-                      placeholder="Ex: Rue principale, zone 15..."
+                      editable={locationMode === "MANUAL"}
+                      placeholder={
+                        locationMode === "AUTO"
+                          ? "Localisation automatique..."
+                          : "Entrez votre localisation..."
+                      }
                       placeholderTextColor={colors.placeholder}
                       style={[styles.input, { color: colors.text }]}
                     />
+
+                    {locationMode === "AUTO" && (
+                      <TouchableOpacity
+                        onPress={fillCurrentLocation}
+                        disabled={locationLoading}
+                      >
+                        <Ionicons
+                          name="refresh-outline"
+                          size={20}
+                          color={PRIMARY_GREEN}
+                        />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   <Text style={[styles.label, { color: colors.subtext }]}>
@@ -234,7 +358,7 @@ export default function DeclareBreakdownScreen() {
                   <TextInput
                     value={description}
                     onChangeText={setDescription}
-                    placeholder="Décrivez la panne..."
+                    placeholder="Décrivez l'incident..."
                     placeholderTextColor={colors.placeholder}
                     multiline
                     style={[
@@ -249,12 +373,15 @@ export default function DeclareBreakdownScreen() {
 
                   <TouchableOpacity
                     activeOpacity={0.9}
-                    style={styles.buttonShadow}
+                    style={[
+                      styles.buttonShadow,
+                      loading && styles.disabledButton,
+                    ]}
                     onPress={handleSubmit}
                     disabled={loading}
                   >
                     <LinearGradient
-                      colors={["#DC2626", "#EF4444"] as const}
+                      colors={[PRIMARY_GREEN, SECONDARY_GREEN] as const}
                       style={styles.submitButton}
                     >
                       <Text style={styles.submitText}>
@@ -267,6 +394,65 @@ export default function DeclareBreakdownScreen() {
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
+
+        <Modal
+          transparent
+          visible={dropdownVisible}
+          animationType="fade"
+          onRequestClose={() => setDropdownVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={[styles.modalCard, { backgroundColor: colors.modalBg }]}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    Choisir le type d'incident
+                  </Text>
+
+                  {incidentTypes.map((item) => (
+                    <TouchableOpacity
+                      key={item.value}
+                      activeOpacity={0.85}
+                      style={[
+                        styles.modalOption,
+                        {
+                          backgroundColor:
+                            selectedType === item.value
+                              ? PRIMARY_GREEN
+                              : colors.inputBg,
+                          borderColor:
+                            selectedType === item.value
+                              ? PRIMARY_GREEN
+                              : colors.inputBorder,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedType(item.value);
+                        setDropdownVisible(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.modalOptionText,
+                          {
+                            color:
+                              selectedType === item.value ? "#FFFFFF" : colors.text,
+                          },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+
+                      {selectedType === item.value && (
+                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </LinearGradient>
     </TouchableWithoutFeedback>
   );
@@ -274,20 +460,9 @@ export default function DeclareBreakdownScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
   keyboardView: { flex: 1 },
-
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-  },
-
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 80,
-  },
-
+  safeArea: { flex: 1, paddingHorizontal: 22, paddingTop: 10 },
+  scrollContent: { flexGrow: 1, paddingBottom: 80 },
   backRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -295,19 +470,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginLeft: 4,
   },
-
-  backText: {
-    fontSize: 15,
-    fontWeight: "500",
-  },
-
+  backText: { fontSize: 15, fontWeight: "500" },
   centerContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 40,
   },
-
   logoBox: {
     width: 68,
     height: 68,
@@ -315,13 +484,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
-    shadowColor: "#EF4444",
+    shadowColor: PRIMARY_GREEN,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8,
   },
-
   card: {
     width: "100%",
     maxWidth: 360,
@@ -334,46 +502,35 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     elevation: 10,
   },
-
   title: {
     fontSize: 28,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 8,
   },
-
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 26,
-  },
-
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 10,
-    marginTop: 4,
-  },
-
-  typesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 18,
-  },
-
-  typeButton: {
+  subtitle: { fontSize: 14, textAlign: "center", marginBottom: 26 },
+  label: { fontSize: 13, fontWeight: "700", marginBottom: 10, marginTop: 4 },
+  dropdownButton: {
+    height: 50,
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    marginBottom: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-
-  typeText: {
-    fontSize: 13,
-    fontWeight: "700",
+  dropdownText: { fontSize: 14, fontWeight: "700" },
+  locationModeRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  modeButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-
+  modeButtonText: { fontSize: 13, fontWeight: "800" },
   inputContainer: {
     height: 48,
     borderWidth: 1,
@@ -383,16 +540,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 18,
   },
-
-  inputIcon: {
-    marginRight: 8,
-  },
-
-  input: {
-    flex: 1,
-    fontSize: 14,
-  },
-
+  inputIcon: { marginRight: 8 },
+  input: { flex: 1, fontSize: 14 },
   textArea: {
     minHeight: 110,
     borderWidth: 1,
@@ -402,26 +551,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 22,
   },
-
   buttonShadow: {
     borderRadius: 14,
-    shadowColor: "#EF4444",
+    shadowColor: PRIMARY_GREEN,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 12,
     elevation: 6,
   },
-
+  disabledButton: { opacity: 0.7 },
   submitButton: {
     height: 52,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
-
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
+  submitText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
   },
+  modalCard: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: 20,
+    padding: 18,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 14,
+    textAlign: "center",
+  },
+  modalOption: {
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalOptionText: { fontSize: 14, fontWeight: "800" },
 });

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as polyline from "@mapbox/polyline";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,10 +12,9 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import * as polyline from "@mapbox/polyline";
 import { getToken, getUserId } from "../lib/storage";
 
-const BASE_URL = "http://192.168.0.21:8081";
+const BASE_URL = "http://10.221.127.114:8081";
 
 const DEV_MODE_PARIS = true;
 

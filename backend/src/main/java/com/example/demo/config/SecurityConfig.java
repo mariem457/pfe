@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
 import com.example.demo.repository.UserRepository;
+import org.springframework.http.HttpMethod;
 import com.example.demo.security.JwtAuthFilter;
 import com.example.demo.security.JwtService;
 import jakarta.servlet.DispatcherType;
@@ -85,12 +86,13 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
-                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
-
+                        .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE","DRIVER")
+                        .requestMatchers(HttpMethod.GET, "/api/drivers/*/profile").authenticated()
                         .requestMatchers("/api/drivers/*/my-bins").hasAnyRole("DRIVER", "ADMIN")
                         .requestMatchers("/api/drivers/me/truck").hasAnyRole("DRIVER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/drivers/bin-scan").hasRole("DRIVER")
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                       
 
                         .anyRequest().authenticated()
                 )

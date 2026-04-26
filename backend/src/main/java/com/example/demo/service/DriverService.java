@@ -8,10 +8,12 @@ import com.example.demo.entity.AccountStatus;
 import com.example.demo.entity.Driver;
 import com.example.demo.entity.Mission;
 import com.example.demo.entity.MissionBin;
+import com.example.demo.entity.Truck;
 import com.example.demo.entity.User;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.MissionBinRepository;
 import com.example.demo.repository.MissionRepository;
+import com.example.demo.repository.TruckRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,24 +32,26 @@ public class DriverService {
     private final PasswordEncoder passwordEncoder;
     private final MissionRepository missionRepository;
     private final MissionBinRepository missionBinRepository;
+    private final TruckRepository truckRepository;
 
     public DriverService(
             UserRepository userRepo,
             DriverRepository driverRepo,
             PasswordEncoder passwordEncoder,
             MissionRepository missionRepository,
-            MissionBinRepository missionBinRepository
+            MissionBinRepository missionBinRepository,
+            TruckRepository truckRepository
     ) {
         this.userRepo = userRepo;
         this.driverRepo = driverRepo;
         this.passwordEncoder = passwordEncoder;
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
+        this.truckRepository = truckRepository;
     }
 
     @Transactional
     public CreateDriverResponse createDriver(CreateDriverRequest req) {
-
         if (userRepo.findByUsername(req.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
@@ -156,13 +160,17 @@ public class DriverService {
 
         int kmDriven = 0;
 
+        String vehicleCode = driver.getVehicleCode();
+        Long assignedTruckId = findTruckIdFromVehicleCode(vehicleCode);
+
         return new DriverProfileResponse(
                 driver.getFullName(),
                 user != null ? user.getEmail() : null,
                 driver.getPhone(),
                 user != null ? user.getUsername() : null,
                 "DRV-" + driver.getId(),
-                driver.getVehicleCode(),
+                vehicleCode,
+                assignedTruckId,
                 "Monday - Friday, 8:00 AM - 4:00 PM",
                 binsCollected,
                 efficiency,
@@ -178,5 +186,18 @@ public class DriverService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         return getMyProfile(user.getId());
+    }
+
+    private Long findTruckIdFromVehicleCode(String vehicleCode) {
+        if (vehicleCode == null || vehicleCode.isBlank()) {
+            return null;
+        }
+
+        return truckRepository.findAll()
+                .stream()
+                .filter(t -> vehicleCode.equals(t.getTruckCode()))
+                .map(Truck::getId)
+                .findFirst()
+                .orElse(null);
     }
 }

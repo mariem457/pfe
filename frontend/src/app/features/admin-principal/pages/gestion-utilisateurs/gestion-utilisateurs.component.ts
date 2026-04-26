@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import {
   AccountStatus,
+  DriverRegistrationRequestResponse,
   UserAdminListResponse,
   UserService
 } from '../../../../services/user.service';
@@ -23,8 +24,11 @@ type FiltreUtilisateur =
 
 type ModalMode = 'details' | 'confirm';
 type ConfirmAction = 'validate' | 'reject' | 'disable' | 'delete' | null;
+
 interface Utilisateur {
   id: number;
+  requestId?: number;
+  source: 'USER' | 'REGISTRATION_REQUEST';
   username: string;
   initiales: string;
   nom: string;
@@ -36,6 +40,7 @@ interface Utilisateur {
   derniereConnexion: string;
   accountStatus?: AccountStatus;
   isEnabled: boolean;
+  emailVerified?: boolean;
 }
 
 @Component({
@@ -73,15 +78,37 @@ export class GestionUtilisateursComponent implements OnInit {
     this.chargerUtilisateurs();
   }
 
-  chargerUtilisateurs(): void {
+  chargerUtilisateurs(clearMessages: boolean = true): void {
     this.loading = true;
-    this.errorMessage = '';
-    this.successMessage = '';
+
+    if (clearMessages) {
+      this.errorMessage = '';
+      this.successMessage = '';
+    }
 
     this.userService.getUsers().subscribe({
       next: (users: UserAdminListResponse[]) => {
-        this.utilisateurs = users.map((user) => this.mapUserToUtilisateur(user));
-        this.loading = false;
+        const usersFromApi = users.map((user) => this.mapUserToUtilisateur(user));
+
+        this.userService.getPendingDriverRequests().subscribe({
+          next: (requests: DriverRegistrationRequestResponse[]) => {
+            const pendingRequests = requests.map((request) =>
+              this.mapDriverRequestToUtilisateur(request)
+            );
+
+            this.utilisateurs = [
+              ...pendingRequests,
+              ...usersFromApi
+            ];
+
+            this.loading = false;
+          },
+          error: (err: any) => {
+            console.error('Erreur chargement demandes chauffeurs', err);
+            this.utilisateurs = usersFromApi;
+            this.loading = false;
+          }
+        });
       },
       error: (err: any) => {
         console.error('Erreur chargement utilisateurs', err);
@@ -94,27 +121,55 @@ export class GestionUtilisateursComponent implements OnInit {
     });
   }
 
-private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
-  const username = user.username || 'utilisateur';
-  const fullName = user.fullName || username;
+  private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
+    const username = user.username || 'utilisateur';
+    const fullName = user.fullName || username;
 
-  return {
-    id: user.id,
-    username,
-    initiales: this.getInitiales(username),
-    nom: fullName,
-    email: user.email || '--',
-    telephone: user.phone && user.phone.trim() ? user.phone : 'Non renseigné',
-    role: this.mapRole(user.role),
-    statut: this.mapStatut(user),
-    dateInscription: this.formatDate(
-      user.createdAt || user.registrationDate || user.created_at
-    ),
-    derniereConnexion: this.formatDerniereConnexion(user.lastLoginAt),
-    accountStatus: user.accountStatus,
-    isEnabled: user.isEnabled
-  };
-}
+    return {
+      id: user.id,
+      source: 'USER',
+      requestId: undefined,
+      username,
+      initiales: this.getInitiales(username),
+      nom: fullName,
+      email: user.email || '--',
+      telephone: user.phone && user.phone.trim() ? user.phone : 'Non renseigné',
+      role: this.mapRole(user.role),
+      statut: this.mapStatut(user),
+      dateInscription: this.formatDate(
+        user.createdAt || user.registrationDate || user.created_at
+      ),
+      derniereConnexion: this.formatDerniereConnexion(user.lastLoginAt),
+      accountStatus: user.accountStatus,
+      isEnabled: user.isEnabled,
+      emailVerified: true
+    };
+  }
+
+  private mapDriverRequestToUtilisateur(
+    request: DriverRegistrationRequestResponse
+  ): Utilisateur {
+    const username = request.username || 'chauffeur';
+    const fullName = request.fullName || username;
+
+    return {
+      id: request.id,
+      requestId: request.id,
+      source: 'REGISTRATION_REQUEST',
+      username,
+      initiales: this.getInitiales(username),
+      nom: fullName,
+      email: request.email || '--',
+      telephone: request.phone || 'Non renseigné',
+      role: 'Chauffeur',
+      statut: 'En attente',
+      dateInscription: this.formatDate(request.createdAt),
+      derniereConnexion: 'Jamais connecté',
+      accountStatus: 'PENDING',
+      isEnabled: false,
+      emailVerified: request.emailVerified
+    };
+  }
 
   private mapRole(role: string): RoleUtilisateur {
     const r = (role || '').toUpperCase();
@@ -179,6 +234,7 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
 
     if (terme) {
       resultat = resultat.filter((u) =>
+        u.username.toLowerCase().includes(terme) ||
         u.nom.toLowerCase().includes(terme) ||
         u.email.toLowerCase().includes(terme) ||
         u.telephone.toLowerCase().includes(terme) ||
@@ -300,21 +356,40 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.userService.approveDriver(utilisateur.id).subscribe({
-      next: () => {
+    const request =
+      utilisateur.source === 'REGISTRATION_REQUEST' && utilisateur.requestId
+        ? this.userService.approveDriverRequest(utilisateur.requestId)
+        : this.userService.approveDriver(utilisateur.id);
+
+    request.subscribe({
+      next: (res: any) => {
         this.actionLoading = false;
         this.closeModal();
-        this.successMessage = 'Compte chauffeur validé avec succès.';
-        this.chargerUtilisateurs();
+
+        this.successMessage =
+          res?.message ||
+          `Le chauffeur ${utilisateur.nom} a été validé avec succès.`;
+
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
       },
       error: (err: any) => {
         console.error('Erreur validation chauffeur', err);
         this.actionLoading = false;
-        this.errorMessage = this.getBackendErrorMessage(
-          err,
-          'Impossible de valider ce chauffeur.'
-        );
+
+        this.errorMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          `Impossible de valider le chauffeur ${utilisateur.nom}.`;
+
         this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
       }
     });
   }
@@ -324,21 +399,40 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.userService.rejectDriver(utilisateur.id).subscribe({
-      next: () => {
+    const request =
+      utilisateur.source === 'REGISTRATION_REQUEST' && utilisateur.requestId
+        ? this.userService.rejectDriverRequest(utilisateur.requestId)
+        : this.userService.rejectDriver(utilisateur.id);
+
+    request.subscribe({
+      next: (res: any) => {
         this.actionLoading = false;
         this.closeModal();
-        this.successMessage = 'Compte chauffeur refusé avec succès.';
-        this.chargerUtilisateurs();
+
+        this.successMessage =
+          res?.message ||
+          `Le chauffeur ${utilisateur.nom} a été refusé avec succès.`;
+
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
       },
       error: (err: any) => {
         console.error('Erreur refus chauffeur', err);
         this.actionLoading = false;
-        this.errorMessage = this.getBackendErrorMessage(
-          err,
-          'Impossible de refuser ce chauffeur.'
-        );
+
+        this.errorMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          `Impossible de refuser le chauffeur ${utilisateur.nom}.`;
+
         this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
       }
     });
   }
@@ -352,17 +446,25 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
       next: () => {
         this.actionLoading = false;
         this.closeModal();
-        this.successMessage = 'Compte chauffeur désactivé avec succès.';
-        this.chargerUtilisateurs();
+        this.successMessage = `Le chauffeur ${utilisateur.nom} a été désactivé avec succès.`;
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
       },
       error: (err: any) => {
         console.error('Erreur désactivation chauffeur', err);
         this.actionLoading = false;
         this.errorMessage = this.getBackendErrorMessage(
           err,
-          'Impossible de désactiver ce chauffeur.'
+          `Impossible de désactiver le chauffeur ${utilisateur.nom}.`
         );
         this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
       }
     });
   }
@@ -376,17 +478,25 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
       next: () => {
         this.actionLoading = false;
         this.closeModal();
-        this.successMessage = 'Compte chauffeur supprimé avec succès.';
-        this.chargerUtilisateurs();
+        this.successMessage = `Le chauffeur ${utilisateur.nom} a été supprimé avec succès.`;
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
       },
       error: (err: any) => {
         console.error('Erreur suppression chauffeur', err);
         this.actionLoading = false;
         this.errorMessage = this.getBackendErrorMessage(
           err,
-          'Impossible de supprimer ce chauffeur.'
+          `Impossible de supprimer le chauffeur ${utilisateur.nom}.`
         );
         this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
       }
     });
   }
@@ -396,11 +506,15 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
   }
 
   peutDesactiverOuSupprimer(utilisateur: Utilisateur): boolean {
-    return utilisateur.role === 'Chauffeur' && utilisateur.statut === 'Validé';
+    return utilisateur.source === 'USER'
+      && utilisateur.role === 'Chauffeur'
+      && utilisateur.statut === 'Validé';
   }
 
   peutSupprimerRefuse(utilisateur: Utilisateur): boolean {
-    return utilisateur.role === 'Chauffeur' && utilisateur.statut === 'Refusé';
+    return utilisateur.source === 'USER'
+      && utilisateur.role === 'Chauffeur'
+      && utilisateur.statut === 'Refusé';
   }
 
   obtenirClasseRole(role: RoleUtilisateur): string {
@@ -455,8 +569,8 @@ private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
     });
   }
 
-  trackByUtilisateurId(index: number, utilisateur: Utilisateur): number {
-    return utilisateur.id;
+  trackByUtilisateurId(index: number, utilisateur: Utilisateur): string {
+    return `${utilisateur.source}-${utilisateur.id}`;
   }
 
   private getBackendErrorMessage(err: any, fallback: string): string {

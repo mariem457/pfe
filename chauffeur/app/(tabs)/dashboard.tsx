@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
-import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -16,7 +15,8 @@ import {
   useColorScheme,
 } from "react-native";
 import MapView, { Geojson, Marker } from "react-native-maps";
-import { getToken, getUserId } from "../../lib/storage";
+import { getToken, getUserId, saveTruckId } from "../../lib/storage";
+import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
 
 type DriverBin = {
   missionBinId?: number;
@@ -35,7 +35,7 @@ const paris15: any = {
   features: [],
 };
 
-const BASE_URL = "http://192.168.0.21:8081";
+const BASE_URL = "http://10.221.127.114:8081";
 
 export default function Dashboard() {
   const colorScheme = useColorScheme();
@@ -60,66 +60,57 @@ export default function Dashboard() {
     "Autre",
   ];
 
-  async function sendLocationToBackend() {
-    try {
-      const token = await getToken();
-      if (!token) return;
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-
-      const location = await Location.getCurrentPositionAsync({});
-
-      await fetch(`${BASE_URL}/api/driver-location`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          speed: location.coords.speed,
-          heading: location.coords.heading,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-    } catch (error) {
-      console.log("Erreur location:", error);
-    }
-  }
-
   const loadDashboardHeader = useCallback(async () => {
-    try {
-      const token = await getToken();
+  try {
+    const token = await getToken();
+    const userId = await getUserId();
 
-      if (!token) {
-        setDriverName("Driver");
-        setTruckId("Not assigned");
-        return;
-      }
+    console.log("AUTH USER ID:", userId);
+    console.log("TOKEN EXISTS:", !!token);
 
-      const response = await fetch(`${BASE_URL}/api/settings/profile`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const text = await response.text();
-
-      if (!response.ok) throw new Error(text);
-
-      const data = text ? JSON.parse(text) : {};
-
-      setDriverName(data.fullName || "Driver");
-      setTruckId(data.assignedTruck || "Not assigned");
-    } catch (error) {
-      console.log("Erreur header:", error);
+    if (!token || !userId) {
       setDriverName("Driver");
       setTruckId("Not assigned");
+      return;
     }
-  }, []);
+
+    const response = await fetch(`${BASE_URL}/api/drivers/${userId}/profile`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await response.text();
+
+    console.log("PROFILE STATUS:", response.status);
+    console.log("PROFILE RAW RESPONSE:", text);
+
+    if (!response.ok) {
+      throw new Error(text);
+    }
+
+    const data = text ? JSON.parse(text) : {};
+
+    console.log("PROFILE DATA:", data);
+    console.log("ASSIGNED TRUCK:", data.assignedTruck);
+    console.log("ASSIGNED TRUCK ID:", data.assignedTruckId);
+
+    setDriverName(data.fullName || "Driver");
+    setTruckId(data.assignedTruck || "Not assigned");
+
+    if (data.assignedTruckId) {
+      await saveTruckId(data.assignedTruckId);
+      console.log("TRUCK ID SAVED:", data.assignedTruckId);
+    } else {
+      console.log("NO assignedTruckId FOUND IN PROFILE");
+    }
+  } catch (error) {
+    console.log("Erreur header:", error);
+    setDriverName("Driver");
+    setTruckId("Not assigned");
+  }
+}, []);
 
   const fetchMyBins = useCallback(async () => {
     try {
@@ -158,21 +149,26 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    sendLocationToBackend();
+    sendTruckLocation().catch(console.log);
 
     const interval = setInterval(() => {
-      sendLocationToBackend();
+      sendTruckLocation().catch(console.log);
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMyBins();
-      loadDashboardHeader();
-    }, [fetchMyBins, loadDashboardHeader])
-  );
+useFocusEffect(
+  useCallback(() => {
+    fetchMyBins();
+
+    loadDashboardHeader().then(() => {
+      getMyTruckIncidents()
+        .then((data) => console.log("MY TRUCK INCIDENTS:", data))
+        .catch((err) => console.log("INCIDENTS ERROR:", err));
+    });
+  }, [fetchMyBins, loadDashboardHeader])
+);
 
   const colors = isDark
     ? {
@@ -252,17 +248,6 @@ export default function Dashboard() {
       };
 
       console.log("BIN INCIDENT:", payload);
-
-      /*
-      await fetch(`${BASE_URL}/api/incidents/bin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      */
 
       Alert.alert("Succès", "Panne déclarée avec succès.");
       setIncidentModalVisible(false);
@@ -628,15 +613,11 @@ export default function Dashboard() {
                       <Text style={[styles.binMetaGreen, { color: colors.orangeText }]}>
                         Planned
                       </Text>
-
-                     
                     </View>
                   </View>
                 </View>
 
                 <View style={styles.binActions}>
-                  
-
                   <TouchableOpacity
                     style={styles.collectButton}
                     activeOpacity={0.85}
@@ -652,6 +633,7 @@ export default function Dashboard() {
                   >
                     <Text style={styles.collectButtonText}>Collecter</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     style={styles.reportBinButton}
                     activeOpacity={0.85}

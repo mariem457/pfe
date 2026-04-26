@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.AuthResponse;
 import com.example.demo.dto.DriverRegisterRequest;
+import com.example.demo.dto.DriverRegistrationRequestResponse;
 import com.example.demo.dto.ForgotPasswordRequest;
 import com.example.demo.dto.ResetPasswordByCodeRequest;
 import com.example.demo.dto.ResetPasswordRequest;
@@ -96,8 +97,33 @@ public class AuthBusinessService {
         emailService.sendVerificationEmail(email, code);
     }
 
-    public List<DriverRegistrationRequestEntity> getPendingDriverRequests() {
-        return driverRegistrationRequestRepository.findByStatus(AccountStatus.PENDING);
+    public List<DriverRegistrationRequestResponse> getPendingDriverRequests() {
+        return driverRegistrationRequestRepository.findByStatus(AccountStatus.PENDING)
+                .stream()
+                .filter(request -> Boolean.TRUE.equals(request.getEmailVerified()))
+                .filter(request -> request.getFullName() != null && !request.getFullName().isBlank())
+                .filter(request -> request.getUsername() != null && !request.getUsername().isBlank())
+                .filter(request -> request.getEmail() != null && !request.getEmail().isBlank())
+                .filter(request -> request.getPhone() != null && !request.getPhone().isBlank())
+                .map(this::toDriverRegistrationRequestResponse)
+                .toList();
+    }
+
+    private DriverRegistrationRequestResponse toDriverRegistrationRequestResponse(
+            DriverRegistrationRequestEntity request
+    ) {
+        DriverRegistrationRequestResponse response = new DriverRegistrationRequestResponse();
+
+        response.id = request.getId();
+        response.fullName = request.getFullName();
+        response.username = request.getUsername();
+        response.email = request.getEmail();
+        response.phone = request.getPhone();
+        response.status = request.getStatus() != null ? request.getStatus().name() : null;
+        response.createdAt = request.getCreatedAt();
+        response.emailVerified = request.getEmailVerified();
+
+        return response;
     }
 
     public void approveDriverRequest(Long requestId) {
@@ -139,10 +165,6 @@ public class AuthBusinessService {
         driverRegistrationRequestRepository.save(request);
 
         emailService.sendDriverApprovalEmail(request.getEmail(), request.getFullName());
-
-        if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            smsService.sendAccountApproved(request.getPhone());
-        }
     }
 
     public void rejectDriverRequest(Long requestId) {
@@ -157,10 +179,6 @@ public class AuthBusinessService {
         driverRegistrationRequestRepository.save(request);
 
         emailService.sendDriverRejectionEmail(request.getEmail(), request.getFullName());
-
-        if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            smsService.sendAccountRejected(request.getPhone());
-        }
     }
 
     public void approveDriver(Long userId) {
@@ -178,9 +196,7 @@ public class AuthBusinessService {
         Driver driver = driverRepository.findByUser_Id(user.getId())
                 .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
 
-        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
-            smsService.sendAccountApproved(driver.getPhone());
-        }
+        emailService.sendDriverApprovalEmail(user.getEmail(), driver.getFullName());
     }
 
     public void rejectDriver(Long userId) {
@@ -198,9 +214,7 @@ public class AuthBusinessService {
         Driver driver = driverRepository.findByUser_Id(user.getId())
                 .orElseThrow(() -> new RuntimeException("Chauffeur introuvable."));
 
-        if (driver.getPhone() != null && !driver.getPhone().isBlank()) {
-            smsService.sendAccountRejected(driver.getPhone());
-        }
+        emailService.sendDriverRejectionEmail(user.getEmail(), driver.getFullName());
     }
 
     public RefreshToken createRefreshToken(User user, boolean rememberMe) {

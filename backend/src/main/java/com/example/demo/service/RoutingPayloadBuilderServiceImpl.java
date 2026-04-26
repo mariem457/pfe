@@ -400,6 +400,20 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             dto.setLat(lat);
             dto.setLng(lng);
             dto.setWasteType(extractBinWasteType(binEntity));
+            Double fillLevel = extractDouble(binEntity, "getFillLevel");
+            if (fillLevel == null) {
+                fillLevel = extractDouble(binEntity, "getCurrentFillLevel");
+            }
+            if (fillLevel == null) {
+                fillLevel = 80.0;
+            }
+            dto.setFillLevel(fillLevel);
+
+            Double predictedPriority = extractDouble(binEntity, "getPredictedPriority");
+            if (predictedPriority == null) {
+                predictedPriority = 0.90;
+            }
+            dto.setPredictedPriority(predictedPriority);
             enrichBinSpatialMetadata(dto, binEntity);
 
             enrichRoutingBin(dto);
@@ -830,7 +844,6 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
 
         return dto;
     }
-
     private List<RoutingTruckDto> buildTrucks(List<Truck> trucks, RoutingDepotDto depot) {
         List<RoutingTruckDto> result = new ArrayList<>();
 
@@ -879,19 +892,6 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 continue;
             }
 
-            double safeAutonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
-            boolean fuelCritical = fuelManagementService.isFuelCritical(truck);
-            boolean refuelRecommended = fuelManagementService.isRefuelRecommended(truck);
-
-            System.out.println(
-                    "FUEL DEBUG => truckId=" + truck.getId()
-                            + ", fuelLiters=" + truck.getFuelLevelLiters()
-                            + ", consumptionPerKm=" + truck.getFuelConsumptionPerKm()
-                            + ", safeAutonomyKm=" + safeAutonomyKm
-                            + ", critical=" + fuelCritical
-                            + ", refuelRecommended=" + refuelRecommended
-            );
-
             result.add(dto);
 
             FuelStation station = fuelStationService.findNearestCompatibleStation(truck);
@@ -907,6 +907,17 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
         }
 
         for (RoutingTruckDto t : result) {
+            Double fuelLiters = t.getFuelLevelLiters();
+            Double consumptionPerKm = t.getFuelConsumptionPerKm();
+
+            double safeAutonomyKm = 0.0;
+            if (fuelLiters != null && consumptionPerKm != null && consumptionPerKm > 0 && fuelLiters > 5.0) {
+                safeAutonomyKm = Math.round((((fuelLiters - 5.0) / consumptionPerKm) * 0.8) * 100.0) / 100.0;
+            }
+
+            boolean fuelCritical = fuelLiters == null || fuelLiters < 10.0;
+            boolean refuelRecommended = safeAutonomyKm <= fuelManagementService.getRefuelAlertAutonomyThresholdKm();
+
             System.out.println(
                     "TRUCK DEBUG => id=" + t.getId()
                             + ", lat=" + t.getLat()
@@ -915,6 +926,11 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                             + ", supportedWasteTypes=" + t.getSupportedWasteTypes()
                             + ", remainingCapacityKg=" + t.getRemainingCapacityKg()
                             + ", zoneId=" + t.getZoneId()
+                            + ", fuelLiters=" + fuelLiters
+                            + ", consumptionPerKm=" + consumptionPerKm
+                            + ", safeAutonomyKm=" + safeAutonomyKm
+                            + ", fuelCritical=" + fuelCritical
+                            + ", refuelRecommended=" + refuelRecommended
             );
         }
 

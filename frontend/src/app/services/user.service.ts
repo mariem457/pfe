@@ -15,10 +15,20 @@ export interface UserAdminListResponse {
   isEnabled: boolean;
   accountStatus?: AccountStatus;
   lastLoginAt?: string;
-
   createdAt?: string;
   registrationDate?: string;
   created_at?: string;
+}
+
+export interface DriverRegistrationRequestResponse {
+  id: number;
+  fullName: string;
+  username: string;
+  email: string;
+  phone: string;
+  status: AccountStatus;
+  createdAt?: string;
+  emailVerified?: boolean;
 }
 
 export interface UserStatsResponse {
@@ -69,6 +79,24 @@ export class UserService {
 
   getStats(): Observable<UserStatsResponse> {
     return this.http.get<UserStatsResponse>(`${this.baseUrl}/stats`);
+  }
+
+  getPendingDriverRequests(): Observable<DriverRegistrationRequestResponse[]> {
+    return this.http.get<DriverRegistrationRequestResponse[]>(
+      `${this.authUrl}/pending-driver-requests`
+    );
+  }
+
+  approveDriverRequest(requestId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/approve-driver-request`, {
+      requestId
+    });
+  }
+
+  rejectDriverRequest(requestId: number): Observable<any> {
+    return this.http.post<any>(`${this.authUrl}/reject-driver-request`, {
+      requestId
+    });
   }
 
   createDriver(payload: CreateDriverRequest): Observable<CreateDriverResponse> {

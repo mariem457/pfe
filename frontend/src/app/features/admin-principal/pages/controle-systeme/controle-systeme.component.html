@@ -3,12 +3,7 @@
   <div class="page-header">
     <div>
       <h1>Contrôle du système</h1>
-      <p>Gérez et surveillez l'infrastructure système</p>
-    </div>
-
-    <div class="header-actions">
-      <button class="btn btn-secondaire">Logs système</button>
-      <button class="btn btn-danger">Redémarrer</button>
+      <p>Données système récupérées depuis le backend.</p>
     </div>
   </div>
 
@@ -20,13 +15,17 @@
     {{ errorMessage }}
   </div>
 
-  <div class="stats">
+  <div class="stats" *ngIf="!loading && !errorMessage">
     <div class="stat-card">
       <div class="stat-texte">
         <p>Utilisation du processeur</p>
         <h2>{{ utilisationProcesseur }}%</h2>
       </div>
-      <div class="stat-icone bleu">⚙</div>
+
+      <div class="stat-icone bleu">
+        <span class="material-icons">settings</span>
+      </div>
+
       <div class="barre">
         <div class="barre-valeur" [style.width.%]="utilisationProcesseur"></div>
       </div>
@@ -37,7 +36,11 @@
         <p>Mémoire</p>
         <h2>{{ memoireUtilisee }} / {{ memoireTotale }} Go</h2>
       </div>
-      <div class="stat-icone violet">◫</div>
+
+      <div class="stat-icone violet">
+        <span class="material-icons">memory</span>
+      </div>
+
       <div class="barre">
         <div class="barre-valeur" [style.width.%]="classeMemoire"></div>
       </div>
@@ -48,7 +51,11 @@
         <p>Services actifs</p>
         <h2>{{ servicesActifs }} / {{ servicesTotal }}</h2>
       </div>
-      <div class="stat-icone vert">▤</div>
+
+      <div class="stat-icone vert">
+        <span class="material-icons">dns</span>
+      </div>
+
       <div class="barre">
         <div class="barre-valeur" [style.width.%]="classeServiceActif"></div>
       </div>
@@ -59,20 +66,28 @@
         <p>Temps de fonctionnement</p>
         <h2>{{ tempsFonctionnement }}</h2>
       </div>
-      <div class="stat-icone orange">◔</div>
+
+      <div class="stat-icone orange">
+        <span class="material-icons">schedule</span>
+      </div>
+
       <div class="barre">
         <div class="barre-valeur" style="width: 100%;"></div>
       </div>
     </div>
   </div>
 
-  <div class="contenu-principal">
+  <div class="contenu-principal" *ngIf="!loading && !errorMessage">
     <div class="colonne-gauche">
 
       <div class="bloc">
         <div class="bloc-entete">
           <h2>Services système</h2>
-          <p>Statut et contrôle des composants surveillés</p>
+          <p>Statut des composants récupérés depuis le backend.</p>
+        </div>
+
+        <div *ngIf="services.length === 0" class="empty-state">
+          Aucun service trouvé.
         </div>
 
         <div class="service-card" *ngFor="let service of services">
@@ -80,20 +95,13 @@
             <div class="service-infos">
               <div class="service-titre">
                 <h3>{{ service.nom }}</h3>
+
                 <span class="badge-statut" [ngClass]="obtenirClasseStatut(service.statut)">
                   {{ service.statut }}
                 </span>
               </div>
-              <p>{{ service.description }}</p>
-            </div>
 
-            <div class="service-actions">
-              <button class="btn-action" [class.desactive]="service.statut === 'En cours'">
-                Démarrer
-              </button>
-              <button class="btn-action" [class.desactive]="service.statut === 'Arrêté'">
-                Redémarrer
-              </button>
+              <p>{{ service.description }}</p>
             </div>
           </div>
 
@@ -119,7 +127,7 @@
       <div class="bloc">
         <div class="bloc-entete">
           <h2>État de la base de données</h2>
-          <p>Statistiques et performance de la base de données PostgreSQL</p>
+          <p>Statistiques PostgreSQL récupérées depuis le backend.</p>
         </div>
 
         <div class="grille-bdd">
@@ -151,8 +159,8 @@
 
       <div class="bloc">
         <div class="bloc-entete">
-          <h2>Contrôles système</h2>
-          <p>Configuration et paramètres</p>
+          <h2>Paramètres système</h2>
+          <p>Paramètres lus et modifiés via le backend.</p>
         </div>
 
         <div class="controle-ligne">
@@ -160,8 +168,12 @@
             <h4>Mode maintenance</h4>
             <p>Désactiver l'accès externe</p>
           </div>
+
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="modeMaintenance" (change)="onMaintenanceModeChange()">
+            <input
+              type="checkbox"
+              [(ngModel)]="modeMaintenance"
+              (change)="onMaintenanceModeChange()" />
             <span class="slider"></span>
           </label>
         </div>
@@ -171,8 +183,12 @@
             <h4>Sauvegarde automatique</h4>
             <p>Sauvegarde quotidienne à 3h</p>
           </div>
+
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="sauvegardeAutomatique" (change)="onAutomaticBackupChange()">
+            <input
+              type="checkbox"
+              [(ngModel)]="sauvegardeAutomatique"
+              (change)="onAutomaticBackupChange()" />
             <span class="slider"></span>
           </label>
         </div>
@@ -182,8 +198,12 @@
             <h4>Surveillance en temps réel</h4>
             <p>Surveillance continue</p>
           </div>
+
           <label class="switch">
-            <input type="checkbox" [(ngModel)]="surveillanceTempsReel" (change)="onRealtimeMonitoringChange()">
+            <input
+              type="checkbox"
+              [(ngModel)]="surveillanceTempsReel"
+              (change)="onRealtimeMonitoringChange()" />
             <span class="slider"></span>
           </label>
         </div>
@@ -192,11 +212,17 @@
       <div class="bloc">
         <div class="bloc-entete">
           <h2>Notifications système</h2>
-          <p>Événements récents et alertes</p>
+          <p>Événements récents récupérés depuis le backend.</p>
+        </div>
+
+        <div *ngIf="notifications.length === 0" class="empty-state">
+          Aucune notification trouvée.
         </div>
 
         <div class="notification-item" *ngFor="let notification of notifications">
-          <div class="notification-icone" [ngClass]="obtenirClasseNotification(notification.type)">
+          <div
+            class="notification-icone"
+            [ngClass]="obtenirClasseNotification(notification.type)">
             ●
           </div>
 

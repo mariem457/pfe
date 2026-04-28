@@ -20,8 +20,8 @@ export type TruckLocationMsg = {
 };
 
 export type ConnectOpts = {
-  wsUrl: string;   // مثال: ws://localhost:8081/ws
-  topic: string;   // مثال: /topic/truck-locations
+  wsUrl: string;
+  topic: string;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -31,26 +31,33 @@ export class RealtimeService {
   private trucksSubject = new BehaviorSubject<Map<string, TruckLocationMsg>>(new Map());
   trucks$ = this.trucksSubject.asObservable();
 
-  connect(opts: ConnectOpts) {
+  connect(opts: ConnectOpts): void {
     this.disconnect();
 
     this.client = new Client({
       brokerURL: opts.wsUrl,
-      reconnectDelay: 2000,
+      reconnectDelay: 3000,
       heartbeatIncoming: 0,
       heartbeatOutgoing: 20000,
-      debug: (msg) => console.log('[STOMP]', msg)
+      debug: (msg) => console.log('[STOMP]', msg),
     });
 
     this.client.onConnect = () => {
+      console.log('[STOMP] connected');
+      console.log('[STOMP] subscribing to', opts.topic);
+
       this.client?.subscribe(opts.topic, (msg: IMessage) => {
+        console.log('[WS RAW]', msg.body);
+
         try {
           const payload = JSON.parse(msg.body) as TruckLocationMsg;
-
           const id = String(payload.driverId ?? payload.truckCode ?? 'unknown');
+
           const current = new Map(this.trucksSubject.value);
           current.set(id, payload);
           this.trucksSubject.next(current);
+
+          console.log('[TRUCK LIVE]', id, payload);
         } catch (e) {
           console.error('Invalid WS payload:', e, msg.body);
         }
@@ -65,11 +72,18 @@ export class RealtimeService {
       console.error('WebSocket error:', e);
     };
 
+    this.client.onWebSocketClose = (e) => {
+      console.warn('WebSocket closed:', e);
+    };
+
     this.client.activate();
   }
 
-  disconnect() {
-    try { this.client?.deactivate(); } catch {}
+  disconnect(): void {
+    try {
+      this.client?.deactivate();
+    } catch {}
+
     this.client = undefined;
   }
 }

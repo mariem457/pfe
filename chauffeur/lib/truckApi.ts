@@ -38,7 +38,36 @@ export async function sendTruckLocation() {
   }
 }
 
+export async function getCurrentMissionId(): Promise<number | null> {
+  const token = await getToken();
+  const userId = await getUserId();
+
+  if (!token || !userId) return null;
+
+  const response = await fetch(`${BASE_URL}/api/drivers/${userId}/my-bins`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    console.log("CURRENT MISSION ERROR:", await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
+  return data[0]?.missionId ?? null;
+}
+
 export async function declareTruckIncident(params: {
+  missionId?: number | null;
   incidentType: string;
   description: string;
   lat: number | null;
@@ -60,7 +89,7 @@ export async function declareTruckIncident(params: {
     },
     body: JSON.stringify({
       truckId,
-      missionId: null,
+      missionId: params.missionId ?? null,
       incidentType: params.incidentType,
       severity: params.incidentType === "BREAKDOWN" ? "CRITICAL" : "HIGH",
       description: params.description,
@@ -77,9 +106,8 @@ export async function declareTruckIncident(params: {
   }
 
   return response.json();
-  
-  
 }
+
 export async function getMyTruckIncidents() {
   const token = await getToken();
   const truckId = await getTruckId();

@@ -125,6 +125,27 @@ export interface FleetMapSelectedBinDetails extends FleetMapSelectedBinExplainab
   visitOrder?: number | null;
   source?: 'bin' | 'mission' | 'planning' | 'dropped' | 'focus';
 }
+export interface FleetMapInitialTruck {
+  id: string;
+  truckCode: string;
+  lat: number;
+  lng: number;
+  label?: string;
+  progress?: number;
+  fuelLevel?: number;
+  etaMinutes?: number;
+  status?: string;
+  speedKmh?: number;
+  headingDeg?: number;
+}
+export interface FleetMapTruckRoute {
+  truckId: string;
+  truckCode?: string;
+  missionId: number;
+  routeCoordinates: FleetMapRouteCoordinate[];
+  collectionRouteCoordinates?: FleetMapRouteCoordinate[];
+  transferRouteCoordinates?: FleetMapRouteCoordinate[];
+}
 
 @Component({
   selector: 'app-fleet-map',
@@ -132,6 +153,7 @@ export interface FleetMapSelectedBinDetails extends FleetMapSelectedBinExplainab
   imports: [CommonModule, FormsModule],
   templateUrl: './fleet-map.component.html',
   styleUrls: ['./fleet-map.component.css']
+  
 })
 export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() showTrucks = true;
@@ -139,10 +161,11 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() showReports = false;
   @Input() allowAddBins = false;
   @Input() showHeader = true;
+  @Input() minimalMode = false;
   @Input() title = 'Carte de la flotte en direct';
   @Input() subtitle = 'Localisation et itinéraires des camions en temps réel';
   @Input() reports: FleetMapReportItem[] = [];
-
+ 
   @Input() missionBins: FleetMapMissionBinItem[] = [];
   @Input() missionRouteCoordinates: FleetMapRouteCoordinate[] = [];
   @Input() collectionRouteCoordinates: FleetMapRouteCoordinate[] = [];
@@ -155,7 +178,9 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() planningMode = false;
   @Input() planningMissions: FleetMapPlanningMission[] = [];
   @Input() droppedBins: FleetMapDroppedBin[] = [];
-
+ 
+  @Input() initialTrucks: FleetMapInitialTruck[] = [];
+  @Input() truckRoutes: FleetMapTruckRoute[] = [];
   private map?: L.Map;
   private trucksSub?: Subscription;
   private binsSub?: Subscription;
@@ -165,10 +190,20 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private temporaryFocusMarker?: L.Marker;
 
   private truckMarkers = new Map<string, L.Marker>();
+  private truckTrails = new Map<string, L.Polyline>();
+  private truckTrailPoints = new Map<string, L.LatLngExpression[]>();
+  private truckLastPositions = new Map<string, LatLng>();
+  private truckAnimationFrames = new Map<string, number>();
+  private followedTruckId: string | null = null;
+  private autoFollowEnabled = true;
+  private truckRoutePolylines = new Map<string, L.Polyline>();
   private binMarkers = new Map<number | string, L.Layer>();
   private reportMarkers = new Map<number, L.Marker>();
 
   private missionMarkers = new Map<number, L.Layer>();
+  private truckCompletedRoutePolylines = new Map<string, L.Polyline>();
+  private truckRemainingRoutePolylines = new Map<string, L.Polyline>();
+  private truckRouteCoords = new Map<string, FleetMapRouteCoordinate[]>();
   private missionPolyline?: L.Polyline;
   private missionRealRoutePolyline?: L.Polyline;
   private missionCollectionPolyline?: L.Polyline;
@@ -236,6 +271,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           }
 
           if (this.showTrucks) {
+            this.renderInitialTrucks();
             this.startRealtime();
           }
 
@@ -245,6 +281,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           }
 
           this.renderMissionBins();
+          this.renderTruckRoutes();
 
           setTimeout(() => {
             this.applyPendingFocus();
@@ -260,6 +297,12 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['initialTrucks'] && this.map) {
+  this.renderInitialTrucks();
+    }
+    if (changes['truckRoutes'] && this.map) {
+  this.renderTruckRoutes();
+}
     if (changes['reports'] && this.map && this.showReports) {
       this.loadReportsOnMap();
 
@@ -1582,31 +1625,68 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     if (priority === 'Medium') return 'Moyenne';
     return 'Faible';
   }
+  private renderInitialTrucks(): void {
+  if (!this.map || !this.showTrucks) return;
 
-  private startRealtime(): void {
-    this.realtime.connect({
-      wsUrl: 'ws://localhost:8081/ws',
-      topic: '/topic/truck-locations'
-    });
+  const boundsPoints: L.LatLngExpression[] = [];
 
-    this.trucksSub = this.realtime.trucks$.subscribe((trucks) => {
-      if (!this.map || !this.showTrucks) return;
+  (this.initialTrucks || []).forEach((truck) => {
+    if (truck.lat == null || truck.lng == null) return;
 
-      const keep = new Set<string>();
+    this.upsertTruckMarker(
+      truck.id,
+      {
+        lat: Number(truck.lat),
+        lng: Number(truck.lng),
+      },
+      truck
+    );
 
-      for (const [id, payload] of trucks.entries()) {
-        const pos = this.extractLatLng(payload);
-        if (!pos) continue;
-        if (!this.isInsideParis(pos.lat, pos.lng)) continue;
+    boundsPoints.push([Number(truck.lat), Number(truck.lng)]);
+  });
 
-        keep.add(id);
-        this.upsertTruckMarker(id, pos);
+  if (boundsPoints.length) {
+    const bounds = L.latLngBounds(boundsPoints);
+    this.map.fitBounds(bounds.pad(0.15), { padding: [30, 30] });
+  }
+}
+private startRealtime(): void {
+  this.realtime.connect({
+    wsUrl: 'ws://localhost:8081/ws',
+    topic: '/topic/truck-locations'
+  });
+
+  this.trucksSub = this.realtime.trucks$.subscribe((trucks) => {
+    if (!this.map || !this.showTrucks) return;
+
+    for (const [id, payload] of trucks.entries()) {
+      const pos = this.extractLatLng(payload);
+      if (!pos) continue;
+
+      const existingInitial = (this.initialTrucks || []).find(t => t.id === id);
+
+      // Auto-follow أول camion يوصل live
+      if (!this.followedTruckId) {
+        this.followedTruckId = id;
+        this.autoFollowEnabled = true;
       }
 
-      this.removeOldTrucks(keep);
-    });
-  }
-
+      this.upsertTruckMarker(id, pos, {
+        id,
+        truckCode: existingInitial?.truckCode || payload.truckCode || `TRUCK-${id}`,
+        label: existingInitial?.label,
+        lat: pos.lat,
+        lng: pos.lng,
+        progress: existingInitial?.progress,
+        fuelLevel: existingInitial?.fuelLevel,
+        etaMinutes: existingInitial?.etaMinutes,
+        status: existingInitial?.status || 'ON_MISSION',
+        speedKmh: Number(payload.speedKmh ?? payload.speed ?? 0),
+        headingDeg: Number(payload.headingDeg ?? payload.heading ?? 0),
+      });
+    }
+  });
+}
   private extractLatLng(payload: TruckLocationMsg): LatLng | null {
     const lat = (payload as any).lat ?? (payload as any).latitude;
     const lng = (payload as any).lng ?? (payload as any).longitude;
@@ -1636,38 +1716,302 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
     return inside;
   }
+private getTruckColor(idOrCode: string): string {
+  const colors = ['#2f80ed', '#10b981', '#8b5cf6', '#f97316', '#ef4444', '#4b5563'];
+  let hash = 0;
 
-  private makeTruckIcon(): L.DivIcon {
-    return L.divIcon({
-      className: 'truck-icon',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      html: `
-        <img
-          src="${this.truckIconUrl}"
-          style="width:40px;height:40px"
-        />
-      `
+  for (let i = 0; i < idOrCode.length; i++) {
+    hash = idOrCode.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return colors[Math.abs(hash) % colors.length];
+}
+
+private makeTruckIcon(truck?: FleetMapInitialTruck, headingDeg = 0, speedKmh = 0): L.DivIcon {
+  const code = truck?.truckCode || truck?.label || truck?.id || 'TRUCK';
+  const status = truck?.status || 'ON_MISSION';
+  const progress = truck?.progress ?? 0;
+  const color = this.getTruckColor(code);
+
+  return L.divIcon({
+    className: 'truck-modern-marker',
+    iconSize: [148, 58],
+    iconAnchor: [26, 29],
+    popupAnchor: [0, -26],
+    html: `
+      <div class="truck-modern-wrap">
+        <div class="truck-modern-pin" style="background:${color};">
+          <span class="material-icons truck-heading">
+            local_shipping
+          </span>
+        </div>
+
+        <div class="truck-modern-label">
+          <strong>${code}</strong>
+          <span>En mission</span>
+          <small>${progress}% · ${Math.round(speedKmh)} km/h</small>
+        </div>
+      </div>
+    `
+  });
+}
+private upsertTruckMarker(id: string, pos: LatLng, truck?: FleetMapInitialTruck): void {
+  if (!this.map || !this.showTrucks) return;
+
+  const speedKmh = truck?.speedKmh ?? 0;
+  const headingDeg = truck?.headingDeg ?? 0;
+
+  const existing = this.truckMarkers.get(id);
+
+  let finalPos = pos;
+
+  const route = this.truckRouteCoords.get(id);
+  if (route && route.length > 1) {
+    finalPos = this.snapToRoute(route, pos);
+  }
+
+  this.updateTruckRouteProgress(id, finalPos);
+
+  if (!existing) {
+    const marker = L.marker([finalPos.lat, finalPos.lng], {
+      icon: this.makeTruckIcon(truck, headingDeg, speedKmh),
+      zIndexOffset: 5000
+    }).addTo(this.map);
+
+    marker.bindPopup(`
+      <div style="min-width:170px">
+        <b>${truck?.truckCode || truck?.label || id}</b><br>
+        Status: ${truck?.status || 'ON_MISSION'}<br>
+        Progress: ${truck?.progress ?? 0}%<br>
+        Speed: ${Math.round(speedKmh)} km/h<br>
+        Heading: ${Math.round(headingDeg)}°
+      </div>
+    `);
+
+    marker.on('click', () => {
+      this.followedTruckId = id;
+      this.autoFollowEnabled = true;
+      this.map?.setView([finalPos.lat, finalPos.lng], 17, { animate: true });
+    });
+
+    this.truckMarkers.set(id, marker);
+    this.truckLastPositions.set(id, finalPos);
+
+    if (this.autoFollowEnabled && this.followedTruckId === id) {
+      this.map.setView([finalPos.lat, finalPos.lng], 17, { animate: true });
+    }
+
+    return;
+  }
+
+  existing.setIcon(this.makeTruckIcon(truck, headingDeg, speedKmh));
+  this.animateTruckMarker(id, existing, finalPos);
+
+  if (this.autoFollowEnabled && this.followedTruckId === id) {
+    this.map.panTo([finalPos.lat, finalPos.lng], {
+      animate: true,
+      duration: 0.6
     });
   }
+}
+private animateTruckMarker(id: string, marker: L.Marker, next: LatLng): void {
+  const previous = this.truckLastPositions.get(id);
 
-  private upsertTruckMarker(id: string, pos: LatLng): void {
-    if (!this.map || !this.showTrucks) return;
-
-    const existing = this.truckMarkers.get(id);
-
-    if (!existing) {
-      const marker = L.marker([pos.lat, pos.lng], {
-        icon: this.makeTruckIcon(),
-        zIndexOffset: 1000
-      }).addTo(this.map);
-
-      marker.bindPopup(`Truck ${id}`);
-      this.truckMarkers.set(id, marker);
-    } else {
-      existing.setLatLng([pos.lat, pos.lng]);
-    }
+  if (!previous) {
+    marker.setLatLng([next.lat, next.lng]);
+    this.truckLastPositions.set(id, next);
+    return;
   }
+
+  const oldFrame = this.truckAnimationFrames.get(id);
+  if (oldFrame) {
+    cancelAnimationFrame(oldFrame);
+  }
+
+  const duration = 900;
+  const start = performance.now();
+
+  const step = (now: number) => {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+
+    let lat = previous.lat + (next.lat - previous.lat) * eased;
+let lng = previous.lng + (next.lng - previous.lng) * eased;
+
+const route = this.truckRouteCoords.get(id);
+if (route && route.length > 1) {
+  const snapped = this.snapToRoute(route, { lat, lng });
+  lat = snapped.lat;
+  lng = snapped.lng;
+}
+
+    marker.setLatLng([lat, lng]);
+
+    if (t < 1) {
+      const frame = requestAnimationFrame(step);
+      this.truckAnimationFrames.set(id, frame);
+    } else {
+      this.truckLastPositions.set(id, next);
+      this.truckAnimationFrames.delete(id);
+    }
+  };
+
+  const frame = requestAnimationFrame(step);
+  this.truckAnimationFrames.set(id, frame);
+}
+
+private updateTruckTrail(id: string, pos: LatLng): void {
+  if (!this.map) return;
+
+  const points = this.truckTrailPoints.get(id) || [];
+  points.push([pos.lat, pos.lng]);
+
+  const maxPoints = 30;
+  const limitedPoints = points.slice(-maxPoints);
+
+  this.truckTrailPoints.set(id, limitedPoints);
+
+  let trail = this.truckTrails.get(id);
+
+  if (!trail) {
+    trail = L.polyline(limitedPoints, {
+      color: '#2563eb',
+      weight: 4,
+      opacity: 0.55,
+      dashArray: '6 8'
+    }).addTo(this.map);
+
+    this.truckTrails.set(id, trail);
+    return;
+  }
+
+  trail.setLatLngs(limitedPoints);
+}
+ private renderTruckRoutes(): void {
+  if (!this.map) return;
+
+  this.clearTruckRoutes();
+
+  const colors = ['#2563eb', '#059669', '#7c3aed', '#f97316', '#ef4444', '#0f766e'];
+
+  (this.truckRoutes || []).forEach((route, index) => {
+    const color = colors[index % colors.length];
+
+    const coords =
+      route.collectionRouteCoordinates && route.collectionRouteCoordinates.length >= 2
+        ? route.collectionRouteCoordinates
+        : route.routeCoordinates;
+
+    const validCoords = (coords || []).filter((p) => p?.lat != null && p?.lng != null);
+
+    if (validCoords.length < 2) return;
+
+    this.truckRouteCoords.set(route.truckId, validCoords);
+
+    const allLatLngs: L.LatLngExpression[] = validCoords.map((p) => [
+      Number(p.lat),
+      Number(p.lng),
+    ]);
+
+    const completedLine = L.polyline([], {
+      color: '#22c55e',
+      weight: 7,
+      opacity: 1,
+    }).addTo(this.map!);
+
+    const remainingLine = L.polyline(allLatLngs, {
+      color,
+      weight: 6,
+      opacity: 0.85,
+    }).addTo(this.map!);
+
+    remainingLine.bindPopup(`
+      <div style="min-width:180px">
+        <b>${route.truckCode || route.truckId}</b><br>
+        Mission: ${route.missionId}
+      </div>
+    `);
+
+    this.truckCompletedRoutePolylines.set(route.truckId, completedLine);
+    this.truckRemainingRoutePolylines.set(route.truckId, remainingLine);
+  });
+}
+
+private clearTruckRoutes(): void {
+  if (!this.map) return;
+
+  for (const line of this.truckCompletedRoutePolylines.values()) {
+    line.removeFrom(this.map);
+  }
+
+  for (const line of this.truckRemainingRoutePolylines.values()) {
+    line.removeFrom(this.map);
+  }
+
+  this.truckCompletedRoutePolylines.clear();
+  this.truckRemainingRoutePolylines.clear();
+  this.truckRouteCoords.clear();
+}
+private updateTruckRouteProgress(truckId: string, pos: LatLng): void {
+  const route = this.truckRouteCoords.get(truckId);
+  if (!route || route.length < 2) return;
+
+  const completedLine = this.truckCompletedRoutePolylines.get(truckId);
+  const remainingLine = this.truckRemainingRoutePolylines.get(truckId);
+
+  if (!completedLine || !remainingLine) return;
+
+  const closestIndex = this.findClosestIndexOnRoute(route, pos);
+
+  const completed = route.slice(0, closestIndex + 1);
+  const remaining = route.slice(closestIndex);
+
+  completedLine.setLatLngs(completed.map((p) => [Number(p.lat), Number(p.lng)]));
+  remainingLine.setLatLngs(remaining.map((p) => [Number(p.lat), Number(p.lng)]));
+}
+
+private findClosestIndexOnRoute(route: FleetMapRouteCoordinate[], pos: LatLng): number {
+  let minDist = Infinity;
+  let closestIndex = 0;
+
+  route.forEach((p, index) => {
+    const d =
+      Math.pow(Number(p.lat) - pos.lat, 2) +
+      Math.pow(Number(p.lng) - pos.lng, 2);
+
+    if (d < minDist) {
+      minDist = d;
+      closestIndex = index;
+    }
+  });
+
+  return closestIndex;
+}
+
+private snapToRoute(
+  route: FleetMapRouteCoordinate[],
+  pos: LatLng
+): LatLng {
+  let minDist = Infinity;
+  let closest: LatLng = pos;
+
+  route.forEach((p) => {
+    const d =
+      Math.pow(Number(p.lat) - pos.lat, 2) +
+      Math.pow(Number(p.lng) - pos.lng, 2);
+
+    if (d < minDist) {
+      minDist = d;
+      closest = {
+        lat: Number(p.lat),
+        lng: Number(p.lng),
+      };
+    }
+  });
+
+  return closest;
+}
+
 
   private removeOldTrucks(keep: Set<string>): void {
     if (!this.map) return;
@@ -1680,42 +2024,67 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
   }
 
-  ngOnDestroy(): void {
-    try { this.trucksSub?.unsubscribe(); } catch {}
-    try { this.binsSub?.unsubscribe(); } catch {}
-    try {
-      if (this.showTrucks) {
-        this.realtime.disconnect();
-      }
-    } catch {}
+ ngOnDestroy(): void {
+  try { this.trucksSub?.unsubscribe(); } catch {}
+  try { this.binsSub?.unsubscribe(); } catch {}
 
-    try {
-      if (this.temporaryFocusMarker && this.map) {
-        this.temporaryFocusMarker.removeFrom(this.map);
-      }
-    } catch {}
+  try {
+    if (this.showTrucks) {
+      this.realtime.disconnect();
+    }
+  } catch {}
 
-    try {
-      if (this.pendingAddMarker && this.map) {
-        this.pendingAddMarker.removeFrom(this.map);
-      }
-    } catch {}
-
-    try {
-      this.clearHeatLayer();
-    } catch {}
-
-    try { this.map?.remove(); } catch {}
-
-    this.truckMarkers.clear();
-    this.binMarkers.clear();
-    this.reportMarkers.clear();
-    this.missionMarkers.clear();
-    this.missionRouteStopMarkers.clear();
-    this.snappedWaypointMarkers.clear();
-    this.snappedConnectorLines.clear();
-    this.planningMissionPolylines.clear();
-    this.planningMissionMarkers.clear();
-    this.droppedBinMarkers.clear();
+  for (const frame of this.truckAnimationFrames.values()) {
+    try { cancelAnimationFrame(frame); } catch {}
   }
+
+  for (const trail of this.truckTrails.values()) {
+    try {
+      if (this.map) {
+        trail.removeFrom(this.map);
+      }
+    } catch {}
+  }
+
+  try {
+    if (this.temporaryFocusMarker && this.map) {
+      this.temporaryFocusMarker.removeFrom(this.map);
+    }
+  } catch {}
+
+  try {
+    if (this.pendingAddMarker && this.map) {
+      this.pendingAddMarker.removeFrom(this.map);
+    }
+  } catch {}
+
+  try {
+    this.clearHeatLayer();
+  } catch {}
+  try {
+  this.clearTruckRoutes();
+} catch {}
+  try { this.map?.remove(); } catch {}
+
+  this.truckMarkers.clear();
+  this.truckTrails.clear();
+  this.truckCompletedRoutePolylines.clear();
+  this.truckRemainingRoutePolylines.clear();
+  this.truckRouteCoords.clear();
+  this.truckTrailPoints.clear();
+  this.truckLastPositions.clear();
+  this.truckAnimationFrames.clear();
+  this.followedTruckId = null;
+  this.truckRoutePolylines.clear();
+
+  this.binMarkers.clear();
+  this.reportMarkers.clear();
+  this.missionMarkers.clear();
+  this.missionRouteStopMarkers.clear();
+  this.snappedWaypointMarkers.clear();
+  this.snappedConnectorLines.clear();
+  this.planningMissionPolylines.clear();
+  this.planningMissionMarkers.clear();
+  this.droppedBinMarkers.clear();
+}
 }

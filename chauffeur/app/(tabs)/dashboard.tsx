@@ -19,6 +19,7 @@ import { getToken, getUserId, saveTruckId } from "../../lib/storage";
 import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
 
 type DriverBin = {
+  missionId?: number;
   missionBinId?: number;
   binId?: number;
   binCode?: string;
@@ -91,6 +92,10 @@ export default function Dashboard() {
     }
 
     const data = text ? JSON.parse(text) : {};
+    console.log("MY BINS:", data);
+    console.log("CURRENT MISSION ID FROM BINS:", data?.[0]?.missionId);
+
+    setBins(Array.isArray(data) ? data : []);
 
     console.log("PROFILE DATA:", data);
     console.log("ASSIGNED TRUCK:", data.assignedTruck);

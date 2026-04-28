@@ -20,7 +20,7 @@ import {
   View,
   useColorScheme,
 } from "react-native";
-import { declareTruckIncident } from "../../lib/truckApi";
+import { declareTruckIncident, getCurrentMissionId } from "../../lib/truckApi";
 
 const incidentTypes = [
   { label: "Panne camion", value: "BREAKDOWN" },
@@ -106,6 +106,26 @@ export default function DeclareBreakdownScreen() {
     }
   }
 
+  function parseLocation(value: string): { lat: number | null; lng: number | null } {
+    if (!value.includes(",")) {
+      return { lat: null, lng: null };
+    }
+
+    const parts = value.split(",");
+    const lat = parseFloat(parts[0].trim());
+    const lng = parseFloat(parts[1].trim());
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return { lat: null, lng: null };
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return { lat: null, lng: null };
+    }
+
+    return { lat, lng };
+  }
+
   async function handleSubmit() {
     Keyboard.dismiss();
 
@@ -127,16 +147,13 @@ export default function DeclareBreakdownScreen() {
     try {
       setLoading(true);
 
-      let lat: number | null = null;
-      let lng: number | null = null;
+      const missionId = await getCurrentMissionId();
+      console.log("CURRENT MISSION ID:", missionId);
 
-      if (location.includes(",")) {
-        const parts = location.split(",");
-        lat = parseFloat(parts[0].trim());
-        lng = parseFloat(parts[1].trim());
-      }
+      const { lat, lng } = parseLocation(location);
 
       await declareTruckIncident({
+        missionId,
         incidentType: selectedType,
         description: description.trim(),
         lat,
@@ -151,7 +168,12 @@ export default function DeclareBreakdownScreen() {
       ]);
     } catch (error) {
       console.log("Erreur déclaration incident:", error);
-      Alert.alert("Erreur", "Impossible de déclarer l'incident.");
+      Alert.alert(
+        "Erreur",
+        error instanceof Error
+          ? error.message
+          : "Impossible de déclarer l'incident."
+      );
     } finally {
       setLoading(false);
     }

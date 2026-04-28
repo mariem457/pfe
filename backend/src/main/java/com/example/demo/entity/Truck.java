@@ -52,7 +52,7 @@ public class Truck {
     @Column(nullable = false, length = 30)
     private TruckStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_driver_id")
     private Driver assignedDriver;
 

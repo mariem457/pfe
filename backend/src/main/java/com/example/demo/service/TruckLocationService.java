@@ -5,47 +5,61 @@ import com.example.demo.dto.TruckDashboardResponse;
 import com.example.demo.dto.TruckLocationRequest;
 import com.example.demo.dto.TruckLocationResponse;
 import com.example.demo.entity.Driver;
+import com.example.demo.entity.Mission;
+import com.example.demo.entity.MissionBin;
+import com.example.demo.entity.Truck;
 import com.example.demo.entity.TruckLocation;
 import com.example.demo.repository.DriverRepository;
+import com.example.demo.repository.MissionBinRepository;
+import com.example.demo.repository.MissionRepository;
 import com.example.demo.repository.TruckLocationRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.example.demo.repository.TruckRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TruckLocationService {
 
-    private static final Logger log = LoggerFactory.getLogger(TruckLocationService.class);
-
     private final TruckLocationRepository truckLocationRepository;
     private final DriverRepository driverRepository;
+    private final TruckRepository truckRepository;
+    private final MissionRepository missionRepository;
+    private final MissionBinRepository missionBinRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public TruckLocationService(
             TruckLocationRepository truckLocationRepository,
             DriverRepository driverRepository,
+            TruckRepository truckRepository,
+            MissionRepository missionRepository,
+            MissionBinRepository missionBinRepository,
             SimpMessagingTemplate messagingTemplate
     ) {
         this.truckLocationRepository = truckLocationRepository;
         this.driverRepository = driverRepository;
+        this.truckRepository = truckRepository;
+        this.missionRepository = missionRepository;
+        this.missionBinRepository = missionBinRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
+    @Transactional
     public TruckLocationResponse save(TruckLocationRequest in) {
         validateInput(in);
 
-        log.info("Truck location received: driverId={}, lat={}, lng={}, speed={}, heading={}",
-                in.driverId, in.lat, in.lng, in.speedKmh, in.headingDeg);
-
         Driver driver = driverRepository.findById(in.driverId)
                 .orElseThrow(() -> new RuntimeException("Driver not found: " + in.driverId));
+
+        Truck truck = resolveActiveTruckByDriver(driver);
 
         TruckLocation location = new TruckLocation();
         location.setDriver(driver);
@@ -57,6 +71,11 @@ public class TruckLocationService {
 
         TruckLocation saved = truckLocationRepository.save(location);
 
+        truck.setLastKnownLat(in.lat);
+        truck.setLastKnownLng(in.lng);
+        truck.setLastStatusUpdate(OffsetDateTime.now(ZoneOffset.UTC));
+        truckRepository.save(truck);
+
         TruckLocationResponse resp = TruckLocationResponse.of(
                 driver.getId(),
                 saved.getLat(),
@@ -66,52 +85,80 @@ public class TruckLocationService {
                 saved.getTimestamp()
         );
 
-        log.info("Broadcasting truck location to /topic/truck-locations: driverId={}, lat={}, lng={}",
-                resp.driverId, resp.lat, resp.lng);
+        System.out.println(
+                "WS BROADCAST => /topic/truck-locations driverId="
+                        + resp.driverId
+                        + ", lat=" + resp.lat
+                        + ", lng=" + resp.lng
+        );
 
         messagingTemplate.convertAndSend("/topic/truck-locations", resp);
 
         return resp;
     }
+
     @Transactional(readOnly = true)
     public TruckDashboardResponse getDashboard() {
-        List<TruckLocation> latestLocations = truckLocationRepository.findLatestLocationsForAllDrivers();
+        List<Truck> allTrucks = truckRepository.findByIsActiveTrue();
         List<TruckDashboardItemResponse> trucks = new ArrayList<>();
 
         int totalProgress = 0;
         int totalFuel = 0;
 
-        for (int i = 0; i < latestLocations.size(); i++) {
-            TruckLocation loc = latestLocations.get(i);
-            Driver driver = loc.getDriver();
+        for (Truck truck : allTrucks) {
+            Double lat = truck.getLastKnownLat();
+            Double lng = truck.getLastKnownLng();
 
-            int progress = buildProgress(driver.getId());
-            int collectedBins = buildCollectedBins(driver.getId());
-            int remainingBins = buildRemainingBins(driver.getId());
-            int fuelLevel = buildFuelLevel(driver.getId());
-            int etaMinutes = buildEta(driver.getId());
-            boolean active = isActive(loc.getTimestamp());
+            if (lat == null || lng == null) {
+                continue;
+            }
+
+            Driver driver = truck.getAssignedDriver();
+
+            String truckStatus = truck.getStatus() != null
+                    ? truck.getStatus().name()
+                    : "UNKNOWN";
+
+            List<Mission> activeMissions = findActiveMissionsForTruck(truck);
+            Long currentMissionId = activeMissions.isEmpty() ? null : activeMissions.get(0).getId();
+
+            int collectedBins = calculateCollectedBinsFromMissions(activeMissions);
+            int remainingBins = calculateRemainingBinsFromMissions(activeMissions);
+            int totalBins = collectedBins + remainingBins;
+
+            int progress = totalBins == 0
+                    ? 0
+                    : (int) Math.round((collectedBins * 100.0) / totalBins);
+
+            int fuelLevel = calculateFuelPercent(truck);
+            int etaMinutes = calculateEtaMinutes(truck);
+            boolean active = Boolean.TRUE.equals(truck.getIsActive());
 
             totalProgress += progress;
             totalFuel += fuelLevel;
 
             trucks.add(new TruckDashboardItemResponse(
-                    driver.getId(),
-                    driver.getVehicleCode() != null ? driver.getVehicleCode() : "TRK-" + driver.getId(),
-                    driver.getFullName(),
-                    loc.getLat(),
-                    loc.getLng(),
-                    buildLocationLabel(loc.getLat(), loc.getLng()),
+                    driver != null ? driver.getId() : null,
+                    truck.getTruckCode() != null ? truck.getTruckCode() : "TRUCK-" + truck.getId(),
+                    driver != null ? driver.getFullName() : "Non assigné",
+                    lat,
+                    lng,
+                    buildLocationLabel(lat, lng),
                     progress,
                     collectedBins,
                     remainingBins,
                     fuelLevel,
                     etaMinutes,
-                    active
+                    active,
+                    truckStatus,
+                    currentMissionId
             ));
         }
 
-        long activeTrucks = trucks.stream().filter(t -> Boolean.TRUE.equals(t.getActive())).count();
+        long activeTrucks = trucks.stream()
+                .filter(t -> Boolean.TRUE.equals(t.getActive()))
+                .count();
+
         long totalRoutes = trucks.size();
 
         int averageProgress = trucks.isEmpty() ? 0 : totalProgress / trucks.size();
@@ -135,28 +182,81 @@ public class TruckLocationService {
         );
     }
 
-    private boolean isActive(Instant timestamp) {
-        return timestamp != null && timestamp.isAfter(Instant.now().minusSeconds(600));
+    private Truck resolveActiveTruckByDriver(Driver driver) {
+        return truckRepository.findByIsActiveTrue()
+                .stream()
+                .filter(truck -> truck.getAssignedDriver() != null)
+                .filter(truck -> truck.getAssignedDriver().getId().equals(driver.getId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException(
+                        "No active truck assigned to driver: " + driver.getId()
+                ));
     }
 
-    private int buildProgress(Long driverId) {
-        return 35 + (int) ((driverId * 13) % 55);
+    private List<Mission> findActiveMissionsForTruck(Truck truck) {
+        return missionRepository
+                .findTopByTruckAndStatusInOrderByCreatedAtDesc(
+                        truck,
+                        List.of("IN_PROGRESS", "STARTED", "CREATED")
+                )
+                .map(List::of)
+                .orElse(List.of());
     }
 
-    private int buildCollectedBins(Long driverId) {
-        return 8 + (int) ((driverId * 5) % 15);
+    private int calculateCollectedBinsFromMissions(List<Mission> missions) {
+        int count = 0;
+
+        for (Mission mission : missions) {
+            count += missionBinRepository.findByMissionOrderByVisitOrderAsc(mission)
+                    .stream()
+                    .filter(MissionBin::isCollected)
+                    .count();
+        }
+
+        return count;
     }
 
-    private int buildRemainingBins(Long driverId) {
-        return 4 + (int) ((driverId * 3) % 12);
+    private int calculateRemainingBinsFromMissions(List<Mission> missions) {
+        int count = 0;
+
+        for (Mission mission : missions) {
+            count += missionBinRepository.findByMissionOrderByVisitOrderAsc(mission)
+                    .stream()
+                    .filter(mb -> !mb.isCollected())
+                    .count();
+        }
+
+        return count;
     }
 
-    private int buildFuelLevel(Long driverId) {
-        return 45 + (int) ((driverId * 7) % 45);
+    private int calculateEtaMinutes(Truck truck) {
+        if (truck.getRoutePlans() == null || truck.getRoutePlans().isEmpty()) {
+            return 0;
+        }
+
+        return truck.getRoutePlans()
+                .stream()
+                .filter(rp -> rp.getPlanStatus() != null)
+                .filter(rp -> "PLANNED".equals(rp.getPlanStatus().name())
+                        || "ACTIVE".equals(rp.getPlanStatus().name()))
+                .map(rp -> rp.getEstimatedDurationMin() != null ? rp.getEstimatedDurationMin() : 0)
+                .findFirst()
+                .orElse(0);
     }
 
-    private int buildEta(Long driverId) {
-        return 15 + (int) ((driverId * 11) % 40);
+    private int calculateFuelPercent(Truck truck) {
+        if (truck.getFuelLevelLiters() == null || truck.getTankCapacityLiters() == null) {
+            return 0;
+        }
+
+        if (truck.getTankCapacityLiters().compareTo(BigDecimal.ZERO) <= 0) {
+            return 0;
+        }
+
+        return truck.getFuelLevelLiters()
+                .multiply(BigDecimal.valueOf(100))
+                .divide(truck.getTankCapacityLiters(), 0, RoundingMode.HALF_UP)
+                .intValue();
     }
 
     private String buildLocationLabel(Double lat, Double lng) {

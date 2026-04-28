@@ -138,9 +138,9 @@
 }
 
 #fleetMap {
-  width: 100%;
-  height: 88vh;
-  min-height: 900px;
+   width: 100%;
+  height: 620px;
+  min-height: 620px;
   border-radius: 20px;
   overflow: hidden;
   background: #e5e7eb;
@@ -664,4 +664,132 @@
   .legend-item {
     font-size: 12px;
   }
+}
+:host-context(.fleet-map-only) .map-legend {
+  display: none;
+}
+
+:host-context(.fleet-map-only) #fleetMap {
+  height: 620px;
+  min-height: 620px;
+  border-radius: 0 0 20px 20px;
+  box-shadow: none;
+}
+:host ::ng-deep .truck-modern-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+:host ::ng-deep .truck-modern-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: auto;
+}
+
+:host ::ng-deep .truck-modern-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
+}
+
+:host ::ng-deep .truck-modern-pin .material-icons {
+  font-size: 18px;
+}
+
+:host ::ng-deep .truck-modern-label {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 6px 9px;
+  min-width: 72px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.13);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  line-height: 1.1;
+}
+
+:host ::ng-deep .truck-modern-label strong {
+  display: block;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+:host ::ng-deep .truck-modern-label span {
+  display: block;
+  margin-top: 3px;
+  color: #10b981;
+  font-size: 9px;
+  font-weight: 800;
+}
+.truck-heading {
+  display: inline-block;
+  transition: transform 0.25s ease;
+  transform-origin: center;
+}
+
+.truck-modern-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.truck-heading-arrow {
+  display: inline-block;
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  transform-origin: center;
+  transition: transform 0.25s ease;
+}
+
+.truck-modern-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+:host ::ng-deep .truck-modern-pin {
+  background: #ef4444 !important;
+}
+
+:host ::ng-deep .truck-modern-label small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+}
+:host ::ng-deep .truck-modern-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
+}
+
+:host ::ng-deep .truck-heading {
+  display: inline-block;
+  transform: none !important;
+  rotate: 0deg !important;
+}
+
+:host ::ng-deep .truck-modern-label small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
 }

@@ -14,6 +14,8 @@ public class TruckDashboardItemResponse {
     private Integer fuelLevel;
     private Integer etaMinutes;
     private Boolean active;
+    private String truckStatus;
+    private Long currentMissionId;
 
     public TruckDashboardItemResponse() {
     }
@@ -30,7 +32,9 @@ public class TruckDashboardItemResponse {
             Integer remainingBins,
             Integer fuelLevel,
             Integer etaMinutes,
-            Boolean active
+            Boolean active,
+            String truckStatus,
+            Long currentMissionId
     ) {
         this.driverId = driverId;
         this.truckCode = truckCode;
@@ -44,6 +48,8 @@ public class TruckDashboardItemResponse {
         this.fuelLevel = fuelLevel;
         this.etaMinutes = etaMinutes;
         this.active = active;
+        this.truckStatus = truckStatus;
+        this.currentMissionId = currentMissionId;
     }
 
     public Long getDriverId() { return driverId; }
@@ -81,4 +87,10 @@ public class TruckDashboardItemResponse {
 
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+
+    public String getTruckStatus() { return truckStatus; }
+    public void setTruckStatus(String truckStatus) { this.truckStatus = truckStatus; }
+
+    public Long getCurrentMissionId() { return currentMissionId; }
+    public void setCurrentMissionId(Long currentMissionId) { this.currentMissionId = currentMissionId; }
 }

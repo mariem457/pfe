@@ -106,6 +106,7 @@ public class DriverService {
         return missionBinRepository.findByMissionIdOrderByVisitOrderAsc(mission.getId())
                 .stream()
                 .map(mb -> new DriverBinDto(
+                        mission.getId(),
                         mb.getId(),
                         mb.getBin() != null ? mb.getBin().getId() : null,
                         mb.getBin() != null ? mb.getBin().getBinCode() : null,

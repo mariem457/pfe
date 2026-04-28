@@ -14,17 +14,17 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { getToken, getUserId } from "../lib/storage";
 
-const BASE_URL = "http://10.221.127.114:8081";
+const BASE_URL = "http://192.168.1.115:8081";
 
+/**
+ * true  => soutenance demo: camion يتحرك على route optimisée في Paris
+ * false => GPS réel
+ */
 const DEV_MODE_PARIS = true;
-
-const PARIS_DRIVER_LOCATION = {
-  latitude: 48.8414,
-  longitude: 2.3003,
-};
 
 type DriverBin = {
   missionBinId?: number;
+  missionId?: number;
   binId?: number;
   binCode?: string;
   lat?: number;
@@ -39,8 +39,19 @@ type Point = {
   longitude: number;
 };
 
+type MissionRoutePoint = {
+  lat: number;
+  lng: number;
+};
+
+const PARIS_DRIVER_LOCATION: Point = {
+  latitude: 48.8411,
+  longitude: 2.3003,
+};
+
 export default function RouteMap() {
   const mapRef = useRef<MapView | null>(null);
+  const demoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<Point | null>(null);
@@ -48,6 +59,53 @@ export default function RouteMap() {
   const [routeCoords, setRouteCoords] = useState<Point[]>([]);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [durationMin, setDurationMin] = useState<number | null>(null);
+
+  async function sendPointToBackend(point: Point, speedKmh = 30, headingDeg = 0) {
+    try {
+      const token = await getToken();
+      const userId = await getUserId();
+
+      if (!token || !userId) {
+        console.log("No token/userId, location not sent");
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/truck-locations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          driverId: Number(userId),
+          lat: point.latitude,
+          lng: point.longitude,
+          speedKmh,
+          headingDeg,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        console.log("TRUCK LOCATION ERROR:", await response.text());
+      }
+    } catch (error) {
+      console.log("Send truck location error:", error);
+    }
+  }
+
+  async function sendRealLocationToBackend(location: Location.LocationObject) {
+    const point: Point = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    };
+
+    await sendPointToBackend(
+      point,
+      location.coords.speed != null ? location.coords.speed * 3.6 : 0,
+      location.coords.heading ?? 0
+    );
+  }
 
   async function loadBins(): Promise<DriverBin[]> {
     try {
@@ -97,12 +155,78 @@ export default function RouteMap() {
     }
   }
 
-  async function loadRoute(start: Point, routeBins: DriverBin[]) {
+  function getMissionIdFromBins(routeBins: DriverBin[]): number | null {
+    if (!Array.isArray(routeBins) || routeBins.length === 0) return null;
+    return routeBins[0]?.missionId ?? null;
+  }
+
+  async function loadOptimizedMissionRoute(missionId: number): Promise<Point[]> {
+    try {
+      const token = await getToken();
+      if (!token) return [];
+
+      const response = await fetch(`${BASE_URL}/api/missions/${missionId}/route`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+
+      if (!response.ok) {
+        console.log("Mission route error:", response.status, text);
+        return [];
+      }
+
+      const data = text ? JSON.parse(text) : null;
+
+      const rawCoords: MissionRoutePoint[] =
+        data?.collectionRouteCoordinates?.length >= 2
+          ? data.collectionRouteCoordinates
+          : data?.routeCoordinates?.length >= 2
+          ? data.routeCoordinates
+          : [];
+
+      const coords: Point[] = rawCoords
+        .filter((p) => typeof p.lat === "number" && typeof p.lng === "number")
+        .map((p) => ({
+          latitude: Number(p.lat),
+          longitude: Number(p.lng),
+        }));
+
+      if (coords.length >= 2) {
+        setRouteCoords(coords);
+        setDistanceKm(data?.totalDistanceKm ?? null);
+        setDurationMin(data?.estimatedDurationMin ?? null);
+
+        setTimeout(() => {
+          mapRef.current?.fitToCoordinates(coords, {
+            edgePadding: {
+              top: 90,
+              right: 60,
+              bottom: 160,
+              left: 60,
+            },
+            animated: true,
+          });
+        }, 500);
+      }
+
+      return coords;
+    } catch (error) {
+      console.log("Load optimized route exception:", error);
+      return [];
+    }
+  }
+
+  async function loadFallbackOsrmRoute(start: Point, routeBins: DriverBin[]) {
     if (routeBins.length === 0) {
       setRouteCoords([]);
       setDistanceKm(null);
       setDurationMin(null);
-      return;
+      return [];
     }
 
     try {
@@ -123,12 +247,12 @@ export default function RouteMap() {
         setRouteCoords([]);
         setDistanceKm(null);
         setDurationMin(null);
-        return;
+        return [];
       }
 
       const route = data.routes[0];
 
-      const decoded = polyline.decode(route.geometry).map(([lat, lng]) => ({
+      const decoded: Point[] = polyline.decode(route.geometry).map(([lat, lng]) => ({
         latitude: lat,
         longitude: lng,
       }));
@@ -148,36 +272,166 @@ export default function RouteMap() {
           animated: true,
         });
       }, 500);
+
+      return decoded;
     } catch (error) {
       console.log("Route error:", error);
       setRouteCoords([]);
       setDistanceKm(null);
       setDurationMin(null);
+      return [];
     }
   }
 
-  async function sendLocationToBackend(location: Location.LocationObject) {
-    try {
-      const token = await getToken();
-      if (!token) return;
+  function calculateHeading(from: Point, to: Point): number {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const toDeg = (rad: number) => (rad * 180) / Math.PI;
 
-      await fetch(`${BASE_URL}/api/driver-location`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          speed: location.coords.speed,
-          heading: location.coords.heading,
-          timestamp: new Date().toISOString(),
-        }),
+    const lat1 = toRad(from.latitude);
+    const lat2 = toRad(to.latitude);
+    const dLng = toRad(to.longitude - from.longitude);
+
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+
+  function getDistanceMeters(a: Point, b: Point): number {
+    const R = 6371000;
+    const toRad = (value: number) => (value * Math.PI) / 180;
+
+    const dLat = toRad(b.latitude - a.latitude);
+    const dLng = toRad(b.longitude - a.longitude);
+
+    const lat1 = toRad(a.latitude);
+    const lat2 = toRad(b.latitude);
+
+    const x =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    return R * c;
+  }
+
+  function isNearBin(
+    point: Point,
+    routeBins: DriverBin[],
+    collectedBinKeys: Set<string>,
+    thresholdMeters = 45
+  ): DriverBin | null {
+    for (const bin of routeBins) {
+      if (typeof bin.lat !== "number" || typeof bin.lng !== "number") continue;
+
+      const key = String(bin.missionBinId ?? bin.binId ?? bin.binCode);
+      if (collectedBinKeys.has(key)) continue;
+
+      const distance = getDistanceMeters(point, {
+        latitude: bin.lat,
+        longitude: bin.lng,
       });
-    } catch (error) {
-      console.log("Send location error:", error);
+
+      if (distance <= thresholdMeters) {
+        return bin;
+      }
     }
+
+    return null;
+  }
+
+  function startParisDemoTrackingOnOptimizedRoute(path: Point[], routeBins: DriverBin[]) {
+    if (demoTimerRef.current) {
+      clearInterval(demoTimerRef.current);
+      demoTimerRef.current = null;
+    }
+
+    if (!path || path.length < 2) {
+      Alert.alert("Route manquante", "Aucune route optimisée trouvée pour la mission.");
+      return;
+    }
+
+    let i = 0;
+    let pauseTicks = 0;
+    const collectedBinKeys = new Set<string>();
+
+    setCurrentLocation(path[0]);
+    sendPointToBackend(path[0], 0, 0);
+
+    demoTimerRef.current = setInterval(async () => {
+      const current = path[i % path.length];
+      const next = path[(i + 1) % path.length];
+      const headingDeg = calculateHeading(current, next);
+
+      if (pauseTicks > 0) {
+        pauseTicks--;
+
+        setCurrentLocation(current);
+
+        await sendPointToBackend(current, 0, headingDeg);
+
+        mapRef.current?.animateCamera({
+          center: current,
+          zoom: 17,
+          heading: headingDeg,
+          pitch: 45,
+        });
+
+        return;
+      }
+
+      const nearBin = isNearBin(next, routeBins, collectedBinKeys, 45);
+
+      if (nearBin) {
+        const key = String(nearBin.missionBinId ?? nearBin.binId ?? nearBin.binCode);
+        collectedBinKeys.add(key);
+
+        pauseTicks = 2;
+
+        console.log("Collecting bin:", nearBin.binCode || nearBin.binId);
+
+        setBins((prev) =>
+          prev.map((b) => {
+            const bKey = String(b.missionBinId ?? b.binId ?? b.binCode);
+            return bKey === key ? { ...b, collected: true } : b;
+          })
+        );
+
+        setCurrentLocation(next);
+
+        await sendPointToBackend(next, 0, headingDeg);
+
+        mapRef.current?.animateCamera({
+          center: next,
+          zoom: 17,
+          heading: headingDeg,
+          pitch: 45,
+        });
+
+        i++;
+        return;
+      }
+
+      const speedKmh = 25 + (i % 4) * 3;
+
+      setCurrentLocation(next);
+
+      await sendPointToBackend(next, speedKmh, headingDeg);
+
+      mapRef.current?.animateCamera({
+        center: next,
+        zoom: 16,
+        heading: headingDeg,
+        pitch: 45,
+      });
+
+      i++;
+    }, 2500);
   }
 
   useEffect(() => {
@@ -207,22 +461,38 @@ export default function RouteMap() {
             longitude: position.coords.longitude,
           };
 
-          await sendLocationToBackend(position);
+          await sendRealLocationToBackend(position);
+        } else {
+          await sendPointToBackend(start, 0, 90);
         }
 
         setCurrentLocation(start);
 
         const routeBins = await loadBins();
-        await loadRoute(start, routeBins);
+        const missionId = getMissionIdFromBins(routeBins);
+
+        let optimizedRoute: Point[] = [];
+
+        if (missionId) {
+          optimizedRoute = await loadOptimizedMissionRoute(missionId);
+        }
+
+        if (optimizedRoute.length < 2) {
+          optimizedRoute = await loadFallbackOsrmRoute(start, routeBins);
+        }
 
         if (DEV_MODE_PARIS) {
+          const pathToSimulate = optimizedRoute.length >= 2 ? optimizedRoute : [start];
+
           setTimeout(() => {
             mapRef.current?.animateCamera({
-              center: start,
-              zoom: 15,
+              center: pathToSimulate[0],
+              zoom: 16,
               pitch: 45,
             });
           }, 500);
+
+          startParisDemoTrackingOnOptimizedRoute(pathToSimulate, routeBins);
         }
 
         if (!DEV_MODE_PARIS) {
@@ -239,7 +509,7 @@ export default function RouteMap() {
               };
 
               setCurrentLocation(newPosition);
-              await sendLocationToBackend(location);
+              await sendRealLocationToBackend(location);
 
               mapRef.current?.animateCamera({
                 center: newPosition,
@@ -262,6 +532,11 @@ export default function RouteMap() {
 
     return () => {
       if (subscription) subscription.remove();
+
+      if (demoTimerRef.current) {
+        clearInterval(demoTimerRef.current);
+        demoTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -292,9 +567,9 @@ export default function RouteMap() {
       >
         {DEV_MODE_PARIS && (
           <Marker
-            coordinate={PARIS_DRIVER_LOCATION}
+            coordinate={currentLocation}
             title="Driver"
-            description="Position simulation Paris 15"
+            description="Mode simulation sur route optimisée"
             pinColor="blue"
           />
         )}
@@ -315,8 +590,12 @@ export default function RouteMap() {
               longitude: bin.lng!,
             }}
             title={bin.binCode || `Bin ${index + 1}`}
-            description={`Stop ${bin.visitOrder ?? index + 1}`}
-            pinColor="red"
+            description={
+              bin.collected
+                ? "Collectée"
+                : `Stop ${bin.visitOrder ?? index + 1}`
+            }
+            pinColor={bin.collected ? "green" : "red"}
           />
         ))}
       </MapView>
@@ -329,7 +608,9 @@ export default function RouteMap() {
         <View>
           <Text style={styles.title}>Navigation</Text>
           <Text style={styles.subtitle}>
-            {DEV_MODE_PARIS ? "Mode simulation Paris 15" : "GPS réel"}
+            {DEV_MODE_PARIS
+              ? "Démo active : route optimisée + pause collecte"
+              : "GPS réel actif"}
           </Text>
         </View>
       </View>

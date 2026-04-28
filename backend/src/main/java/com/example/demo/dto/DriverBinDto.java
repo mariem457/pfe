@@ -1,7 +1,7 @@
 package com.example.demo.dto;
 
 public class DriverBinDto {
-
+	  private Long missionId;
     private Long missionBinId;
     private Long binId;
     private String binCode;
@@ -11,11 +11,13 @@ public class DriverBinDto {
     private Boolean collected;
     private String assignmentStatus;
     private String wasteType;
+  
 
     public DriverBinDto() {
     }
 
     public DriverBinDto(
+            Long missionId,
             Long missionBinId,
             Long binId,
             String binCode,
@@ -26,6 +28,37 @@ public class DriverBinDto {
             String assignmentStatus,
             String wasteType
     ) {
+        this.missionId = missionId;
+        this.missionBinId = missionBinId;
+        this.binId = binId;
+        this.binCode = binCode;
+        this.lat = lat;
+        this.lng = lng;
+        this.visitOrder = visitOrder;
+        this.collected = collected;
+        this.assignmentStatus = assignmentStatus;
+        this.wasteType = wasteType;
+    }
+    
+    
+    
+    
+    
+    
+    
+    public DriverBinDto(
+            
+            Long missionBinId,
+            Long binId,
+            String binCode,
+            Double lat,
+            Double lng,
+            Integer visitOrder,
+            Boolean collected,
+            String assignmentStatus,
+            String wasteType
+    ) {
+       
         this.missionBinId = missionBinId;
         this.binId = binId;
         this.binCode = binCode;
@@ -107,5 +140,12 @@ public class DriverBinDto {
 
     public void setWasteType(String wasteType) {
         this.wasteType = wasteType;
+    }
+    public Long getMissionId() {
+        return missionId;
+    }
+
+    public void setMissionId(Long missionId) {
+        this.missionId = missionId;
     }
 }

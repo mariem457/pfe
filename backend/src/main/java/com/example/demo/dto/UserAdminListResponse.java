@@ -10,5 +10,7 @@ public class UserAdminListResponse {
     public String phone;
     public String role;
     public Boolean isEnabled;
+    public String accountStatus;
     public OffsetDateTime lastLoginAt;
+    public OffsetDateTime createdAt;
 }

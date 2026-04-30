@@ -32,17 +32,19 @@ public class FleetEligibilityServiceImpl implements FleetEligibilityService {
             return false;
         }
 
-        if (!hasEnoughFuel(truck, estimatedDistanceKm)) {
-            return false;
-        }
-
-        return true;
+        return hasEnoughFuel(truck, estimatedDistanceKm);
     }
 
     @Override
     public boolean hasEnoughCapacity(Truck truck, double requiredLoadKg) {
+        if (truck == null) {
+            return false;
+        }
+
         BigDecimal maxLoad = truck.getMaxLoadKg();
-        BigDecimal currentLoad = truck.getCurrentLoadKg() != null ? truck.getCurrentLoadKg() : BigDecimal.ZERO;
+        BigDecimal currentLoad = truck.getCurrentLoadKg() != null
+                ? truck.getCurrentLoadKg()
+                : BigDecimal.ZERO;
 
         if (maxLoad == null) {
             return false;
@@ -54,6 +56,24 @@ public class FleetEligibilityServiceImpl implements FleetEligibilityService {
 
     @Override
     public boolean hasEnoughFuel(Truck truck, double estimatedDistanceKm) {
-        return fuelManagementService.canCompleteDistance(truck, estimatedDistanceKm);
+        if (truck == null) {
+            return false;
+        }
+
+        if (fuelManagementService.isFuelCritical(truck)) {
+            return false;
+        }
+
+        double safeAutonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
+
+        if (safeAutonomyKm <= 0) {
+            return false;
+        }
+
+        if (estimatedDistanceKm <= 0) {
+            return true;
+        }
+
+        return safeAutonomyKm >= estimatedDistanceKm;
     }
 }

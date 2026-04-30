@@ -8,7 +8,7 @@ public class RoutingMissionDto {
     private Long truckId;
     private Double totalDistanceKm;
     private Double totalDurationMinutes;
-    private List<RoutingStopDto> stops;
+    private List<RoutingStopDto> stops = new ArrayList<>();
     private List<RouteCoordinateDto> routeCoordinates = new ArrayList<>();
 
     public RoutingMissionDto() {

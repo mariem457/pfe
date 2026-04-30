@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class RoutingDepotDto(BaseModel):
@@ -7,13 +8,40 @@ class RoutingDepotDto(BaseModel):
     lng: float
 
 
+class RoutingDisposalSiteDto(BaseModel):
+    id: int
+    name: Optional[str] = None
+    lat: float
+    lng: float
+    acceptedWasteTypes: List[str] = Field(default_factory=list)
+
+
 class RoutingBinDto(BaseModel):
     id: int
     lat: float
     lng: float
+
+    zoneId: Optional[int] = None
+    clusterId: Optional[int] = None
+
     fillLevel: float
     predictedPriority: float
     estimatedLoadKg: float
+    predictedHoursToFull: Optional[float] = None
+    mandatory: Optional[bool] = None
+
+    wasteType: Optional[str] = None
+
+    decisionCategory: Optional[str] = None
+    decisionReason: Optional[str] = None
+    feedbackScore: Optional[float] = None
+    postponementCount: Optional[int] = None
+    opportunistic: Optional[bool] = None
+    reportable: Optional[bool] = None
+    opportunisticScore: Optional[float] = None
+
+    windowStartMinutes: Optional[int] = None
+    windowEndMinutes: Optional[int] = None
 
 
 class RoutingTruckDto(BaseModel):
@@ -21,9 +49,11 @@ class RoutingTruckDto(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     remainingCapacityKg: float
-    fuelLevelLiters: float
+    fuelLevelLiters: Optional[float] = None
     fuelConsumptionPerKm: Optional[float] = None
     status: Optional[str] = None
+    supportedWasteTypes: List[str] = Field(default_factory=list)
+    zoneId: Optional[int] = None
 
 
 class RoutingIncidentDto(BaseModel):
@@ -37,13 +67,17 @@ class RoutingIncidentDto(BaseModel):
 class RoutingRequestDto(BaseModel):
     depot: RoutingDepotDto
     trafficMode: str = "NORMAL"
+    currentRun: Optional[str] = None
     bins: List[RoutingBinDto]
     trucks: List[RoutingTruckDto]
+    disposalSites: List[RoutingDisposalSiteDto] = Field(default_factory=list)
     activeIncidents: List[RoutingIncidentDto] = Field(default_factory=list)
 
 
 class RoutingStopDto(BaseModel):
-    binId: int
+    stopType: str = "BIN_PICKUP"
+    binId: Optional[int] = None
+    disposalSiteId: Optional[int] = None
     orderIndex: int
 
 
@@ -84,3 +118,4 @@ class RoutingResponseDto(BaseModel):
     excludedTrucks: List[ExcludedTruckDto] = Field(default_factory=list)
     warningTrucks: List[WarningTruckDto] = Field(default_factory=list)
     recommendedFuelStations: List[RecommendedFuelStationDto] = Field(default_factory=list)
+    droppedBinIds: List[int] = Field(default_factory=list)

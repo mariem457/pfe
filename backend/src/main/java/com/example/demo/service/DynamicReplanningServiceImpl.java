@@ -15,14 +15,17 @@ import com.example.demo.entity.MissionReassignment;
 import com.example.demo.entity.RoutePlan;
 import com.example.demo.entity.RouteStop;
 import com.example.demo.entity.Truck;
+import com.example.demo.entity.TruckIncident;
 import com.example.demo.exception.BadRequestException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.repository.DepotRepository;
+import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.MissionBinRepository;
 import com.example.demo.repository.MissionReassignmentRepository;
 import com.example.demo.repository.MissionRepository;
 import com.example.demo.repository.RoutePlanRepository;
 import com.example.demo.repository.RouteStopRepository;
+import com.example.demo.repository.TruckIncidentRepository;
 import com.example.demo.repository.TruckRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +63,9 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     private final RoutePlanRepository routePlanRepository;
     private final RouteStopRepository routeStopRepository;
     private final TruckRepository truckRepository;
+    private final TruckIncidentRepository truckIncidentRepository;
     private final DepotRepository depotRepository;
+    private final DriverRepository driverRepository;
     private final RoutingPayloadBuilderService routingPayloadBuilderService;
     private final PythonRoutingClient pythonRoutingClient;
 
@@ -70,7 +75,9 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                         RoutePlanRepository routePlanRepository,
                                         RouteStopRepository routeStopRepository,
                                         TruckRepository truckRepository,
+                                        TruckIncidentRepository truckIncidentRepository,
                                         DepotRepository depotRepository,
+                                        DriverRepository driverRepository,
                                         RoutingPayloadBuilderService routingPayloadBuilderService,
                                         PythonRoutingClient pythonRoutingClient) {
         this.missionRepository = missionRepository;
@@ -79,7 +86,9 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         this.routePlanRepository = routePlanRepository;
         this.routeStopRepository = routeStopRepository;
         this.truckRepository = truckRepository;
+        this.truckIncidentRepository = truckIncidentRepository;
         this.depotRepository = depotRepository;
+        this.driverRepository = driverRepository;
         this.routingPayloadBuilderService = routingPayloadBuilderService;
         this.pythonRoutingClient = pythonRoutingClient;
     }
@@ -108,11 +117,29 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             );
         }
 
+        System.out.println(
+                "REPLAN INCIDENT => missionId=" + missionId
+                        + ", affectedTruckId=" + affectedTruckId
+                        + ", incidentType=" + request.getIncidentType()
+                        + ", reason=" + request.getReason()
+        );
+
+        Set<Long> trucksWithActiveBlockingIncidents = findTrucksWithActiveBlockingIncidents();
+
         List<Truck> availableTrucks = truckRepository.findByIsActiveTrue()
                 .stream()
                 .filter(this::isRoutingCandidate)
                 .filter(t -> !t.getId().equals(affectedTruckId))
+                .filter(t -> !trucksWithActiveBlockingIncidents.contains(t.getId()))
                 .toList();
+
+        System.out.println(
+                "REPLAN ELIGIBILITY => affectedTruckId=" + affectedTruckId
+                        + " excluded from replan candidates, trucksWithActiveBlockingIncidents="
+                        + trucksWithActiveBlockingIncidents
+                        + ", availableTrucks="
+                        + availableTrucks.stream().map(Truck::getId).toList()
+        );
 
         if (availableTrucks.isEmpty()) {
             throw new BadRequestException("No available trucks for replanning");
@@ -162,6 +189,42 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         }
 
         return replannedMissions;
+    }
+
+    private Set<Long> findTrucksWithActiveBlockingIncidents() {
+        List<TruckIncident> activeIncidents;
+
+        try {
+            activeIncidents = truckIncidentRepository.findByStatusIn(
+                    List.of(
+                            TruckIncident.IncidentStatus.OPEN,
+                            TruckIncident.IncidentStatus.IN_PROGRESS
+                    )
+            );
+        } catch (Exception e) {
+            System.out.println("REPLAN INCIDENT FILTER WARNING => unable to load active incidents: " + e.getMessage());
+            return Set.of();
+        }
+
+        return activeIncidents.stream()
+                .filter(incident -> incident != null)
+                .filter(incident -> incident.getTruck() != null)
+                .filter(incident -> incident.getTruck().getId() != null)
+                .filter(this::isBlockingIncident)
+                .map(incident -> incident.getTruck().getId())
+                .collect(Collectors.toSet());
+    }
+
+    private boolean isBlockingIncident(TruckIncident incident) {
+        if (incident == null || incident.getIncidentType() == null) {
+            return false;
+        }
+
+        String incidentType = incident.getIncidentType().name().trim().toUpperCase();
+
+        return incidentType.equals("BREAKDOWN")
+                || incidentType.equals("DRIVER_UNAVAILABLE")
+                || incidentType.equals("REFUEL_REQUIRED");
     }
 
     private void validateMissionEligibleForReplan(Mission mission) {
@@ -256,17 +319,15 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                         "Truck not found for replanned mission: " + routingMissionDto.getTruckId()
                 ));
 
-        Driver driver = targetTruck.getAssignedDriver();
-        if (driver == null) {
-            throw new BadRequestException("Truck " + targetTruck.getId() + " has no assigned driver");
-        }
-
+        Driver driver = resolveDriverForTruck(targetTruck);
         Depot depot = resolveActiveDepot();
 
         Mission mission = new Mission();
         mission.setMissionCode(generateMissionCode());
         mission.setDriver(driver);
         mission.setTruck(targetTruck);
+        mission.setDepot(depot);
+        mission.setZone(targetTruck.getZone());
         mission.setStatus("CREATED");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
         mission.setPriority("HIGH");
@@ -312,6 +373,29 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         return savedMission;
     }
 
+    private Driver resolveDriverForTruck(Truck truck) {
+        if (truck == null) {
+            throw new BadRequestException("Truck is null while resolving driver");
+        }
+
+        if (truck.getTruckCode() == null || truck.getTruckCode().isBlank()) {
+            throw new BadRequestException("Truck code is missing for truck id: " + truck.getId());
+        }
+
+        String truckCode = truck.getTruckCode().trim();
+
+        return driverRepository.findAll()
+                .stream()
+                .filter(driver -> driver.getVehicleCode() != null)
+                .filter(driver -> driver.getVehicleCode().trim().equalsIgnoreCase(truckCode))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException(
+                        "Truck " + truck.getId()
+                                + " has no assigned driver. Expected vehicle_code="
+                                + truckCode
+                ));
+    }
+
     private void saveReplannedRoutePlanAndStops(Mission mission,
                                                 Truck truck,
                                                 Depot depot,
@@ -324,7 +408,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         routePlan.setDepot(depot);
         routePlan.setPlanType(RoutePlan.PlanType.REPLANNED);
         routePlan.setPlanStatus(RoutePlan.PlanStatus.PLANNED);
-        routePlan.setOptimizationAlgorithm("OR_TOOLS_OSRM_REPLAN");
+        routePlan.setOptimizationAlgorithm("OR_TOOLS_TOMTOM_REPLAN");
         routePlan.setOptimizationVersion(REPLAN_ALGORITHM_VERSION);
         routePlan.setTrafficMode(RoutePlan.TrafficMode.REAL);
 
@@ -347,7 +431,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         depotStart.setLat(resolveDepotLat(routingRequest, depot));
         depotStart.setLng(resolveDepotLng(routingRequest, depot));
         depotStart.setStatus(RouteStop.StopStatus.PLANNED);
-        depotStart.setNotes("Replanned route start from depot");
+        depotStart.setNotes("Départ de la route replanifiée depuis le dépôt");
         routeStopRepository.save(depotStart);
 
         if (routingMissionDto.getStops() != null) {
@@ -367,7 +451,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 routeStop.setLat(resolveBinRoutingLat(bin));
                 routeStop.setLng(resolveBinRoutingLng(bin));
                 routeStop.setStatus(RouteStop.StopStatus.PLANNED);
-                routeStop.setNotes("Replanned mission bin pickup");
+                routeStop.setNotes("Collecte du bac dans la mission replanifiée");
                 routeStopRepository.save(routeStop);
             }
         }
@@ -379,7 +463,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         depotReturn.setLat(resolveDepotLat(routingRequest, depot));
         depotReturn.setLng(resolveDepotLng(routingRequest, depot));
         depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
-        depotReturn.setNotes("Replanned return to depot");
+        depotReturn.setNotes("Retour au dépôt après la mission replanifiée");
         routeStopRepository.save(depotReturn);
     }
 
@@ -525,17 +609,17 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
         String reason = request != null && request.getReason() != null
                 ? request.getReason()
-                : "No reason provided";
+                : "Aucune raison détaillée fournie";
 
         Long sourceTruckId = sourceTruck != null ? sourceTruck.getId() : null;
         Long targetTruckId = targetTruck != null ? targetTruck.getId() : null;
 
-        return "Mission reassignment | originalMissionId=" + originalMission.getId()
-                + " | sourceTruckId=" + sourceTruckId
-                + " | targetTruckId=" + targetTruckId
-                + " | binId=" + (bin != null ? bin.getId() : null)
-                + " | incidentType=" + incidentType
-                + " | reason=" + reason;
+        return "Réaffectation de mission | missionInitialeId=" + originalMission.getId()
+                + " | camionSourceId=" + sourceTruckId
+                + " | camionCibleId=" + targetTruckId
+                + " | bacId=" + (bin != null ? bin.getId() : null)
+                + " | typeIncident=" + incidentType
+                + " | motif=" + reason;
     }
 
     private int resolveVisitOrder(RoutingStopDto stopDto, int fallbackOrder) {
@@ -547,16 +631,29 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
     private String buildReplanNotes(Mission originalMission, ReplanRequestDto request) {
         String incidentType = request != null && request.getIncidentType() != null
-                ? request.getIncidentType()
-                : "UNKNOWN_INCIDENT";
+                ? request.getIncidentType().trim().toUpperCase()
+                : "INCIDENT_INCONNU";
 
-        String reason = request != null && request.getReason() != null
+        String reason = request != null && request.getReason() != null && !request.getReason().isBlank()
                 ? request.getReason()
-                : "No reason provided";
+                : "Aucune raison détaillée fournie";
 
-        return "Replanned from mission " + originalMission.getId()
-                + " بسبب " + incidentType
-                + " | reason=" + reason;
+        String incidentLabel = switch (incidentType) {
+            case "BREAKDOWN" -> "panne du camion";
+            case "TRAFFIC", "TRAFFIC_BLOCK" -> "blocage ou perturbation du trafic";
+            case "FUEL_LOW" -> "niveau de carburant faible";
+            case "REFUEL_REQUIRED" -> "ravitaillement requis";
+            case "DELAY" -> "retard opérationnel";
+            case "MANUAL" -> "replanification manuelle";
+            default -> "incident opérationnel";
+        };
+
+        return "Mission replanifiée à partir de la mission "
+                + originalMission.getId()
+                + " suite à un incident : "
+                + incidentLabel
+                + ". Motif : "
+                + reason;
     }
 
     private String generateMissionCode() {

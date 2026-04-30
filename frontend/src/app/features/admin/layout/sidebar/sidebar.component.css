@@ -7,10 +7,8 @@
   background: var(--sidebar-color);
   border-right: 1px solid var(--border-color);
   color: var(--text-color);
-
   display: flex;
   flex-direction: column;
-
   padding: 18px 14px;
   box-sizing: border-box;
   overflow: hidden;
@@ -22,48 +20,49 @@
 =================================*/
 .brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 8px 8px 14px;
+  text-align: center;
 }
 
-.brand__icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: #16c784;
-  color: #ffffff;
-
+.brand__logo-wrap {
+  width: 120px;
+  height: 90px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-
+  overflow: hidden; /* باش يتحيد الفراغ الزايد */
   flex: 0 0 auto;
-  box-shadow: 0 10px 22px rgba(22, 199, 132, 0.22);
 }
 
-.brand__icon mat-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  color: #ffffff;
+.brand__logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  display: block;
+  transform: scale(1.75); /* كيكبر اللوغو من الداخل */
+  transform-origin: center;
 }
 
 .brand__text {
   min-width: 0;
+  text-align: center;
 }
 
 .brand__name {
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--text-color);
+  margin: 0;
 }
 
 .brand__tag {
-  margin-top: 2px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 14px;
   line-height: 1.35;
   color: var(--muted-color);
 }
@@ -76,10 +75,8 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
   padding: 12px 6px;
-  margin-top: 12px;
-
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -102,15 +99,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-
   padding: 13px 14px;
   border-radius: 18px;
-
   text-decoration: none;
   color: var(--text-color);
   font-weight: 700;
   font-size: 15px;
-
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
@@ -188,17 +182,37 @@
   border-radius: 999px;
   background: #16c784;
   color: #ffffff;
-
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
 
+.user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #16c784;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 900;
   flex: 0 0 auto;
 }
 
 .user__meta {
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .user__name {
@@ -208,26 +222,16 @@
   line-height: 1.2;
 }
 
-.user__email {
-  font-size: 12px;
-  color: var(--muted-color);
-  margin-top: 3px;
-  line-height: 1.35;
-}
-
 /* LOGOUT */
 .logout {
   display: flex;
   align-items: center;
   gap: 10px;
-
   padding: 10px 12px;
   border-radius: 14px;
-
   text-decoration: none;
   font-weight: 800;
   color: #ef4444;
-
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -245,6 +249,10 @@
 =================================*/
 body.dark-mode .sidebar {
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+body.dark-mode .brand__logo-wrap {
+  background: rgba(22, 199, 132, 0.14);
 }
 
 body.dark-mode .nav a:not(.active) mat-icon,
@@ -270,5 +278,13 @@ body.dark-mode .logout:hover {
 @media (max-width: 900px) {
   .sidebar {
     width: 250px;
+  }
+
+  .brand__name {
+    font-size: 16px;
+  }
+
+  .brand__tag {
+    font-size: 11px;
   }
 }

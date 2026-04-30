@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -30,7 +31,17 @@ public class Driver {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+    @JsonIgnore
+    @OneToOne(mappedBy = "assignedDriver", fetch = FetchType.LAZY)
+    private Truck truck;
 
+    public Truck getTruck() {
+        return truck;
+    }
+
+    public void setTruck(Truck truck) {
+        this.truck = truck;
+    }
     @PrePersist
     public void prePersist() {
         this.createdAt = OffsetDateTime.now();

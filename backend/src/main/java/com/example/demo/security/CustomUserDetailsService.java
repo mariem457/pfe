@@ -19,9 +19,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        User u = repo.findByUsername(usernameOrEmail)
-                .or(() -> repo.findByEmail(usernameOrEmail))
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        String principal = email == null ? "" : email.trim();
+
+        User u = repo.findByEmail(principal)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         String role = u.getRole();
@@ -29,10 +30,11 @@ public class CustomUserDetailsService implements UserDetailsService {
             role = "ROLE_" + role;
         }
 
-        boolean accountNonLocked = u.getLockedUntil() == null || u.getLockedUntil().isBefore(OffsetDateTime.now());
+        boolean accountNonLocked =
+                u.getLockedUntil() == null || u.getLockedUntil().isBefore(OffsetDateTime.now());
 
         return new org.springframework.security.core.userdetails.User(
-                u.getUsername(),
+                u.getEmail(),
                 u.getPasswordHash(),
                 Boolean.TRUE.equals(u.getIsEnabled()),
                 true,

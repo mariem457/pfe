@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterModule } from '@angular/router';
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -10,4 +11,18 @@ import { RouterModule } from '@angular/router';
 })
 export class SidebarComponent {
 
+  constructor(private router: Router) {}
+
+  logout(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+
+    sessionStorage.clear();
+
+    this.router.navigate(['/login']);
+  }
 }

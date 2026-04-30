@@ -17,6 +17,7 @@ public class MissionBinResponse {
     private Boolean collected;
     private Instant collectedAt;
     private Long collectedByDriverId;
+    private String collectedByDriverName;
     private String driverNote;
     private String issueType;
     private String photoUrl;
@@ -121,6 +122,14 @@ public class MissionBinResponse {
 
     public void setCollectedByDriverId(Long collectedByDriverId) {
         this.collectedByDriverId = collectedByDriverId;
+    }
+
+    public String getCollectedByDriverName() {
+        return collectedByDriverName;
+    }
+
+    public void setCollectedByDriverName(String collectedByDriverName) {
+        this.collectedByDriverName = collectedByDriverName;
     }
 
     public String getDriverNote() {

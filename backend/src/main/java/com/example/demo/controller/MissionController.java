@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.MissionBinActionRequest;
 import com.example.demo.dto.MissionBinResponse;
+import com.example.demo.dto.MissionFuelStatusResponse;
 import com.example.demo.dto.MissionResponse;
 import com.example.demo.dto.MissionRouteResponse;
 import com.example.demo.service.MissionService;
@@ -38,6 +39,16 @@ public class MissionController {
     @GetMapping("/{missionId}/route")
     public ResponseEntity<MissionRouteResponse> getMissionRoute(@PathVariable Long missionId) {
         return ResponseEntity.ok(missionService.getMissionRoute(missionId));
+    }
+
+    @GetMapping("/{missionId}/fuel-status")
+    public ResponseEntity<MissionFuelStatusResponse> getMissionFuelStatus(@PathVariable Long missionId) {
+        return ResponseEntity.ok(missionService.getMissionFuelStatus(missionId));
+    }
+
+    @PostMapping("/{missionId}/refuel")
+    public ResponseEntity<MissionFuelStatusResponse> insertRefuelStop(@PathVariable Long missionId) {
+        return ResponseEntity.ok(missionService.insertRefuelStop(missionId));
     }
 
     @PostMapping("/{missionId}/start")

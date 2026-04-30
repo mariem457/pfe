@@ -6,7 +6,6 @@ from models.routing_models import (
     ExcludedTruckDto,
     WarningTruckDto
 )
-from services.fuel_service import compute_max_distance_from_fuel, is_truck_eligible_by_fuel
 
 
 BLOCKING_INCIDENT_TYPES = {
@@ -80,7 +79,6 @@ def filter_eligible_trucks(trucks: List[RoutingTruckDto], active_incidents: List
 
     for truck in trucks:
         status_ok = truck.status is None or truck.status.upper() == "AVAILABLE"
-        fuel_ok = is_truck_eligible_by_fuel(truck)
 
         truck_incidents = incidents_by_truck.get(truck.id, [])
         blocking_reason = get_blocking_incident_reason(truck_incidents)
@@ -90,15 +88,12 @@ def filter_eligible_trucks(trucks: List[RoutingTruckDto], active_incidents: List
 
         if not status_ok:
             exclusion_reason = f"STATUS:{truck.status}"
-        elif not fuel_ok:
-            exclusion_reason = "FUEL_AUTONOMY_TOO_LOW"
         elif blocking_reason is not None:
             exclusion_reason = blocking_reason
 
         print(
             f"Truck {truck.id} -> "
             f"status={truck.status}, status_ok={status_ok}, "
-            f"fuel_ok={fuel_ok}, maxDistance={compute_max_distance_from_fuel(truck)}, "
             f"activeIncidents={len(truck_incidents)}, "
             f"blockingReason={blocking_reason}, warningReasons={warning_reasons}, "
             f"exclusionReason={exclusion_reason}",

@@ -16,26 +16,25 @@ import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
 import { getToken } from "../../lib/storage";
 
-type AlertItem = {
+type DriverNotificationType =
+  | "MISSION_REASSIGNED"
+  | "TRUCK_BREAKDOWN_HANDLED"
+  | "SENSOR_BREAKDOWN_HANDLED"
+  | "DELAY_DETECTED";
+
+type DriverNotification = {
   id: number;
-  binId: number;
-  binCode: string;
-  telemetryId: number | null;
-  alertType: string;
-  severity: string;
+  type: DriverNotificationType;
   title: string;
   message: string;
   createdAt: string;
-  resolved: boolean;
-  resolvedAt: string | null;
-  resolvedByUserId: number | null;
+  read: boolean;
 };
 
 export default function NotificationsScreen() {
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [notifications, setNotifications] = useState<DriverNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [resolvingId, setResolvingId] = useState<number | null>(null);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -48,14 +47,13 @@ export default function NotificationsScreen() {
         subtext: "#94A3B8",
         softText: "#CBD5E1",
         whiteBtn: "#1A232D",
+        green: "#12905C",
         redSoft: "#2B1620",
         orangeSoft: "#3A2A12",
         blueSoft: "#172554",
         redText: "#FF6B6B",
         orangeText: "#FBBF24",
         blueText: "#60A5FA",
-        green: "#12905C",
-        borderLeft: "#12905C",
       }
     : {
         container: "#F3F5F7",
@@ -64,27 +62,25 @@ export default function NotificationsScreen() {
         subtext: "#6B7C93",
         softText: "#7C8DA6",
         whiteBtn: "#FFFFFF",
+        green: "#12905C",
         redSoft: "#FFF1F2",
         orangeSoft: "#FFF7ED",
         blueSoft: "#EEF4FF",
         redText: "#FF4D4F",
         orangeText: "#F59E0B",
         blueText: "#3B82F6",
-        green: "#12905C",
-        borderLeft: "#12905C",
       };
 
   useEffect(() => {
-    loadAlerts();
+    loadNotifications();
   }, []);
 
-  async function loadAlerts() {
+  async function loadNotifications() {
     try {
       setLoading(true);
-
       const token = await getToken();
 
-      const response = await fetch(`${BASE_URL}/api/alerts/open`, {
+      const response = await fetch(`${BASE_URL}/api/driver/notifications`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -94,15 +90,15 @@ export default function NotificationsScreen() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || "Failed to load alerts");
+        throw new Error(text || "Failed to load notifications");
       }
 
       const data = await response.json();
-      setAlerts(data);
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (error: any) {
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible de charger les alertes."
+        error?.message || "Impossible de charger les notifications."
       );
     } finally {
       setLoading(false);
@@ -112,62 +108,9 @@ export default function NotificationsScreen() {
   async function onRefresh() {
     try {
       setRefreshing(true);
-
-      const token = await getToken();
-
-      const response = await fetch(`${BASE_URL}/api/alerts/open`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to load alerts");
-      }
-
-      const data = await response.json();
-      setAlerts(data);
-    } catch (error: any) {
-      Alert.alert(
-        "Erreur",
-        error?.message || "Impossible de rafraîchir les alertes."
-      );
+      await loadNotifications();
     } finally {
       setRefreshing(false);
-    }
-  }
-
-  async function resolveAlert(alertId: number) {
-    try {
-      setResolvingId(alertId);
-
-      const token = await getToken();
-
-      const response = await fetch(`${BASE_URL}/api/alerts/${alertId}/resolve`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to resolve alert");
-      }
-
-      Alert.alert("Succès", "Alerte résolue.");
-      await loadAlerts();
-    } catch (error: any) {
-      Alert.alert(
-        "Erreur",
-        error?.message || "Impossible de résoudre l’alerte."
-      );
-    } finally {
-      setResolvingId(null);
     }
   }
 
@@ -186,52 +129,44 @@ export default function NotificationsScreen() {
     return `${days} day${days > 1 ? "s" : ""} ago`;
   }
 
-  function getAlertIcon(alert: AlertItem) {
-    const severity = alert.severity?.toUpperCase();
-    const type = alert.alertType?.toUpperCase();
-
-    if (severity === "HIGH") {
-      return {
-        icon: "warning-outline" as const,
-        iconColor: colors.redText,
-        wrapStyle: [styles.iconWrapRed, { backgroundColor: colors.redSoft }],
-        cardStyle: [
-          styles.cardImportant,
-          { backgroundColor: colors.card, borderLeftColor: colors.borderLeft },
-        ],
-      };
+  function getNotificationUI(type: DriverNotificationType) {
+    switch (type) {
+      case "MISSION_REASSIGNED":
+        return {
+          icon: "git-branch-outline" as const,
+          iconColor: colors.blueText,
+          bg: colors.blueSoft,
+          label: "Mission",
+        };
+      case "TRUCK_BREAKDOWN_HANDLED":
+        return {
+          icon: "construct-outline" as const,
+          iconColor: colors.orangeText,
+          bg: colors.orangeSoft,
+          label: "Camion",
+        };
+      case "SENSOR_BREAKDOWN_HANDLED":
+        return {
+          icon: "hardware-chip-outline" as const,
+          iconColor: colors.orangeText,
+          bg: colors.orangeSoft,
+          label: "Capteur",
+        };
+      case "DELAY_DETECTED":
+        return {
+          icon: "time-outline" as const,
+          iconColor: colors.redText,
+          bg: colors.redSoft,
+          label: "Retard",
+        };
+      default:
+        return {
+          icon: "notifications-outline" as const,
+          iconColor: colors.blueText,
+          bg: colors.blueSoft,
+          label: "Notification",
+        };
     }
-
-    if (type === "MAINTENANCE") {
-      return {
-        icon: "build-outline" as const,
-        iconColor: colors.orangeText,
-        wrapStyle: [styles.iconWrapOrange, { backgroundColor: colors.orangeSoft }],
-        cardStyle: [
-          styles.cardImportant,
-          { backgroundColor: colors.card, borderLeftColor: colors.borderLeft },
-        ],
-      };
-    }
-
-    if (type === "SYSTEM") {
-      return {
-        icon: "alert-circle-outline" as const,
-        iconColor: colors.orangeText,
-        wrapStyle: [styles.iconWrapOrange, { backgroundColor: colors.orangeSoft }],
-        cardStyle: [
-          styles.cardImportant,
-          { backgroundColor: colors.card, borderLeftColor: colors.borderLeft },
-        ],
-      };
-    }
-
-    return {
-      icon: "notifications-outline" as const,
-      iconColor: colors.blueText,
-      wrapStyle: [styles.iconWrapBlue, { backgroundColor: colors.blueSoft }],
-      cardStyle: [styles.card, { backgroundColor: colors.card }],
-    };
   }
 
   return (
@@ -245,12 +180,10 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Notifications
-        </Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Alerts</Text>
 
         <TouchableOpacity activeOpacity={0.8} onPress={onRefresh}>
-          <Text style={[styles.clearAll, { color: colors.green }]}>Refresh</Text>
+          <Text style={[styles.refreshText, { color: colors.green }]}>Refresh</Text>
         </TouchableOpacity>
       </View>
 
@@ -265,82 +198,54 @@ export default function NotificationsScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.content}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {alerts.length === 0 ? (
+          {notifications.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={40}
-                color="#10B981"
-              />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No open alerts
-              </Text>
+              <Ionicons name="checkmark-circle-outline" size={44} color="#10B981" />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No alerts</Text>
               <Text style={[styles.emptyDesc, { color: colors.subtext }]}>
-                All alerts are resolved for now.
+                No driver notifications for now.
               </Text>
             </View>
           ) : (
-            alerts.map((item) => {
-              const alertUI = getAlertIcon(item);
+            notifications.map((item) => {
+              const ui = getNotificationUI(item.type);
 
               return (
-                <View key={item.id} style={alertUI.cardStyle}>
+                <View key={item.id} style={[styles.card, { backgroundColor: colors.card }]}>
                   <View style={styles.left}>
-                    <View style={alertUI.wrapStyle}>
-                      <Ionicons
-                        name={alertUI.icon}
-                        size={18}
-                        color={alertUI.iconColor}
-                      />
+                    <View style={[styles.iconWrap, { backgroundColor: ui.bg }]}>
+                      <Ionicons name={ui.icon} size={20} color={ui.iconColor} />
                     </View>
 
                     <View style={styles.textWrap}>
                       <Text style={[styles.title, { color: colors.text }]}>
                         {item.title}
                       </Text>
-
                       <Text style={[styles.desc, { color: colors.subtext }]}>
                         {item.message}
-                        {item.binCode ? ` (${item.binCode})` : ""}
                       </Text>
 
-                      <Text style={[styles.metaText, { color: colors.softText }]}>
-                        Severity: {item.severity} • Type: {item.alertType}
-                      </Text>
-
-                      <Text style={[styles.time, { color: colors.softText }]}>
-                        {getTimeAgo(item.createdAt)}
-                      </Text>
-
-                      <TouchableOpacity
-                        style={styles.resolveButton}
-                        activeOpacity={0.85}
-                        onPress={() => resolveAlert(item.id)}
-                        disabled={resolvingId === item.id}
-                      >
-                        {resolvingId === item.id ? (
-                          <ActivityIndicator color="#FFFFFF" size="small" />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name="checkmark-circle-outline"
-                              size={16}
-                              color="#FFFFFF"
-                            />
-                            <Text style={styles.resolveButtonText}>
-                              Resolve
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                      <View style={styles.metaRow}>
+                        <Text
+                          style={[
+                            styles.badge,
+                            { color: ui.iconColor, backgroundColor: ui.bg },
+                          ]}
+                        >
+                          {ui.label}
+                        </Text>
+                        <Text style={[styles.time, { color: colors.softText }]}>
+                          {getTimeAgo(item.createdAt)}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
-                  <View style={[styles.greenDot, { backgroundColor: colors.green }]} />
+                  {!item.read && (
+                    <View style={[styles.greenDot, { backgroundColor: colors.green }]} />
+                  )}
                 </View>
               );
             })
@@ -352,10 +257,7 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
+  container: { flex: 1 },
   header: {
     paddingHorizontal: 18,
     paddingTop: 14,
@@ -364,7 +266,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   backButton: {
     width: 36,
     height: 36,
@@ -377,33 +278,11 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
-
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-
-  clearAll: {
-    fontWeight: "600",
-    fontSize: 14,
-  },
-
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-
-  loaderWrap: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loaderText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-
+  headerTitle: { fontSize: 20, fontWeight: "800" },
+  refreshText: { fontWeight: "700", fontSize: 14 },
+  content: { paddingHorizontal: 16, paddingBottom: 24 },
+  loaderWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loaderText: { marginTop: 12, fontSize: 14 },
   emptyCard: {
     borderRadius: 18,
     padding: 24,
@@ -416,34 +295,8 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  emptyDesc: {
-    marginTop: 6,
-    fontSize: 14,
-    textAlign: "center",
-  },
-
-  cardImportant: {
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 14,
-    borderLeftWidth: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 4,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-
+  emptyTitle: { marginTop: 12, fontSize: 18, fontWeight: "800" },
+  emptyDesc: { marginTop: 6, fontSize: 14, textAlign: "center" },
   card: {
     borderRadius: 18,
     padding: 16,
@@ -457,87 +310,32 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-
-  left: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    flex: 1,
-  },
-
-  textWrap: {
-    flex: 1,
-  },
-
-  iconWrapRed: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  left: { flexDirection: "row", alignItems: "flex-start", flex: 1 },
+  textWrap: { flex: 1 },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-
-  iconWrapOrange: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  iconWrapBlue: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-
-  desc: {
-    fontSize: 14,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-
-  metaText: {
+  title: { fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  desc: { fontSize: 14, marginBottom: 10, lineHeight: 20 },
+  metaRow: { flexDirection: "row", alignItems: "center" },
+  badge: {
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
     fontSize: 12,
-    marginBottom: 6,
+    fontWeight: "800",
+    marginRight: 8,
   },
-
-  time: {
-    fontSize: 12,
-    marginBottom: 10,
-  },
-
-  resolveButton: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    backgroundColor: "#12905C",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  resolveButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    marginLeft: 6,
-    fontSize: 13,
-  },
-
+  time: { fontSize: 12 },
   greenDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 99,
     marginLeft: 10,
     marginTop: 6,

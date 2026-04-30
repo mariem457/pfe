@@ -1,9 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
-import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -16,9 +15,11 @@ import {
   useColorScheme,
 } from "react-native";
 import MapView, { Geojson, Marker } from "react-native-maps";
-import { getToken, getUserId } from "../../lib/storage";
+import { getToken, getUserId, saveTruckId } from "../../lib/storage";
+import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
 
 type DriverBin = {
+  missionId?: number;
   missionBinId?: number;
   binId?: number;
   binCode?: string;
@@ -30,12 +31,27 @@ type DriverBin = {
   wasteType?: string;
 };
 
+type DriverNotificationType =
+  | "MISSION_REASSIGNED"
+  | "TRUCK_BREAKDOWN_HANDLED"
+  | "SENSOR_BREAKDOWN_HANDLED"
+  | "DELAY_DETECTED";
+
+type DriverNotification = {
+  id: number;
+  type: DriverNotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+};
+
 const paris15: any = {
   type: "FeatureCollection",
   features: [],
 };
 
-const BASE_URL = "http://192.168.0.21:8081";
+const BASE_URL = "http://10.221.127.113:8081";
 
 export default function Dashboard() {
   const colorScheme = useColorScheme();
@@ -45,6 +61,11 @@ export default function Dashboard() {
   const [truckId, setTruckId] = useState("Not assigned");
   const [bins, setBins] = useState<DriverBin[]>([]);
   const [loadingBins, setLoadingBins] = useState(true);
+
+  const [toast, setToast] = useState<DriverNotification | null>(null);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const lastNotificationIdRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [incidentModalVisible, setIncidentModalVisible] = useState(false);
   const [selectedBin, setSelectedBin] = useState<DriverBin | null>(null);
@@ -60,66 +81,56 @@ export default function Dashboard() {
     "Autre",
   ];
 
-  async function sendLocationToBackend() {
-    try {
-      const token = await getToken();
-      if (!token) return;
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-
-      const location = await Location.getCurrentPositionAsync({});
-
-      await fetch(`${BASE_URL}/api/driver-location`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          speed: location.coords.speed,
-          heading: location.coords.heading,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-    } catch (error) {
-      console.log("Erreur location:", error);
-    }
-  }
-
   const loadDashboardHeader = useCallback(async () => {
-    try {
-      const token = await getToken();
+  try {
+    const token = await getToken();
+    const userId = await getUserId();
 
-      if (!token) {
-        setDriverName("Driver");
-        setTruckId("Not assigned");
-        return;
-      }
+    console.log("AUTH USER ID:", userId);
+    console.log("TOKEN EXISTS:", !!token);
 
-      const response = await fetch(`${BASE_URL}/api/settings/profile`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const text = await response.text();
-
-      if (!response.ok) throw new Error(text);
-
-      const data = text ? JSON.parse(text) : {};
-
-      setDriverName(data.fullName || "Driver");
-      setTruckId(data.assignedTruck || "Not assigned");
-    } catch (error) {
-      console.log("Erreur header:", error);
+    if (!token || !userId) {
       setDriverName("Driver");
       setTruckId("Not assigned");
+      return;
     }
-  }, []);
+
+    const response = await fetch(`${BASE_URL}/api/drivers/${userId}/profile`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await response.text();
+
+    console.log("PROFILE STATUS:", response.status);
+    console.log("PROFILE RAW RESPONSE:", text);
+
+    if (!response.ok) {
+      throw new Error(text);
+    }
+
+    const data = text ? JSON.parse(text) : {};
+    console.log("PROFILE DATA:", data);
+    console.log("ASSIGNED TRUCK:", data.assignedTruck);
+    console.log("ASSIGNED TRUCK ID:", data.assignedTruckId);
+
+    setDriverName(data.fullName || "Driver");
+    setTruckId(data.assignedTruck || "Not assigned");
+
+    if (data.assignedTruckId) {
+      await saveTruckId(data.assignedTruckId);
+      console.log("TRUCK ID SAVED:", data.assignedTruckId);
+    } else {
+      console.log("NO assignedTruckId FOUND IN PROFILE");
+    }
+  } catch (error) {
+    console.log("Erreur header:", error);
+    setDriverName("Driver");
+    setTruckId("Not assigned");
+  }
+}, []);
 
   const fetchMyBins = useCallback(async () => {
     try {
@@ -157,22 +168,144 @@ export default function Dashboard() {
     }
   }, []);
 
+  function getToastIcon(type: DriverNotificationType) {
+    switch (type) {
+      case "MISSION_REASSIGNED":
+        return "git-branch-outline" as const;
+      case "TRUCK_BREAKDOWN_HANDLED":
+        return "construct-outline" as const;
+      case "SENSOR_BREAKDOWN_HANDLED":
+        return "hardware-chip-outline" as const;
+      case "DELAY_DETECTED":
+        return "time-outline" as const;
+      default:
+        return "notifications-outline" as const;
+    }
+  }
+
+  function getToastStyle(type: DriverNotificationType) {
+    switch (type) {
+      case "MISSION_REASSIGNED":
+        return {
+          bg: colors.blueSoft,
+          iconColor: "#3B82F6",
+        };
+      case "TRUCK_BREAKDOWN_HANDLED":
+      case "SENSOR_BREAKDOWN_HANDLED":
+        return {
+          bg: colors.warningSoft,
+          iconColor: colors.orangeText,
+        };
+      case "DELAY_DETECTED":
+        return {
+          bg: colors.dangerSoft,
+          iconColor: colors.redText,
+        };
+      default:
+        return {
+          bg: colors.blueSoft,
+          iconColor: "#3B82F6",
+        };
+    }
+  }
+
+  function showDriverToast(notification: DriverNotification) {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    setToast(notification);
+    setHasUnreadNotifications(true);
+
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 60000);
+  }
+
+  const loadDriverNotifications = useCallback(
+    async (showToastIfNew = false) => {
+      try {
+        const token = await getToken();
+
+        if (!token) return;
+
+        const response = await fetch(`${BASE_URL}/api/driver/notifications`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          console.log("Driver notifications response error:", text);
+          return;
+        }
+
+        const data: DriverNotification[] = await response.json();
+        const list = Array.isArray(data) ? data : [];
+
+        setHasUnreadNotifications(list.some((item) => !item.read));
+
+        if (list.length === 0) return;
+
+        const newest = list[0];
+
+        if (lastNotificationIdRef.current === null) {
+          lastNotificationIdRef.current = newest.id;
+          return;
+        }
+
+        if (showToastIfNew && newest.id !== lastNotificationIdRef.current) {
+          lastNotificationIdRef.current = newest.id;
+          showDriverToast(newest);
+          fetchMyBins();
+        }
+      } catch (error) {
+        console.log("Driver notifications error:", error);
+      }
+    },
+    [fetchMyBins]
+  );
+
   useEffect(() => {
-    sendLocationToBackend();
+    sendTruckLocation().catch(console.log);
 
     const interval = setInterval(() => {
-      sendLocationToBackend();
+      sendTruckLocation().catch(console.log);
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMyBins();
-      loadDashboardHeader();
-    }, [fetchMyBins, loadDashboardHeader])
-  );
+  useEffect(() => {
+    loadDriverNotifications(false);
+
+    const interval = setInterval(() => {
+      loadDriverNotifications(true);
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, [loadDriverNotifications]);
+
+useFocusEffect(
+  useCallback(() => {
+    fetchMyBins();
+    loadDriverNotifications(false);
+
+    loadDashboardHeader().then(() => {
+      getMyTruckIncidents()
+        .then((data) => console.log("MY TRUCK INCIDENTS:", data))
+        .catch((err) => console.log("INCIDENTS ERROR:", err));
+    });
+  }, [fetchMyBins, loadDashboardHeader, loadDriverNotifications])
+);
 
   const colors = isDark
     ? {
@@ -216,6 +349,7 @@ export default function Dashboard() {
 
   const mapLatitude = bins[0]?.lat || 48.8414;
   const mapLongitude = bins[0]?.lng || 2.3003;
+  const toastUI = toast ? getToastStyle(toast.type) : null;
 
   function openIncidentModal(bin: DriverBin) {
     setSelectedBin(bin);
@@ -253,17 +387,6 @@ export default function Dashboard() {
 
       console.log("BIN INCIDENT:", payload);
 
-      /*
-      await fetch(`${BASE_URL}/api/incidents/bin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      */
-
       Alert.alert("Succès", "Panne déclarée avec succès.");
       setIncidentModalVisible(false);
     } catch (error) {
@@ -288,10 +411,13 @@ export default function Dashboard() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.iconButton}
-              onPress={() => router.push("/notifications")}
+              onPress={() => {
+                setHasUnreadNotifications(false);
+                router.push("/notifications");
+              }}
             >
               <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-              <View style={styles.notificationDot} />
+              {hasUnreadNotifications && <View style={styles.notificationDot} />}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -316,43 +442,37 @@ export default function Dashboard() {
         </View>
       </LinearGradient>
 
-      <View style={[styles.alertCardRed, { backgroundColor: colors.card }]}>
-        <View style={styles.alertLeft}>
-          <View style={[styles.alertIconRed, { backgroundColor: colors.dangerSoft }]}>
-            <Ionicons name="warning-outline" size={18} color={colors.redText} />
+
+      {toast && toastUI && (
+        <View style={[styles.liveToast, { backgroundColor: colors.card }]}>
+          <View style={styles.alertLeft}>
+            <View style={[styles.liveToastIcon, { backgroundColor: toastUI.bg }]}>
+              <Ionicons
+                name={getToastIcon(toast.type)}
+                size={20}
+                color={toastUI.iconColor}
+              />
+            </View>
+
+            <View style={styles.alertTextWrap}>
+              <Text style={[styles.alertTitle, { color: colors.text }]}>
+                {toast.title}
+              </Text>
+              <Text style={[styles.alertTime, { color: colors.subtext }]}>
+                {toast.message}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.alertTextWrap}>
-            <Text style={[styles.alertTitle, { color: colors.text }]}>
-              Driver dashboard connected
-            </Text>
-            <Text style={[styles.alertTime, { color: colors.subtext }]}>
-              Mission bins loaded from database
-            </Text>
-          </View>
+          <TouchableOpacity onPress={() => setToast(null)} activeOpacity={0.8}>
+            <Ionicons name="close" size={18} color={colors.subtext} />
+          </TouchableOpacity>
         </View>
+      )}
 
-        <Ionicons name="close" size={18} color={colors.subtext} />
-      </View>
 
-      <View style={[styles.alertCardOrange, { backgroundColor: colors.card }]}>
-        <View style={styles.alertLeft}>
-          <View style={[styles.alertIconOrange, { backgroundColor: colors.warningSoft }]}>
-            <Ionicons name="paper-plane-outline" size={18} color={colors.orangeText} />
-          </View>
 
-          <View style={styles.alertTextWrap}>
-            <Text style={[styles.alertTitle, { color: colors.text }]}>
-              Route data synchronized
-            </Text>
-            <Text style={[styles.alertTime, { color: colors.subtext }]}>
-              Real mission data
-            </Text>
-          </View>
-        </View>
 
-        <Ionicons name="close" size={18} color={colors.subtext} />
-      </View>
 
       <View style={[styles.diagramCard, { backgroundColor: colors.card }]}>
         <View style={styles.diagramHeader}>
@@ -628,15 +748,11 @@ export default function Dashboard() {
                       <Text style={[styles.binMetaGreen, { color: colors.orangeText }]}>
                         Planned
                       </Text>
-
-                     
                     </View>
                   </View>
                 </View>
 
                 <View style={styles.binActions}>
-                  
-
                   <TouchableOpacity
                     style={styles.collectButton}
                     activeOpacity={0.85}
@@ -652,6 +768,7 @@ export default function Dashboard() {
                   >
                     <Text style={styles.collectButtonText}>Collecter</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     style={styles.reportBinButton}
                     activeOpacity={0.85}
@@ -842,6 +959,32 @@ const styles = StyleSheet.create({
   truckTextWrap: { flex: 1 },
   truckLabel: { color: "#D8FFF0", fontSize: 12, marginBottom: 2 },
   truckId: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
+
+  liveToast: {
+    marginHorizontal: 16,
+    marginTop: -12,
+    marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 999,
+  },
+  liveToastIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
 
   alertCardRed: {
     marginHorizontal: 16,

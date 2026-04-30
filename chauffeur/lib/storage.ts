@@ -9,6 +9,7 @@ export type AuthData = {
   mustChangePassword: boolean;
   username?: string;
   email?: string;
+  truckId?: number;
 };
 
 export async function saveAuth(auth: AuthData): Promise<void> {
@@ -62,4 +63,20 @@ export async function getMustChangePassword(): Promise<boolean> {
 export async function isLoggedIn(): Promise<boolean> {
   const token = await getToken();
   return !!token;
+}
+
+export async function saveTruckId(truckId: number | string): Promise<void> {
+  const auth = await getAuth();
+
+  if (!auth) return;
+
+  await saveAuth({
+    ...auth,
+    truckId: Number(truckId),
+  });
+}
+
+export async function getTruckId(): Promise<number | null> {
+  const auth = await getAuth();
+  return auth?.truckId ?? null;
 }

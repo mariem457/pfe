@@ -13,11 +13,12 @@ public class BinPrediction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "bin_id")
+    @Column(name = "bin_id", nullable = false)
     private Long binId;
 
-    @Column(name = "telemetry_id")
-    private Long telemetryId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "telemetry_id", nullable = false)
+    private BinTelemetry telemetry;
 
     @Column(name = "actual_fill_next", precision = 10, scale = 2)
     private BigDecimal actualFillNext;
@@ -30,6 +31,12 @@ public class BinPrediction {
 
     @Column(name = "alert_status")
     private String alertStatus;
+
+    @Column(name = "priority_score", precision = 10, scale = 2)
+    private BigDecimal priorityScore;
+
+    @Column(name = "should_collect")
+    private Boolean shouldCollect;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
@@ -46,20 +53,12 @@ public class BinPrediction {
         this.binId = binId;
     }
 
-    public Long getTelemetryId() {
-        return telemetryId;
+    public BinTelemetry getTelemetry() {
+        return telemetry;
     }
 
-    public void setTelemetryId(Long telemetryId) {
-        this.telemetryId = telemetryId;
-    }
-
-    public BigDecimal getPredictedFillNext() {
-        return predictedFillNext;
-    }
-
-    public void setPredictedFillNext(BigDecimal predictedFillNext) {
-        this.predictedFillNext = predictedFillNext;
+    public void setTelemetry(BinTelemetry telemetry) {
+        this.telemetry = telemetry;
     }
 
     public BigDecimal getActualFillNext() {
@@ -78,6 +77,14 @@ public class BinPrediction {
         this.errorValue = errorValue;
     }
 
+    public BigDecimal getPredictedFillNext() {
+        return predictedFillNext;
+    }
+
+    public void setPredictedFillNext(BigDecimal predictedFillNext) {
+        this.predictedFillNext = predictedFillNext;
+    }
+
     public String getAlertStatus() {
         return alertStatus;
     }
@@ -86,19 +93,27 @@ public class BinPrediction {
         this.alertStatus = alertStatus;
     }
 
+    public BigDecimal getPriorityScore() {
+        return priorityScore;
+    }
+
+    public void setPriorityScore(BigDecimal priorityScore) {
+        this.priorityScore = priorityScore;
+    }
+
+    public Boolean getShouldCollect() {
+        return shouldCollect;
+    }
+
+    public void setShouldCollect(Boolean shouldCollect) {
+        this.shouldCollect = shouldCollect;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public void setPriorityScore(BigDecimal valueOf) {
-        throw new UnsupportedOperationException("Unimplemented method 'setPriorityScore'");
-    }
-
-    public void setShouldCollect(boolean shouldCollect) {
-        throw new UnsupportedOperationException("Unimplemented method 'setShouldCollect'");
     }
 }

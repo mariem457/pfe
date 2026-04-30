@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.BinPrediction;
+import com.example.demo.entity.BinTelemetry;
 import com.example.demo.repository.BinPredictionRepository;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +17,11 @@ public class BinPredictionService {
         this.repo = repo;
     }
 
-    public void save(Long binId, Long telemetryId, PredictionResult r) {
+    public void save(Long binId, BinTelemetry telemetry, PredictionResult r) {
 
         BinPrediction p = new BinPrediction();
         p.setBinId(binId);
-        p.setTelemetryId(telemetryId);
+        p.setTelemetry(telemetry);
         p.setPredictedFillNext(BigDecimal.valueOf(r.getPredictedFillNext()));
         p.setAlertStatus(r.getAlertStatus());
         p.setPriorityScore(BigDecimal.valueOf(r.getPriorityScore()));

@@ -1,19 +1,46 @@
 import { Component, OnInit } from '@angular/core';
-import { UserAdminListResponse, UserService, UserStatsResponse } from '../../../../services/user.service';
+import {
+  AccountStatus,
+  DriverRegistrationRequestResponse,
+  UserAdminListResponse,
+  UserService
+} from '../../../../services/user.service';
 
-type FiltreUtilisateur = 'Tous' | 'Actifs' | 'Inactifs' | 'Chauffeurs';
-type StatutUtilisateur = 'Actif' | 'Inactif';
-type RoleUtilisateur = 'Administrateur' | 'Chauffeur' | 'Superviseur' | 'Observateur';
+type RoleUtilisateur =
+  | 'Chauffeur'
+  | 'Maintenance'
+  | 'Municipalité'
+  | 'Administrateur'
+  | 'Inconnu';
+
+type StatutCompte = 'En attente' | 'Validé' | 'Refusé' | 'Désactivé';
+
+type FiltreUtilisateur =
+  | 'Tous'
+  | 'Chauffeurs'
+  | 'Chauffeurs en attente'
+  | 'Maintenance'
+  | 'Municipalité';
+
+type ModalMode = 'details' | 'confirm';
+type ConfirmAction = 'validate' | 'reject' | 'disable' | 'delete' | null;
 
 interface Utilisateur {
   id: number;
+  requestId?: number;
+  source: 'USER' | 'REGISTRATION_REQUEST';
+  username: string;
   initiales: string;
   nom: string;
-  courriel: string;
+  email: string;
   telephone: string;
-  statut: StatutUtilisateur;
   role: RoleUtilisateur;
-  derniereActivite: string;
+  statut: StatutCompte;
+  dateInscription: string;
+  derniereConnexion: string;
+  accountStatus?: AccountStatus;
+  isEnabled: boolean;
+  emailVerified?: boolean;
 }
 
 @Component({
@@ -22,168 +49,536 @@ interface Utilisateur {
   styleUrls: ['./gestion-utilisateurs.component.css']
 })
 export class GestionUtilisateursComponent implements OnInit {
-  termeRecherche: string = '';
+  utilisateurs: Utilisateur[] = [];
+
+  termeRecherche = '';
   filtreSelectionne: FiltreUtilisateur = 'Tous';
 
-  filtres: FiltreUtilisateur[] = ['Tous', 'Actifs', 'Inactifs', 'Chauffeurs'];
+  filtres: FiltreUtilisateur[] = [
+    'Tous',
+    'Chauffeurs',
+    'Chauffeurs en attente',
+    'Maintenance',
+    'Municipalité'
+  ];
 
-  utilisateurs: Utilisateur[] = [];
   loading = false;
+  actionLoading = false;
   errorMessage = '';
+  successMessage = '';
 
-  stats: UserStatsResponse = {
-    totalUsers: 0,
-    activeUsers: 0,
-    inactiveUsers: 0,
-    drivers: 0
-  };
+  showModal = false;
+  modalMode: ModalMode = 'details';
+  confirmAction: ConfirmAction = null;
+  selectedUtilisateur: Utilisateur | null = null;
 
   constructor(private userService: UserService) {}
 
   ngOnInit(): void {
     this.chargerUtilisateurs();
-    this.chargerStats();
   }
 
-  chargerUtilisateurs(): void {
+  chargerUtilisateurs(clearMessages: boolean = true): void {
     this.loading = true;
-    this.errorMessage = '';
+
+    if (clearMessages) {
+      this.errorMessage = '';
+      this.successMessage = '';
+    }
 
     this.userService.getUsers().subscribe({
-      next: (data) => {
-        this.utilisateurs = data.map(user => this.mapUserToUtilisateur(user));
-        this.loading = false;
+      next: (users: UserAdminListResponse[]) => {
+        const usersFromApi = users.map((user) => this.mapUserToUtilisateur(user));
+
+        this.userService.getPendingDriverRequests().subscribe({
+          next: (requests: DriverRegistrationRequestResponse[]) => {
+            const pendingRequests = requests.map((request) =>
+              this.mapDriverRequestToUtilisateur(request)
+            );
+
+            this.utilisateurs = [
+              ...pendingRequests,
+              ...usersFromApi
+            ];
+
+            this.loading = false;
+          },
+          error: (err: any) => {
+            console.error('Erreur chargement demandes chauffeurs', err);
+            this.utilisateurs = usersFromApi;
+            this.loading = false;
+          }
+        });
       },
       error: (err: any) => {
         console.error('Erreur chargement utilisateurs', err);
-        this.errorMessage = 'Impossible de charger les utilisateurs depuis le backend';
+        this.errorMessage = this.getBackendErrorMessage(
+          err,
+          'Impossible de charger les utilisateurs.'
+        );
         this.loading = false;
-      }
-    });
-  }
-
-  chargerStats(): void {
-    this.userService.getStats().subscribe({
-      next: (data) => {
-        this.stats = data;
-      },
-      error: (err: any) => {
-        console.error('Erreur chargement stats utilisateurs', err);
       }
     });
   }
 
   private mapUserToUtilisateur(user: UserAdminListResponse): Utilisateur {
+    const username = user.username || 'utilisateur';
+    const fullName = user.fullName || username;
+
     return {
       id: user.id,
-      initiales: this.getInitiales(user.fullName || user.username || 'U'),
-      nom: user.fullName || user.username || 'Utilisateur',
-      courriel: user.email || '--',
-      telephone: user.phone || '--',
-      statut: user.isEnabled ? 'Actif' : 'Inactif',
+      source: 'USER',
+      requestId: undefined,
+      username,
+      initiales: this.getInitiales(username),
+      nom: fullName,
+      email: user.email || '--',
+      telephone: user.phone && user.phone.trim() ? user.phone : 'Non renseigné',
       role: this.mapRole(user.role),
-      derniereActivite: this.formatDerniereActivite(user.lastLoginAt)
+      statut: this.mapStatut(user),
+      dateInscription: this.formatDate(
+        user.createdAt || user.registrationDate || user.created_at
+      ),
+      derniereConnexion: this.formatDerniereConnexion(user.lastLoginAt),
+      accountStatus: user.accountStatus,
+      isEnabled: user.isEnabled,
+      emailVerified: true
     };
   }
 
-  private getInitiales(nom: string): string {
-    return nom
-      .split(' ')
-      .filter(part => part.trim().length > 0)
-      .slice(0, 2)
-      .map(part => part.charAt(0).toUpperCase())
-      .join('');
+  private mapDriverRequestToUtilisateur(
+    request: DriverRegistrationRequestResponse
+  ): Utilisateur {
+    const username = request.username || 'chauffeur';
+    const fullName = request.fullName || username;
+
+    return {
+      id: request.id,
+      requestId: request.id,
+      source: 'REGISTRATION_REQUEST',
+      username,
+      initiales: this.getInitiales(username),
+      nom: fullName,
+      email: request.email || '--',
+      telephone: request.phone || 'Non renseigné',
+      role: 'Chauffeur',
+      statut: 'En attente',
+      dateInscription: this.formatDate(request.createdAt),
+      derniereConnexion: 'Jamais connecté',
+      accountStatus: 'PENDING',
+      isEnabled: false,
+      emailVerified: request.emailVerified
+    };
   }
 
   private mapRole(role: string): RoleUtilisateur {
     const r = (role || '').toUpperCase();
 
-    if (r === 'ADMIN') return 'Administrateur';
     if (r === 'DRIVER') return 'Chauffeur';
-    if (r === 'MUNICIPALITY') return 'Superviseur';
+    if (r === 'MAINTENANCE' || r === 'MAINTENANCE_AGENT') return 'Maintenance';
 
-    return 'Observateur';
+    if (
+      r === 'MUNICIPALITY' ||
+      r === 'MUNICIPAL_AGENT' ||
+      r === 'AGENT_MUNICIPAL'
+    ) {
+      return 'Municipalité';
+    }
+
+    if (r === 'ADMIN') return 'Administrateur';
+
+    return 'Inconnu';
   }
 
-  private formatDerniereActivite(lastLoginAt?: string): string {
-    if (!lastLoginAt) {
-      return 'Jamais connecté';
+  private mapStatut(user: UserAdminListResponse): StatutCompte {
+    const role = (user.role || '').toUpperCase();
+    const accountStatus = (user.accountStatus || '').toUpperCase();
+
+    if (role === 'DRIVER') {
+      if (accountStatus === 'PENDING') return 'En attente';
+      if (accountStatus === 'REJECTED') return 'Refusé';
+      if (accountStatus === 'APPROVED') {
+        return user.isEnabled ? 'Validé' : 'Désactivé';
+      }
     }
 
-    const lastDate = new Date(lastLoginAt);
-    if (isNaN(lastDate.getTime())) {
-      return 'Activité inconnue';
-    }
-
-    const now = new Date();
-    const diffMs = now.getTime() - lastDate.getTime();
-
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (minutes < 1) return 'À l’instant';
-    if (minutes < 60) return `Il y a ${minutes} min`;
-    if (hours < 24) return `Il y a ${hours} h`;
-    return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
+    return user.isEnabled ? 'Validé' : 'Désactivé';
   }
 
   selectionnerFiltre(filtre: FiltreUtilisateur): void {
     this.filtreSelectionne = filtre;
   }
 
-  get nombreTotalUtilisateurs(): number {
-    return this.stats.totalUsers;
-  }
-
-  get nombreUtilisateursActifs(): number {
-    return this.stats.activeUsers;
-  }
-
-  get nombreUtilisateursInactifs(): number {
-    return this.stats.inactiveUsers;
-  }
-
-  get nombreChauffeurs(): number {
-    return this.stats.drivers;
-  }
-
   get utilisateursFiltres(): Utilisateur[] {
     let resultat = [...this.utilisateurs];
 
-    if (this.filtreSelectionne === 'Actifs') {
-      resultat = resultat.filter(utilisateur => utilisateur.statut === 'Actif');
-    }
-
-    if (this.filtreSelectionne === 'Inactifs') {
-      resultat = resultat.filter(utilisateur => utilisateur.statut === 'Inactif');
-    }
-
     if (this.filtreSelectionne === 'Chauffeurs') {
-      resultat = resultat.filter(utilisateur => utilisateur.role === 'Chauffeur');
+      resultat = resultat.filter((u) => u.role === 'Chauffeur');
     }
 
-    if (this.termeRecherche.trim()) {
-      const terme = this.termeRecherche.toLowerCase();
-      resultat = resultat.filter(utilisateur =>
-        utilisateur.nom.toLowerCase().includes(terme) ||
-        utilisateur.courriel.toLowerCase().includes(terme) ||
-        utilisateur.telephone.toLowerCase().includes(terme) ||
-        utilisateur.role.toLowerCase().includes(terme)
+    if (this.filtreSelectionne === 'Chauffeurs en attente') {
+      resultat = resultat.filter(
+        (u) => u.role === 'Chauffeur' && u.statut === 'En attente'
+      );
+    }
+
+    if (this.filtreSelectionne === 'Maintenance') {
+      resultat = resultat.filter((u) => u.role === 'Maintenance');
+    }
+
+    if (this.filtreSelectionne === 'Municipalité') {
+      resultat = resultat.filter((u) => u.role === 'Municipalité');
+    }
+
+    const terme = this.termeRecherche.trim().toLowerCase();
+
+    if (terme) {
+      resultat = resultat.filter((u) =>
+        u.username.toLowerCase().includes(terme) ||
+        u.nom.toLowerCase().includes(terme) ||
+        u.email.toLowerCase().includes(terme) ||
+        u.telephone.toLowerCase().includes(terme) ||
+        u.role.toLowerCase().includes(terme) ||
+        u.statut.toLowerCase().includes(terme)
       );
     }
 
     return resultat;
   }
 
-  obtenirClasseRole(role: RoleUtilisateur): string {
-    if (role === 'Administrateur') return 'role-administrateur';
-    if (role === 'Chauffeur') return 'role-chauffeur';
-    if (role === 'Superviseur') return 'role-superviseur';
-    return 'role-observateur';
+  get totalUtilisateurs(): number {
+    return this.utilisateurs.length;
   }
 
-  obtenirClasseStatut(statut: StatutUtilisateur): string {
-    return statut === 'Actif' ? 'statut-actif' : 'statut-inactif';
+  get totalChauffeurs(): number {
+    return this.utilisateurs.filter((u) => u.role === 'Chauffeur').length;
+  }
+
+  get chauffeursEnAttente(): number {
+    return this.utilisateurs.filter(
+      (u) => u.role === 'Chauffeur' && u.statut === 'En attente'
+    ).length;
+  }
+
+  get totalMaintenance(): number {
+    return this.utilisateurs.filter((u) => u.role === 'Maintenance').length;
+  }
+
+  get totalMunicipalite(): number {
+    return this.utilisateurs.filter((u) => u.role === 'Municipalité').length;
+  }
+
+  get titreFiltreActuel(): string {
+    if (this.filtreSelectionne === 'Chauffeurs') return 'Tous les chauffeurs';
+    if (this.filtreSelectionne === 'Chauffeurs en attente') {
+      return 'Chauffeurs en attente d’acceptation';
+    }
+    if (this.filtreSelectionne === 'Maintenance') return 'Compte de maintenance';
+    if (this.filtreSelectionne === 'Municipalité') return 'Compte municipal';
+
+    return 'Tous les utilisateurs';
+  }
+
+  openDetails(utilisateur: Utilisateur): void {
+    this.selectedUtilisateur = utilisateur;
+    this.modalMode = 'details';
+    this.showModal = true;
+  }
+
+  openConfirm(action: ConfirmAction, utilisateur: Utilisateur): void {
+    this.selectedUtilisateur = utilisateur;
+    this.confirmAction = action;
+    this.modalMode = 'confirm';
+    this.showModal = true;
+  }
+
+  closeModal(): void {
+    if (this.actionLoading) return;
+
+    this.showModal = false;
+    this.selectedUtilisateur = null;
+    this.confirmAction = null;
+  }
+
+  get confirmationTitle(): string {
+    if (this.confirmAction === 'validate') return 'Valider le chauffeur';
+    if (this.confirmAction === 'reject') return 'Refuser le chauffeur';
+    if (this.confirmAction === 'disable') return 'Désactiver le chauffeur';
+    if (this.confirmAction === 'delete') return 'Supprimer le chauffeur';
+    return 'Confirmation';
+  }
+
+  get confirmationMessage(): string {
+    if (this.confirmAction === 'validate') {
+      return 'Voulez-vous vraiment valider ce compte chauffeur ?';
+    }
+
+    if (this.confirmAction === 'reject') {
+      return 'Voulez-vous vraiment refuser ce compte chauffeur ?';
+    }
+
+    if (this.confirmAction === 'disable') {
+      return 'Voulez-vous vraiment désactiver ce compte chauffeur ?';
+    }
+
+    if (this.confirmAction === 'delete') {
+      return 'Voulez-vous vraiment supprimer ce compte chauffeur ?';
+    }
+
+    return '';
+  }
+
+  confirmerAction(): void {
+    if (!this.selectedUtilisateur || !this.confirmAction) return;
+
+    if (this.confirmAction === 'validate') {
+      this.validerChauffeur(this.selectedUtilisateur);
+      return;
+    }
+
+    if (this.confirmAction === 'reject') {
+      this.refuserChauffeur(this.selectedUtilisateur);
+      return;
+    }
+
+    if (this.confirmAction === 'disable') {
+      this.desactiverChauffeur(this.selectedUtilisateur);
+      return;
+    }
+
+    if (this.confirmAction === 'delete') {
+      this.supprimerChauffeur(this.selectedUtilisateur);
+    }
+  }
+
+  private validerChauffeur(utilisateur: Utilisateur): void {
+    this.actionLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    const request =
+      utilisateur.source === 'REGISTRATION_REQUEST' && utilisateur.requestId
+        ? this.userService.approveDriverRequest(utilisateur.requestId)
+        : this.userService.approveDriver(utilisateur.id);
+
+    request.subscribe({
+      next: (res: any) => {
+        this.actionLoading = false;
+        this.closeModal();
+
+        this.successMessage =
+          res?.message ||
+          `Le chauffeur ${utilisateur.nom} a été validé avec succès.`;
+
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
+      },
+      error: (err: any) => {
+        console.error('Erreur validation chauffeur', err);
+        this.actionLoading = false;
+
+        this.errorMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          `Impossible de valider le chauffeur ${utilisateur.nom}.`;
+
+        this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
+    });
+  }
+
+  private refuserChauffeur(utilisateur: Utilisateur): void {
+    this.actionLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    const request =
+      utilisateur.source === 'REGISTRATION_REQUEST' && utilisateur.requestId
+        ? this.userService.rejectDriverRequest(utilisateur.requestId)
+        : this.userService.rejectDriver(utilisateur.id);
+
+    request.subscribe({
+      next: (res: any) => {
+        this.actionLoading = false;
+        this.closeModal();
+
+        this.successMessage =
+          res?.message ||
+          `Le chauffeur ${utilisateur.nom} a été refusé avec succès.`;
+
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
+      },
+      error: (err: any) => {
+        console.error('Erreur refus chauffeur', err);
+        this.actionLoading = false;
+
+        this.errorMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          `Impossible de refuser le chauffeur ${utilisateur.nom}.`;
+
+        this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
+    });
+  }
+
+  private desactiverChauffeur(utilisateur: Utilisateur): void {
+    this.actionLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.userService.disableDriver(utilisateur.id).subscribe({
+      next: () => {
+        this.actionLoading = false;
+        this.closeModal();
+        this.successMessage = `Le chauffeur ${utilisateur.nom} a été désactivé avec succès.`;
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
+      },
+      error: (err: any) => {
+        console.error('Erreur désactivation chauffeur', err);
+        this.actionLoading = false;
+        this.errorMessage = this.getBackendErrorMessage(
+          err,
+          `Impossible de désactiver le chauffeur ${utilisateur.nom}.`
+        );
+        this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
+    });
+  }
+
+  private supprimerChauffeur(utilisateur: Utilisateur): void {
+    this.actionLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.userService.deleteDriver(utilisateur.id).subscribe({
+      next: () => {
+        this.actionLoading = false;
+        this.closeModal();
+        this.successMessage = `Le chauffeur ${utilisateur.nom} a été supprimé avec succès.`;
+        this.chargerUtilisateurs(false);
+
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 4000);
+      },
+      error: (err: any) => {
+        console.error('Erreur suppression chauffeur', err);
+        this.actionLoading = false;
+        this.errorMessage = this.getBackendErrorMessage(
+          err,
+          `Impossible de supprimer le chauffeur ${utilisateur.nom}.`
+        );
+        this.closeModal();
+
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
+    });
+  }
+
+  peutValiderOuRefuser(utilisateur: Utilisateur): boolean {
+    return utilisateur.role === 'Chauffeur' && utilisateur.statut === 'En attente';
+  }
+
+  peutDesactiverOuSupprimer(utilisateur: Utilisateur): boolean {
+    return utilisateur.source === 'USER'
+      && utilisateur.role === 'Chauffeur'
+      && utilisateur.statut === 'Validé';
+  }
+
+  peutSupprimerRefuse(utilisateur: Utilisateur): boolean {
+    return utilisateur.source === 'USER'
+      && utilisateur.role === 'Chauffeur'
+      && utilisateur.statut === 'Refusé';
+  }
+
+  obtenirClasseRole(role: RoleUtilisateur): string {
+    if (role === 'Chauffeur') return 'role-driver';
+    if (role === 'Maintenance') return 'role-maintenance';
+    if (role === 'Municipalité') return 'role-municipality';
+    if (role === 'Administrateur') return 'role-admin';
+
+    return 'role-unknown';
+  }
+
+  obtenirClasseStatut(statut: StatutCompte): string {
+    if (statut === 'En attente') return 'statut-pending';
+    if (statut === 'Validé') return 'statut-approved';
+    if (statut === 'Refusé') return 'statut-rejected';
+
+    return 'statut-disabled';
+  }
+
+  private getInitiales(nom: string): string {
+    const initials = nom
+      .split(' ')
+      .filter((p) => p.trim().length > 0)
+      .slice(0, 2)
+      .map((p) => p.charAt(0).toUpperCase())
+      .join('');
+
+    return initials || 'U';
+  }
+
+  private formatDate(dateValue?: string): string {
+    if (!dateValue) return '--';
+
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return '--';
+
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  private formatDerniereConnexion(lastLoginAt?: string): string {
+    if (!lastLoginAt) return 'Jamais connecté';
+
+    const date = new Date(lastLoginAt);
+    if (isNaN(date.getTime())) return '--';
+
+    return date.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  trackByUtilisateurId(index: number, utilisateur: Utilisateur): string {
+    return `${utilisateur.source}-${utilisateur.id}`;
+  }
+
+  private getBackendErrorMessage(err: any, fallback: string): string {
+    if (err?.status === 0) return 'Backend inaccessible ou problème CORS.';
+    if (err?.status === 401) return 'Non authentifié. Token manquant ou expiré.';
+    if (err?.status === 403) return 'Accès refusé.';
+    if (err?.status === 404) return 'Endpoint backend introuvable.';
+
+    return err?.error?.message || err?.error?.error || fallback;
   }
 }

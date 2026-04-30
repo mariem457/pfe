@@ -16,11 +16,11 @@ export class AuthService {
 
   constructor(private http: HttpClient) {}
 
-  login(usernameOrEmail: string, password: string, rememberMe: boolean = true) {
+  login(email: string, password: string, rememberMe: boolean = true) {
     return this.http
       .post<LoginResponse>(
         `${this.API}/auth/login`,
-        { usernameOrEmail, password, rememberMe },
+        { email, password, rememberMe },
         { withCredentials: true }
       )
       .pipe(

@@ -65,6 +65,64 @@ export class ResetPasswordComponent implements OnInit {
     return Object.values(this.passwordChecks).every(Boolean);
   }
 
+  get firstPasswordError(): string {
+    if (!this.newPassword) return '';
+
+    if (!this.passwordChecks.minLength) {
+      return 'Le mot de passe doit comporter au moins 8 caractères';
+    }
+
+    if (!this.passwordChecks.uppercase) {
+      return 'Le mot de passe doit contenir au moins une lettre majuscule';
+    }
+
+    if (!this.passwordChecks.lowercase) {
+      return 'Le mot de passe doit contenir au moins une lettre minuscule';
+    }
+
+    if (!this.passwordChecks.digit) {
+      return 'Le mot de passe doit contenir au moins un chiffre';
+    }
+
+    if (!this.passwordChecks.special) {
+      return 'Le mot de passe doit contenir au moins un caractère spécial';
+    }
+
+    return '';
+  }
+
+  get passwordStrengthScore(): number {
+    let score = 0;
+
+    if (this.passwordChecks.minLength) score++;
+    if (this.passwordChecks.uppercase) score++;
+    if (this.passwordChecks.lowercase) score++;
+    if (this.passwordChecks.digit) score++;
+    if (this.passwordChecks.special) score++;
+
+    return score;
+  }
+
+  get passwordStrengthLabel(): string {
+    const score = this.passwordStrengthScore;
+
+    if (!this.newPassword) return '';
+    if (score <= 1) return 'Très Faible';
+    if (score <= 3) return 'Moyenne';
+    if (score === 4) return 'Forte';
+    return 'Très Forte';
+  }
+
+  get passwordStrengthClass(): string {
+    const score = this.passwordStrengthScore;
+
+    if (!this.newPassword) return 'weak';
+    if (score <= 1) return 'weak';
+    if (score <= 3) return 'medium';
+    if (score === 4) return 'strong';
+    return 'very-strong';
+  }
+
   generateStrongPassword(): void {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghijkmnopqrstuvwxyz';
@@ -118,8 +176,7 @@ export class ResetPasswordComponent implements OnInit {
       next: () => {
         this.loading = false;
         this.codeVerified = true;
-        this.successMessage =
-          'Code vérifié. Vous pouvez maintenant définir un nouveau mot de passe.';
+        this.successMessage = '';
       },
       error: (err: any) => {
         this.loading = false;
@@ -138,8 +195,7 @@ export class ResetPasswordComponent implements OnInit {
     this.updatePasswordChecks();
 
     if (!this.isStrongPassword()) {
-      this.errorMessage =
-        'Le mot de passe doit contenir au moins 8 caractères, avec majuscule, minuscule, chiffre et caractère spécial.';
+      this.errorMessage = this.firstPasswordError;
       return;
     }
 

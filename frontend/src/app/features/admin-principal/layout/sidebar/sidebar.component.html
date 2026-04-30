@@ -1,14 +1,10 @@
 <aside class="sidebar">
 
-  <div class="brand">
-    <div class="brand__icon">
-      <mat-icon>delete</mat-icon>
-    </div>
+  <div class="brand centered">
+    <img class="brand__logo" src="/images/logo.png" alt="WiseTrash logo">
 
-    <div class="brand__text">
-      <div class="brand__name">Intello Trash</div>
-      <div class="brand__tag">Smart Waste Management</div>
-    </div>
+    
+    <div class="brand__tag">Gestion intelligente des déchets</div>
   </div>
 
   <nav class="nav">
@@ -17,29 +13,29 @@
       [routerLink]="['/admin/gestion-utilisateurs']"
       routerLinkActive="active"
       [routerLinkActiveOptions]="{ exact: true }">
-      <mat-icon>group</mat-icon>
-      <span>Gestion des utilisateurs</span>
+      <span class="material-icons nav-icon">group</span>
+      <span class="nav-label">Gestion des utilisateurs</span>
     </a>
 
     <a
       [routerLink]="['/admin/gestion-poubelles']"
       routerLinkActive="active">
-      <mat-icon>storage</mat-icon>
-      <span>Gestion des poubelles</span>
+      <span class="material-icons nav-icon">storage</span>
+      <span class="nav-label">Gestion des poubelles</span>
     </a>
 
     <a
       [routerLink]="['/admin/controle-systeme']"
       routerLinkActive="active">
-      <mat-icon>dns</mat-icon>
-      <span>Contrôle du système</span>
+      <span class="material-icons nav-icon">dns</span>
+      <span class="nav-label">Contrôle du système</span>
     </a>
 
     <a
       [routerLink]="['/admin/securite']"
       routerLinkActive="active">
-      <mat-icon>shield</mat-icon>
-      <span>Sécurité</span>
+      <span class="material-icons nav-icon">shield</span>
+      <span class="nav-label">Sécurité</span>
     </a>
 
   </nav>
@@ -49,16 +45,17 @@
 
     <div class="user">
       <div class="avatar">AD</div>
+
       <div class="user__meta">
-        <div class="user__name">Admin User</div>
-        <div class="user__email">admincity.gov</div>
+        <div class="user__name">Administrateur</div>
+        <div class="user__email">admin&#64;ville.gov</div>
       </div>
     </div>
 
-    <a class="logout" href="javascript:void(0)">
-      <mat-icon>logout</mat-icon>
-      <span>Log Out</span>
-    </a>
+    <a class="logout" href="javascript:void(0)" (click)="logout()">
+  <span class="material-icons logout-icon">logout</span>
+  <span>Déconnexion</span>
+</a>
   </div>
 
 </aside>

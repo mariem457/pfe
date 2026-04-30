@@ -3,3 +3,6 @@ uvicorn
 pydantic
 ortools
 requests
+psycopg2-binary
+scikit-learn
+python-dotenv

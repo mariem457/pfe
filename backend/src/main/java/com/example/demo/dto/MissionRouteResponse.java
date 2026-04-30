@@ -8,15 +8,29 @@ public class MissionRouteResponse {
     private Long missionId;
     private Long routePlanId;
     private Long truckId;
+
     private Double totalDistanceKm;
     private Integer estimatedDurationMin;
-    private List<RouteCoordinateDto> routeCoordinates = new ArrayList<>();
-    private List<MissionRouteStopDto> routeStops = new ArrayList<>();
-    private List<RouteCoordinateDto> snappedWaypoints = new ArrayList<>();
 
-    // NEW
+    private List<RouteCoordinateDto> routeCoordinates = new ArrayList<>();
+    private List<RouteCoordinateDto> collectionRouteCoordinates = new ArrayList<>();
+    private List<RouteCoordinateDto> transferRouteCoordinates = new ArrayList<>();
+
+    private List<MissionRouteStopDto> routeStops = new ArrayList<>();
+
+    private List<RouteCoordinateDto> snappedWaypoints = new ArrayList<>();
+    private List<RouteCoordinateDto> collectionSnappedWaypoints = new ArrayList<>();
+    private List<RouteCoordinateDto> transferSnappedWaypoints = new ArrayList<>();
+
+    private List<Double> stopLegDistancesKm = new ArrayList<>();
+
+    private Double collectionDistanceKm;
+    private Double transferDistanceKm;
+
     private String matrixSource;
     private String geometrySource;
+
+    private List<String> validationWarnings = new ArrayList<>();
 
     public MissionRouteResponse() {
     }
@@ -69,6 +83,22 @@ public class MissionRouteResponse {
         this.routeCoordinates = routeCoordinates;
     }
 
+    public List<RouteCoordinateDto> getCollectionRouteCoordinates() {
+        return collectionRouteCoordinates;
+    }
+
+    public void setCollectionRouteCoordinates(List<RouteCoordinateDto> collectionRouteCoordinates) {
+        this.collectionRouteCoordinates = collectionRouteCoordinates;
+    }
+
+    public List<RouteCoordinateDto> getTransferRouteCoordinates() {
+        return transferRouteCoordinates;
+    }
+
+    public void setTransferRouteCoordinates(List<RouteCoordinateDto> transferRouteCoordinates) {
+        this.transferRouteCoordinates = transferRouteCoordinates;
+    }
+
     public List<MissionRouteStopDto> getRouteStops() {
         return routeStops;
     }
@@ -85,6 +115,46 @@ public class MissionRouteResponse {
         this.snappedWaypoints = snappedWaypoints;
     }
 
+    public List<RouteCoordinateDto> getCollectionSnappedWaypoints() {
+        return collectionSnappedWaypoints;
+    }
+
+    public void setCollectionSnappedWaypoints(List<RouteCoordinateDto> collectionSnappedWaypoints) {
+        this.collectionSnappedWaypoints = collectionSnappedWaypoints;
+    }
+
+    public List<RouteCoordinateDto> getTransferSnappedWaypoints() {
+        return transferSnappedWaypoints;
+    }
+
+    public void setTransferSnappedWaypoints(List<RouteCoordinateDto> transferSnappedWaypoints) {
+        this.transferSnappedWaypoints = transferSnappedWaypoints;
+    }
+
+    public List<Double> getStopLegDistancesKm() {
+        return stopLegDistancesKm;
+    }
+
+    public void setStopLegDistancesKm(List<Double> stopLegDistancesKm) {
+        this.stopLegDistancesKm = stopLegDistancesKm;
+    }
+
+    public Double getCollectionDistanceKm() {
+        return collectionDistanceKm;
+    }
+
+    public void setCollectionDistanceKm(Double collectionDistanceKm) {
+        this.collectionDistanceKm = collectionDistanceKm;
+    }
+
+    public Double getTransferDistanceKm() {
+        return transferDistanceKm;
+    }
+
+    public void setTransferDistanceKm(Double transferDistanceKm) {
+        this.transferDistanceKm = transferDistanceKm;
+    }
+
     public String getMatrixSource() {
         return matrixSource;
     }
@@ -99,5 +169,13 @@ public class MissionRouteResponse {
 
     public void setGeometrySource(String geometrySource) {
         this.geometrySource = geometrySource;
+    }
+
+    public List<String> getValidationWarnings() {
+        return validationWarnings;
+    }
+
+    public void setValidationWarnings(List<String> validationWarnings) {
+        this.validationWarnings = validationWarnings;
     }
 }

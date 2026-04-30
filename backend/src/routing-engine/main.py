@@ -25,7 +25,16 @@ def health():
 @app.post("/optimize", response_model=RoutingResponseDto)
 def optimize(request: RoutingRequestDto):
     print(
-        f"/optimize called | bins={len(request.bins)} | trucks={len(request.trucks)} | activeIncidents={len(request.activeIncidents)}",
+        f"/optimize called | bins={len(request.bins)} | trucks={len(request.trucks)} "
+        f"| disposalSites={len(request.disposalSites)} | activeIncidents={len(request.activeIncidents)}",
         flush=True
     )
+
+    for site in request.disposalSites:
+        print(
+            f"DISPOSAL_SITE => id={site.id}, name={site.name}, "
+            f"lat={site.lat}, lng={site.lng}, accepts={site.acceptedWasteTypes}",
+            flush=True
+        )
+
     return optimize_routing(request)

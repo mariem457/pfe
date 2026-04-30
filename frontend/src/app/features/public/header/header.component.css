@@ -1,8 +1,8 @@
 .public-header {
-  width: 100%;
-  max-width: 1400px;
+  width: calc(100% - 100px);
+  max-width: 10000px;
   margin: 18px auto 0;
-  padding: 18px 28px;
+  padding: 14px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -14,23 +14,32 @@
   backdrop-filter: blur(8px);
 }
 
+/* LOGO */
 .logo {
-  font-size: 24px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
+.logo-img {
+  height: 95px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* NAV */
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 24px;
 }
 
 .nav-links a {
   text-decoration: none;
   color: #334155;
   font-weight: 600;
+  font-size: 15px;
   transition: 0.2s ease;
 }
 
@@ -38,15 +47,17 @@
   color: #10b981;
 }
 
+/* ACTIONS */
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
+/* ICON BUTTON */
 .icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 1px solid #dbe3ea;
   background: #ffffff;
@@ -62,11 +73,13 @@
   background: #f8fafc;
 }
 
+/* BUTTONS */
 .btn {
   text-decoration: none;
-  padding: 11px 20px;
+  padding: 10px 18px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 15px;
   transition: 0.2s ease;
   display: inline-flex;
   align-items: center;
@@ -93,15 +106,11 @@
   transform: translateY(-1px);
 }
 
-/* Dark mode */
+/* DARK MODE */
 body.dark-mode .public-header {
   background: rgba(15, 23, 42, 0.92);
   border-color: #334155;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
-}
-
-body.dark-mode .logo {
-  color: #f8fafc;
 }
 
 body.dark-mode .nav-links a {
@@ -128,8 +137,11 @@ body.dark-mode .btn-outline {
   border-color: #475569;
 }
 
-@media (max-width: 1100px) {
+/* RESPONSIVE */
+@media (max-width: 1700px) {
   .public-header {
+    width: calc(100% - 600px);
+    padding: 14px 28px;
     flex-wrap: wrap;
     justify-content: center;
   }
@@ -139,18 +151,19 @@ body.dark-mode .btn-outline {
     width: 100%;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 18px;
+    gap: 16px;
   }
 }
 
 @media (max-width: 640px) {
   .public-header {
-    padding: 16px 18px;
+    width: calc(100% - 24px);
+    padding: 14px 18px;
     border-radius: 20px;
   }
 
-  .logo {
-    font-size: 20px;
+  .logo-img {
+    height: 72px;
   }
 
   .header-actions {
@@ -159,6 +172,11 @@ body.dark-mode .btn-outline {
   }
 
   .btn {
-    padding: 10px 16px;
+    padding: 10px 15px;
+    font-size: 14px;
+  }
+
+  .nav-links a {
+    font-size: 14px;
   }
 }

@@ -5,6 +5,8 @@ import com.example.demo.dto.routing.RoutingResponseDto;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
+
 @Service
 public class PythonRoutingClientImpl implements PythonRoutingClient {
 
@@ -21,6 +23,7 @@ public class PythonRoutingClientImpl implements PythonRoutingClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(RoutingResponseDto.class)
+                .timeout(Duration.ofSeconds(60))
                 .block();
     }
 }

@@ -1,7 +1,10 @@
 package com.example.demo.security;
 
 import com.example.demo.entity.User;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,11 +27,11 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username, String role, Integer tokenVersion) {
+    public String generateToken(String email, String role, Integer tokenVersion) {
         long now = System.currentTimeMillis();
 
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .claim("role", role)
                 .claim("tokenVersion", tokenVersion)
                 .setIssuedAt(new Date(now))
@@ -45,7 +48,7 @@ public class JwtService {
                 .getBody();
     }
 
-    public String extractUsername(String token) {
+    public String extractEmail(String token) {
         return extractClaims(token).getSubject();
     }
 
@@ -60,10 +63,11 @@ public class JwtService {
     public boolean isTokenValid(String token, User user) {
         try {
             Claims claims = extractClaims(token);
-            String username = claims.getSubject();
+            String email = claims.getSubject();
             Integer tokenVersion = claims.get("tokenVersion", Integer.class);
 
-            return username.equals(user.getUsername())
+            return email != null
+                    && email.equalsIgnoreCase(user.getEmail())
                     && tokenVersion != null
                     && tokenVersion.equals(user.getTokenVersion());
         } catch (JwtException e) {

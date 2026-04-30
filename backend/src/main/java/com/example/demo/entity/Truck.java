@@ -52,7 +52,7 @@ public class Truck {
     @Column(nullable = false, length = 30)
     private TruckStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_driver_id")
     private Driver assignedDriver;
 
@@ -80,8 +80,24 @@ public class Truck {
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<TruckIncident> incidents = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "zone_id")
+    private Zone zone;
+
     @OneToMany(mappedBy = "truck", fetch = FetchType.LAZY)
     private List<RoutePlan> routePlans = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "truck_supported_waste_types",
+            joinColumns = @JoinColumn(name = "truck_id")
+    )
+    @Column(name = "waste_type", length = 20)
+    @Enumerated(EnumType.STRING)
+    private List<Bin.WasteType> supportedWasteTypes = new ArrayList<>();
+
+    public Truck() {
+    }
 
     @PrePersist
     public void prePersist() {
@@ -116,9 +132,6 @@ public class Truck {
         REFUELING,
         UNAVAILABLE,
         OUT_OF_SERVICE
-    }
-
-    public Truck() {
     }
 
     public Long getId() {
@@ -277,7 +290,23 @@ public class Truck {
         return incidents;
     }
 
+    public Zone getZone() {
+        return zone;
+    }
+
+    public void setZone(Zone zone) {
+        this.zone = zone;
+    }
+
     public List<RoutePlan> getRoutePlans() {
         return routePlans;
+    }
+
+    public List<Bin.WasteType> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes;
     }
 }

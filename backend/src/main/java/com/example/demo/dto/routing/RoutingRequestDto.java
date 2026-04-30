@@ -1,13 +1,16 @@
 package com.example.demo.dto.routing;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class RoutingRequestDto {
 
     private RoutingDepotDto depot;
     private String trafficMode;
+    private String currentRun;
     private List<RoutingBinDto> bins;
     private List<RoutingTruckDto> trucks;
+    private List<RoutingDisposalSiteDto> disposalSites = new ArrayList<>();
     private List<RoutingIncidentDto> activeIncidents;
 
     public RoutingRequestDto() {
@@ -29,6 +32,14 @@ public class RoutingRequestDto {
         this.trafficMode = trafficMode;
     }
 
+    public String getCurrentRun() {
+        return currentRun;
+    }
+
+    public void setCurrentRun(String currentRun) {
+        this.currentRun = currentRun;
+    }
+
     public List<RoutingBinDto> getBins() {
         return bins;
     }
@@ -43,6 +54,14 @@ public class RoutingRequestDto {
 
     public void setTrucks(List<RoutingTruckDto> trucks) {
         this.trucks = trucks;
+    }
+
+    public List<RoutingDisposalSiteDto> getDisposalSites() {
+        return disposalSites;
+    }
+
+    public void setDisposalSites(List<RoutingDisposalSiteDto> disposalSites) {
+        this.disposalSites = disposalSites;
     }
 
     public List<RoutingIncidentDto> getActiveIncidents() {

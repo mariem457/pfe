@@ -3,8 +3,8 @@
   <!-- ================= HEADER ================= -->
   <div class="it-overviewHead">
     <div>
-      <div class="it-overviewTitle">Vue d’ensemble</div>
-      <div class="it-overviewSub">Supervision municipale en temps réel</div>
+      <h1 class="it-overviewTitle">Vue d’ensemble</h1>
+      <p class="it-overviewSub">Supervision municipale en temps réel</p>
     </div>
 
     <div class="it-overviewHead__actions">
@@ -55,7 +55,7 @@
         [showTrucks]="false"
         [showBins]="true"
         [showReports]="true"
-        [allowAddBins]="false"
+        [allowAddBins]="true"
         [reports]="mapReports"
         title="Carte de l’état des bacs en temps réel"
         subtitle="Surveillance en temps réel à travers la ville">
@@ -341,7 +341,7 @@
             cy="110"
             r="78"
             fill="none"
-            stroke="#e5e7eb"
+            stroke="var(--donut-track, #e5e7eb)"
             stroke-width="18">
           </circle>
 

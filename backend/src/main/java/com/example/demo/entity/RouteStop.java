@@ -24,7 +24,7 @@ public class RouteStop {
     private Integer stopOrder;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "stop_type", nullable = false, length = 20)
+    @Column(name = "stop_type", nullable = false, length = 30)
     private StopType stopType;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -34,6 +34,12 @@ public class RouteStop {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fuel_station_id")
     private FuelStation fuelStation;
+
+    @Column(name = "disposal_site_id")
+    private Long disposalSiteId;
+
+    @Column(name = "disposal_site_name")
+    private String disposalSiteName;
 
     @Column(nullable = false)
     private Double lat;
@@ -64,7 +70,12 @@ public class RouteStop {
     private String notes;
 
     public enum StopType {
-        DEPOT_START, BIN_PICKUP, FUEL_STATION, DEPOT_RETURN, EMERGENCY_STOP
+        DEPOT_START,
+        BIN_PICKUP,
+        FUEL_STATION,
+        DISPOSAL_SITE,
+        DEPOT_RETURN,
+        EMERGENCY_STOP
     }
 
     public enum StopStatus {
@@ -116,6 +127,22 @@ public class RouteStop {
 
     public void setFuelStation(FuelStation fuelStation) {
         this.fuelStation = fuelStation;
+    }
+
+    public Long getDisposalSiteId() {
+        return disposalSiteId;
+    }
+
+    public void setDisposalSiteId(Long disposalSiteId) {
+        this.disposalSiteId = disposalSiteId;
+    }
+
+    public String getDisposalSiteName() {
+        return disposalSiteName;
+    }
+
+    public void setDisposalSiteName(String disposalSiteName) {
+        this.disposalSiteName = disposalSiteName;
     }
 
     public Double getLat() {

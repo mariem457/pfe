@@ -40,7 +40,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
 
   private map?: L.Map;
   private marker?: L.Marker;
-  private mahdiaPolygon?: L.LatLng[];
+  private parisPolygon?: L.LatLng[];
 
   constructor(
     private publicReportService: PublicReportService,
@@ -50,10 +50,10 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.initMap();
 
-    this.loadMahdiaBoundary()
+    this.loadParisBoundary()
       .then(() => {
-        this.fitToMahdia();
-        this.lockMapToMahdia();
+        this.fitToParis();
+        this.lockMapToParis();
         this.enableMapClick();
       })
       .catch((err) => {
@@ -132,8 +132,8 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
 
         this.locating = false;
 
-        if (!this.isInsideMahdia(lat, lng)) {
-          alert('Votre position est en dehors de Mahdia.');
+        if (!this.isInsideParis(lat, lng)) {
+          alert('Votre position est en dehors de Paris.');
           return;
         }
 
@@ -166,9 +166,9 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
     this.submitting = true;
 
     if (this.coords) {
-      if (!this.isInsideMahdia(this.coords.lat, this.coords.lng)) {
+      if (!this.isInsideParis(this.coords.lat, this.coords.lng)) {
         this.submitting = false;
-        alert('La position choisie est en dehors de Mahdia.');
+        alert('La position choisie est en dehors de Paris.');
         return;
       }
 
@@ -176,7 +176,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const fullAddress = this.buildMahdiaAddress(this.address.trim());
+    const fullAddress = this.buildParisAddress(this.address.trim());
 
     this.publicReportService.geocodeAddress(fullAddress).subscribe({
       next: (results) => {
@@ -196,9 +196,9 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
           return;
         }
 
-        if (!this.isInsideMahdia(lat, lng)) {
+        if (!this.isInsideParis(lat, lng)) {
           this.submitting = false;
-          alert('Cette adresse est en dehors de Mahdia.');
+          alert('Cette adresse est en dehors de Paris.');
           return;
         }
 
@@ -217,7 +217,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
     const data = {
       reportType: this.reportType,
       description: this.description?.trim() || '',
-      address: address || 'Mahdia',
+      address: address || 'Paris',
       latitude: lat,
       longitude: lng
     };
@@ -256,24 +256,24 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       this.marker = undefined;
     }
 
-    this.fitToMahdia();
+    this.fitToParis();
   }
 
-  private buildMahdiaAddress(address: string): string {
+  private buildParisAddress(address: string): string {
     const lower = address.toLowerCase();
 
-    if (lower.includes('mahdia')) {
+    if (lower.includes('paris')) {
       return address;
     }
 
-    return `${address}, Mahdia, Tunisia`;
+    return `${address}, Paris, France`;
   }
 
   private initMap(): void {
     this.map = L.map('reportUserMap', {
-      center: [35.5047, 11.0622],
-      zoom: 14,
-      minZoom: 12,
+      center: [48.8566, 2.3522],
+      zoom: 12,
+      minZoom: 11,
       maxZoom: 19
     });
 
@@ -282,8 +282,8 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
     }).addTo(this.map);
   }
 
-  private async loadMahdiaBoundary(): Promise<void> {
-    const res = await fetch('geo/mahdia.geojson');
+  private async loadParisBoundary(): Promise<void> {
+    const res = await fetch('geo/paris-15.geojson');
     if (!res.ok) {
       throw new Error(`GeoJSON fetch failed ${res.status}`);
     }
@@ -300,7 +300,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       })
     }).addTo(this.map);
 
-    this.mahdiaPolygon = this.extractPolygonLatLngs(geojson);
+    this.parisPolygon = this.extractPolygonLatLngs(geojson);
   }
 
   private extractPolygonLatLngs(geojson: any): L.LatLng[] | undefined {
@@ -324,16 +324,16 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
     return undefined;
   }
 
-  private fitToMahdia(): void {
-    if (!this.map || !this.mahdiaPolygon?.length) return;
-    const bounds = L.latLngBounds(this.mahdiaPolygon);
+  private fitToParis(): void {
+    if (!this.map || !this.parisPolygon?.length) return;
+    const bounds = L.latLngBounds(this.parisPolygon);
     this.map.fitBounds(bounds, { padding: [20, 20] });
   }
 
-  private lockMapToMahdia(): void {
-    if (!this.map || !this.mahdiaPolygon?.length) return;
+  private lockMapToParis(): void {
+    if (!this.map || !this.parisPolygon?.length) return;
 
-    const bounds = L.latLngBounds(this.mahdiaPolygon);
+    const bounds = L.latLngBounds(this.parisPolygon);
     this.map.setMaxBounds(bounds.pad(0.02));
 
     const fittedZoom = this.map.getZoom();
@@ -351,8 +351,8 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
-      if (!this.isInsideMahdia(lat, lng)) {
-        alert('Choisissez un point dans Mahdia.');
+      if (!this.isInsideParis(lat, lng)) {
+        alert('Choisissez un point dans Paris.');
         return;
       }
 
@@ -446,14 +446,10 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private isInsideMahdia(lat: number, lng: number): boolean {
-    const poly = this.mahdiaPolygon;
+  private isInsideParis(lat: number, lng: number): boolean {
+    const poly = this.parisPolygon;
     if (!poly || poly.length < 3) {
-      const minLat = 35.477;
-      const maxLat = 35.548;
-      const minLng = 11.017;
-      const maxLng = 11.108;
-      return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+      return true;
     }
 
     let inside = false;

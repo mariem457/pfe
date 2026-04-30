@@ -1,39 +1,56 @@
 <section class="login-page">
+
+  <div *ngIf="showSuccessToast" class="success-toast">
+    <span class="material-icons">check_circle</span>
+    <span>{{ successMessage }}</span>
+    <button type="button" class="toast-close" (click)="hideSuccess()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div *ngIf="showErrorToast" class="error-toast">
+    <span class="material-icons">error</span>
+    <span>{{ errorMessage }}</span>
+    <button type="button" class="toast-close error-close" (click)="hideError()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
   <div class="login-card">
 
-    <div class="logo-circle">🗑</div>
-    <h2 class="brand">WiseTrash</h2>
-    <p class="subtitle">Gestion Intelligente des Déchets</p>
+    <div class="logo-wrap">
+      <img src="/images/logo.png" alt="WiseTrash logo" class="logo-img" />
+    </div>
 
-    <h1>Bon Retour</h1>
-    <p class="desc">Connectez-vous pour accéder à votre tableau de bord</p>
+    <p class="login-subtitle">Connectez-vous pour accéder à votre tableau de bord</p>
 
     <form (ngSubmit)="login()">
-
-      <label>Email ou Username</label>
+      <label for="email">Adresse e-mail</label>
       <div class="input-group">
-        <span class="material-icons">person</span>
+        <span class="material-icons">mail</span>
         <input
-          type="text"
-          name="usernameOrEmail"
-          [(ngModel)]="usernameOrEmail"
-          placeholder="admin@ville.gov ou admin"
+          id="email"
+          type="email"
+          name="email"
+          [(ngModel)]="email"
+          placeholder="admin@ville.gov"
+          autocomplete="off"
           required
         />
       </div>
 
-      <label>Mot de passe</label>
+      <label for="password">Mot de passe</label>
       <div class="input-group" [class.active]="showPassword">
         <span class="material-icons">lock</span>
-
         <input
+          id="password"
           [type]="showPassword ? 'text' : 'password'"
           name="password"
           [(ngModel)]="password"
-          placeholder="•••••••"
+          placeholder="••••••••"
+          autocomplete="new-password"
           required
         />
-
         <button
           type="button"
           class="eye-btn"
@@ -61,18 +78,14 @@
         </a>
       </div>
 
-      <button type="submit" class="btn-login">
-        Se connecter →
+      <button type="submit" class="btn-login" [disabled]="isLoading || showSuccessToast">
+        {{ isLoading ? 'Connexion...' : 'Se connecter' }}
       </button>
 
-      <p *ngIf="errorMessage" class="login-error">
-        {{ errorMessage }}
-      </p>
-
       <a routerLink="/" class="back-link">
-        ← Retour à l'accueil
+        <span class="material-icons">arrow_back</span>
+        Retour à l'accueil
       </a>
-
     </form>
   </div>
 </section>

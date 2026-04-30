@@ -9,4 +9,11 @@ public interface FuelManagementService {
     boolean isFuelCritical(Truck truck);
 
     boolean canCompleteDistance(Truck truck, double distanceKm);
+
+    boolean isRefuelRecommended(Truck truck);
+
+    double getRefuelAlertAutonomyThresholdKm();
+
+    double getCriticalFuelThresholdLiters();
+    boolean canSafelyCompleteRoute(Truck truck, double routeDistanceKm);
 }

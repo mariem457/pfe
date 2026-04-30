@@ -19,6 +19,8 @@ interface BinRow {
   id: string;
   location: string;
   zone: string;
+  wasteType: string;
+  type: string;
   fill: number;
   status: BinStatus;
   battery: number;
@@ -36,6 +38,10 @@ interface BinFormModel {
   battery: number | null;
   status: BinStatus;
   isActive: boolean;
+  type: string;
+  wasteType: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 type ModalMode = 'create' | 'edit' | 'view';
@@ -83,11 +89,9 @@ export class BinsComponent implements OnInit {
   formError = '';
   form: BinFormModel = this.createEmptyForm();
 
-  showDeleteModal = false;
-  deleteTarget: BinRow | null = null;
-
   ngOnInit(): void {
     this.reloadBins();
+    this.consumePickedLocationFromQuery();
   }
 
   reloadBins(): void {
@@ -111,6 +115,8 @@ export class BinsComponent implements OnInit {
             id: b.binCode ?? b.bin_code ?? String(b.binId ?? b.id ?? '—'),
             location: b.address ?? b.location ?? `(${lat ?? '-'}, ${lng ?? '-'})`,
             zone: b.zoneName ?? b.zone?.name ?? 'Zone non définie',
+            wasteType: b.wasteType ?? 'GRAY',
+            type: b.type ?? 'SIM',
             fill,
             status: mappedStatus,
             battery,
@@ -126,7 +132,7 @@ export class BinsComponent implements OnInit {
         this.updateLastRefresh();
       },
       error: (err) => {
-        console.error('GET /api/bins/status failed', err);
+        console.error('GET /api/bins failed', err);
         this.error = 'Impossible de charger les bacs.';
         this.loading = false;
       }
@@ -152,7 +158,11 @@ export class BinsComponent implements OnInit {
       fill: row.fill,
       battery: row.battery,
       status: row.status,
-      isActive: row.isActive
+      isActive: row.isActive,
+      type: row.type || 'SIM',
+      wasteType: row.wasteType || 'GRAY',
+      lat: row.lat,
+      lng: row.lng
     };
     this.showFormModal = true;
   }
@@ -168,7 +178,11 @@ export class BinsComponent implements OnInit {
       fill: row.fill,
       battery: row.battery,
       status: row.status,
-      isActive: row.isActive
+      isActive: row.isActive,
+      type: row.type || 'SIM',
+      wasteType: row.wasteType || 'GRAY',
+      lat: row.lat,
+      lng: row.lng
     };
     this.showFormModal = true;
   }
@@ -182,101 +196,142 @@ export class BinsComponent implements OnInit {
   saveBin(): void {
     if (this.modalMode === 'view') return;
 
-    const id = this.form.id.trim();
-    const location = this.form.location.trim();
-    const zone = this.form.zone.trim();
+    this.formError = '';
 
-    if (!id) {
-      this.formError = 'Le code du bac est obligatoire.';
-      return;
-    }
+    const id = this.form.id?.trim();
+    const location = this.form.location?.trim();
 
     if (!location) {
       this.formError = 'La localisation est obligatoire.';
       return;
     }
 
-    if (!zone) {
-      this.formError = 'La zone est obligatoire.';
-      return;
-    }
+    if (this.form.lat == null || this.form.lng == null) {
+      const match = location.match(/\(([^,]+),\s*([^)]+)\)/);
 
-    const fill = this.clampPercent(this.form.fill ?? 0);
-    const battery = this.clampPercent(this.form.battery ?? 0);
-
-    const row: BinRow = {
-      id,
-      location,
-      zone,
-      fill,
-      battery,
-      status: this.form.status,
-      isActive: this.form.isActive,
-      lastTelemetry: this.formatDate(new Date()),
-      lat: null,
-      lng: null
-    };
-
-    if (this.modalMode === 'create') {
-      const exists = this.rows.some(r => r.id.toLowerCase() === id.toLowerCase());
-
-      if (exists) {
-        this.formError = 'Un bac avec ce code existe déjà.';
+      if (!match) {
+        this.formError = 'Coordonnées invalides.';
         return;
       }
 
-      this.rows = [row, ...this.rows];
-    } else {
-      this.rows = this.rows.map(r =>
-        r.id === this.selectedBinId
-          ? {
-              ...r,
-              ...row,
-              lat: r.lat,
-              lng: r.lng
-            }
-          : r
-      );
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        this.formError = 'Coordonnées invalides.';
+        return;
+      }
+
+      this.form.lat = lat;
+      this.form.lng = lng;
     }
 
-    this.recomputeStats();
-    this.updateLastRefresh();
-    this.closeFormModal();
-  }
+    if (!this.form.type) {
+      this.formError = 'Le type du bac est obligatoire.';
+      return;
+    }
 
-  confirmDelete(row: BinRow): void {
-    this.deleteTarget = row;
-    this.showDeleteModal = true;
-  }
+    if (!this.form.wasteType) {
+      this.formError = 'Le type de déchet est obligatoire.';
+      return;
+    }
 
-  closeDeleteModal(): void {
-    this.showDeleteModal = false;
-    this.deleteTarget = null;
-  }
+    const payload: any = {
+      type: this.form.type,
+      wasteType: this.form.wasteType,
+      lat: this.form.lat,
+      lng: this.form.lng,
+      isActive: this.form.isActive,
+      notes: null
+    };
 
-  deleteBin(): void {
-    const target = this.deleteTarget;
-    if (!target) return;
+    if (id) {
+      payload.binCode = id;
+    }
 
-    this.rows = this.rows.filter(r => r.id !== target.id);
-    this.recomputeStats();
-    this.updateLastRefresh();
-    this.closeDeleteModal();
+    if (this.modalMode === 'create') {
+      if (id) {
+        const exists = this.rows.some(r => r.id.toLowerCase() === id.toLowerCase());
+        if (exists) {
+          this.formError = 'Un bac avec ce code existe déjà.';
+          return;
+        }
+      }
+
+      this.binService.createBin(payload).subscribe({
+        next: () => {
+          this.reloadBins();
+          this.closeFormModal();
+        },
+        error: (err) => {
+          console.error('CREATE BIN FAILED', err);
+          this.formError =
+            err?.error?.message ||
+            err?.error?.error ||
+            'Erreur lors de la création du bac.';
+        }
+      });
+
+      return;
+    }
+
+    const existing = this.rows.find(r => r.id === this.selectedBinId);
+    if (!existing) {
+      this.formError = 'Bac introuvable pour modification.';
+      return;
+    }
+
+    this.binService.getBins().subscribe({
+      next: (bins: any[]) => {
+        const backendBin = (bins || []).find((b: any) =>
+          (b.binCode ?? b.bin_code ?? String(b.id)) === existing.id
+        );
+
+        if (!backendBin?.id) {
+          this.formError = 'Impossible de retrouver le bac côté serveur.';
+          return;
+        }
+
+        this.binService.updateBin(backendBin.id, payload).subscribe({
+          next: () => {
+            this.reloadBins();
+            this.closeFormModal();
+          },
+          error: (err) => {
+            console.error('UPDATE BIN FAILED', err);
+            this.formError =
+              err?.error?.message ||
+              err?.error?.error ||
+              'Erreur lors de la modification du bac.';
+          }
+        });
+      },
+      error: () => {
+        this.formError = 'Impossible de charger les bacs pour la modification.';
+      }
+    });
   }
 
   toggleActivation(row: BinRow): void {
-    this.rows = this.rows.map(r =>
-      r.id === row.id
-        ? {
-            ...r,
-            isActive: !r.isActive,
-            lastTelemetry: this.formatDate(new Date())
-          }
-        : r
-    );
+    this.binService.getBins().subscribe({
+      next: (bins: any[]) => {
+        const backendBin = (bins || []).find((b: any) =>
+          (b.binCode ?? b.bin_code ?? String(b.id)) === row.id
+        );
 
-    this.recomputeStats();
-    this.updateLastRefresh();
+        if (!backendBin?.id) return;
+
+        this.binService.updateBin(backendBin.id, {
+          isActive: !row.isActive
+        }).subscribe({
+          next: () => this.reloadBins(),
+          error: (err) => console.error('TOGGLE ACTIVE FAILED', err)
+        });
+      },
+      error: (err) => {
+        console.error('LOAD BINS FOR TOGGLE FAILED', err);
+      }
+    });
   }
 
   openMap(row: BinRow): void {
@@ -305,7 +360,10 @@ export class BinsComponent implements OnInit {
   goPickLocationOnMap(): void {
     this.router.navigate(['../dashboard'], {
       relativeTo: this.route,
-      queryParams: { pickBinLocation: 1 }
+      queryParams: {
+        pickBinLocation: 1,
+        returnToBins: 1
+      }
     });
   }
 
@@ -316,7 +374,8 @@ export class BinsComponent implements OnInit {
       const matchQuery =
         !q ||
         r.id.toLowerCase().includes(q) ||
-        r.zone.toLowerCase().includes(q);
+        r.zone.toLowerCase().includes(q) ||
+        r.wasteType.toLowerCase().includes(q);
 
       const matchStatus =
         this.statusFilter === 'All' ? true : r.status === this.statusFilter;
@@ -387,6 +446,7 @@ export class BinsComponent implements OnInit {
     const headers = [
       'Code du bac',
       'Zone',
+      'Type de déchet',
       'Niveau de remplissage',
       'État opérationnel',
       'État administratif',
@@ -398,6 +458,7 @@ export class BinsComponent implements OnInit {
       [
         r.id,
         r.zone,
+        r.wasteType,
         `${r.fill}%`,
         r.status,
         this.activityLabel(r.isActive),
@@ -442,7 +503,11 @@ export class BinsComponent implements OnInit {
       fill: 0,
       battery: 100,
       status: 'Vide',
-      isActive: true
+      isActive: true,
+      type: 'SIM',
+      wasteType: 'GRAY',
+      lat: null,
+      lng: null
     };
   }
 
@@ -478,5 +543,40 @@ export class BinsComponent implements OnInit {
     if (fill >= 85) return 'Plein';
     if (fill >= 50) return 'Partiel';
     return 'Vide';
+  }
+
+  private consumePickedLocationFromQuery(): void {
+    this.route.queryParamMap.subscribe(params => {
+      const pickedLat = params.get('pickedLat');
+      const pickedLng = params.get('pickedLng');
+      const returnToBins = params.get('returnToBins');
+
+      if (!returnToBins || pickedLat == null || pickedLng == null) {
+        return;
+      }
+
+      const lat = Number(pickedLat);
+      const lng = Number(pickedLng);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        return;
+      }
+
+      this.openCreateModal();
+      this.form.lat = lat;
+      this.form.lng = lng;
+      this.form.location = `(${lat.toFixed(6)}, ${lng.toFixed(6)})`;
+
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {
+          pickedLat: null,
+          pickedLng: null,
+          returnToBins: null
+        },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    });
   }
 }

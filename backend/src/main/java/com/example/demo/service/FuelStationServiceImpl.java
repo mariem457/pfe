@@ -41,10 +41,10 @@ public class FuelStationServiceImpl implements FuelStationService {
             }
 
             double distance = haversineDistanceKm(
-                truck.getLastKnownLat(),
-                truck.getLastKnownLng(),
-                station.getLat(),
-                station.getLng()
+                    truck.getLastKnownLat(),
+                    truck.getLastKnownLng(),
+                    station.getLat(),
+                    station.getLng()
             );
 
             if (distance < bestDistance) {
@@ -56,6 +56,22 @@ public class FuelStationServiceImpl implements FuelStationService {
         return nearest != null ? nearest : stations.get(0);
     }
 
+    @Override
+    public double distanceToNearestCompatibleStationKm(Truck truck) {
+        FuelStation station = findNearestCompatibleStation(truck);
+
+        if (truck == null || station == null || truck.getLastKnownLat() == null || truck.getLastKnownLng() == null) {
+            return Double.MAX_VALUE;
+        }
+
+        return haversineDistanceKm(
+                truck.getLastKnownLat(),
+                truck.getLastKnownLng(),
+                station.getLat(),
+                station.getLng()
+        );
+    }
+
     private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
         double earthRadiusKm = 6371.0;
 
@@ -63,9 +79,9 @@ public class FuelStationServiceImpl implements FuelStationService {
         double dLng = Math.toRadians(lng2 - lng1);
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(Math.toRadians(lat1))
-            * Math.cos(Math.toRadians(lat2))
-            * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 

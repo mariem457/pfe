@@ -1,0 +1,73 @@
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Support</h1>
+      <p>Besoin d’aide ? Consultez les FAQ ou contactez-nous</p>
+    </div>
+
+    <div class="chip">
+      <span class="dot"></span>
+      En ligne
+    </div>
+  </div>
+
+  <!-- CONTACT INFO -->
+  <div class="grid">
+    <div class="card">
+      <div class="label">Téléphone</div>
+      <div class="value">+216 71 000 000</div>
+      <div class="muted">08:00 → 18:00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Email</div>
+      <div class="value">support&#64;wisetrash.tn</div>
+      <div class="muted">Réponse sous 24h</div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="card">
+    <div class="section-title">FAQ</div>
+
+    <div class="faq">
+      <div class="faq-item" *ngFor="let item of faq">
+        <button class="faq-q" type="button" (click)="toggle(item)">
+          <span>{{ item.q }}</span>
+          <span class="chev" [class.open]="item.open">⌄</span>
+        </button>
+
+        <div class="faq-a" *ngIf="item.open">
+          {{ item.a }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="card">
+    <div class="section-title">Contacter le support</div>
+
+    <div class="form">
+      <label>Sujet</label>
+      <input class="input" type="text" [(ngModel)]="form.subject" placeholder="Ex: Problème de tournée">
+
+      <label>Urgence</label>
+      <select class="select" [(ngModel)]="form.urgency">
+        <option value="low">Faible</option>
+        <option value="normal">Normale</option>
+        <option value="high">Haute</option>
+      </select>
+
+      <label>Message</label>
+      <textarea class="textarea" rows="6" [(ngModel)]="form.message"
+                placeholder="Décrivez le problème..."></textarea>
+
+      <div class="actions">
+        <button class="btn primary" type="button" (click)="send()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+</div>

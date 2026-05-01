@@ -1,0 +1,66 @@
+<aside class="sidebar">
+
+  <div class="brand">
+    <div class="brand__icon">
+      <mat-icon>delete</mat-icon>
+    </div>
+
+    <div class="brand__text">
+      <div class="brand__name">Intello Trash</div>
+      <div class="brand__tag">Smart Waste Management</div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <a
+      [routerLink]="['/maintenance']"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
+      <mat-icon>grid_view</mat-icon>
+      <span>Table de bord</span>
+    </a>
+
+    <a
+      [routerLink]="['/maintenance/battery-captures']"
+      routerLinkActive="active"
+    >
+      <mat-icon>battery_alert</mat-icon>
+      <span>Batterie Capteurs</span>
+    </a>
+
+    <a
+      [routerLink]="['/maintenance/interventions']"
+      routerLinkActive="active"
+    >
+      <mat-icon>build</mat-icon>
+      <span>Interventions</span>
+    </a>
+
+    <a
+      [routerLink]="['/maintenance/technician-alerts']"
+      routerLinkActive="active"
+    >
+      <mat-icon>notifications</mat-icon>
+      <span>Alert techniques</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="divider"></div>
+
+    <div class="user">
+      <div class="avatar">AD</div>
+      <div class="user__meta">
+        <div class="user__name">Admin User</div>
+        <div class="user__email">admincity.gov</div>
+      </div>
+    </div>
+
+    <a class="logout" href="#">
+      <mat-icon>logout</mat-icon>
+      <span>Log Out</span>
+    </a>
+  </div>
+
+</aside>

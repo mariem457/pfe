@@ -1,0 +1,144 @@
+<div class="battery-page">
+  <div class="page-header">
+    <h1>Batterie Capteurs</h1>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" *ngFor="let stat of stats">
+      <div class="stat-top">
+        <div class="stat-icon" [ngClass]="stat.iconClass">
+          <mat-icon>{{ stat.icon }}</mat-icon>
+        </div>
+
+        <span *ngIf="stat.badge" class="stat-badge" [ngClass]="stat.badgeClass">
+          {{ stat.badge }}
+        </span>
+      </div>
+
+      <div class="stat-value">{{ stat.value }}</div>
+      <div class="stat-label">{{ stat.label }}</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Évolution État des Batteries</h3>
+
+    <div class="fake-line-chart">
+      <div class="grid-line" *ngFor="let n of [1,2,3,4]"></div>
+
+      <div class="line green-line"></div>
+      <div class="line orange-line"></div>
+      <div class="line red-line"></div>
+
+      <div class="points-row green-points">
+        <span *ngFor="let item of chartLabels"></span>
+      </div>
+
+      <div class="points-row orange-points">
+        <span *ngFor="let item of chartLabels"></span>
+      </div>
+
+      <div class="points-row red-points">
+        <span *ngFor="let item of chartLabels"></span>
+      </div>
+    </div>
+
+    <div class="chart-labels">
+      <span *ngFor="let label of chartLabels">{{ label }}</span>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-box">
+        <mat-icon>search</mat-icon>
+        <input type="text" placeholder="Rechercher par ID capteur, bac ou localisation..." />
+      </div>
+
+      <div class="filters">
+        <button [class.active]="activeFilter === 'all'" (click)="setFilter('all')">Tous</button>
+        <button [class.active]="activeFilter === 'critical'" (click)="setFilter('critical')">Critiques</button>
+        <button [class.active]="activeFilter === 'low'" (click)="setFilter('low')">Faibles</button>
+        <button [class.active]="activeFilter === 'out'" (click)="setFilter('out')">Hors Service</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Capteur / Bac</th>
+            <th>Localisation</th>
+            <th>Batterie</th>
+            <th>État</th>
+            <th>Remplissage</th>
+            <th>Dernière MAJ</th>
+            <th>Maintenance</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let sensor of filteredSensors">
+            <td>
+              <div class="sensor-main">{{ sensor.id }}</div>
+              <div class="sensor-sub">{{ sensor.bin }}</div>
+            </td>
+
+            <td>
+              <div class="location-cell">
+                <mat-icon>location_on</mat-icon>
+                <span>{{ sensor.location }}</span>
+              </div>
+            </td>
+
+            <td>
+              <div class="battery-cell">
+                <div class="battery-value" [ngClass]="getBatteryClass(sensor.battery)">
+                  <mat-icon>battery_3_bar</mat-icon>
+                  <span>{{ sensor.battery }}%</span>
+                </div>
+
+                <div class="mini-bar">
+                  <div class="mini-bar-fill" [style.width.%]="sensor.battery" [ngClass]="getBatteryClass(sensor.battery)"></div>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <span class="status-chip" [ngClass]="getStatusClass(sensor.status)">
+                {{ sensor.status }}
+              </span>
+            </td>
+
+            <td>
+              <div class="fill-cell">
+                <div class="mini-bar">
+                  <div class="mini-bar-fill" [style.width.%]="sensor.fill" [ngClass]="getFillClass(sensor.fill)"></div>
+                </div>
+                <span>{{ sensor.fill }}%</span>
+              </div>
+            </td>
+
+            <td>
+              <div class="date-cell">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ sensor.updated }}</span>
+              </div>
+            </td>
+
+            <td>
+              <span [ngClass]="getMaintenanceClass(sensor.maintenance)">
+                {{ sensor.maintenance }}
+              </span>
+            </td>
+
+            <td>
+              <button class="details-btn">Détails</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

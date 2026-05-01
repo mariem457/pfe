@@ -1,0 +1,13 @@
+<header class="head-page">
+  
+
+  <div class="actions">
+    <button class="icon-btn" type="button" (click)="toggleTheme()">
+      <mat-icon>{{ themeService.isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    </button>
+
+    <button class="icon-btn" type="button">
+      <mat-icon>notifications</mat-icon>
+    </button>
+  </div>
+</header>

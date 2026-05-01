@@ -1,0 +1,8 @@
+ALTER TABLE users
+ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE users
+ADD COLUMN email_verification_code VARCHAR(10);
+
+ALTER TABLE users
+ADD COLUMN email_verification_expiry TIMESTAMP WITH TIME ZONE;

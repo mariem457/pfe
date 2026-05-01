@@ -1,0 +1,58 @@
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Profil</h1>
+      <p>Informations du chauffeur</p>
+    </div>
+
+    <button class="btn" (click)="toggleEdit()">
+      {{ editMode ? 'Annuler' : 'Modifier' }}
+    </button>
+  </div>
+
+  <!-- بطاقة رئيسية -->
+  <div class="card profile-card">
+    <div class="avatar">CH</div>
+
+    <div class="info">
+      <h2>{{ chauffeur.name }}</h2>
+      <p class="muted">{{ chauffeur.status }} • {{ chauffeur.zone }}</p>
+    </div>
+  </div>
+
+  <!-- معلومات -->
+  <div class="grid">
+
+    <div class="card">
+      <div class="label">Email</div>
+      <div *ngIf="!editMode" class="value">{{ chauffeur.email }}</div>
+      <input *ngIf="editMode" [(ngModel)]="chauffeur.email" class="input" type="email" />
+    </div>
+
+    <div class="card">
+      <div class="label">Téléphone</div>
+      <div *ngIf="!editMode" class="value">{{ chauffeur.phone }}</div>
+      <input *ngIf="editMode" [(ngModel)]="chauffeur.phone" class="input" type="text" />
+    </div>
+
+    <div class="card">
+      <div class="label">CIN</div>
+      <div *ngIf="!editMode" class="value">{{ chauffeur.cin }}</div>
+      <input *ngIf="editMode" [(ngModel)]="chauffeur.cin" class="input" type="text" />
+    </div>
+
+    <div class="card">
+      <div class="label">Camion</div>
+      <div *ngIf="!editMode" class="value">{{ chauffeur.truckId }}</div>
+      <input *ngIf="editMode" [(ngModel)]="chauffeur.truckId" class="input" type="text" />
+    </div>
+
+  </div>
+
+  <!-- Actions -->
+  <div class="actions" *ngIf="editMode">
+    <button class="btn primary" (click)="save()">Enregistrer</button>
+  </div>
+
+</div>

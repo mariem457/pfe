@@ -1,0 +1,197 @@
+<section class="it-pr">
+
+  <div class="it-prHead">
+    <div class="it-prHeadText">
+      <h1 class="it-prTitle">Signalements publics</h1>
+      <p class="it-prSub">Validation, qualification et suivi des signalements citoyens</p>
+    </div>
+
+    <div class="it-prHeadMeta">
+      <span class="it-prMetaChip">
+        <span class="material-icons">public</span>
+        Interface municipalité
+      </span>
+    </div>
+  </div>
+
+  <div class="it-prKpi">
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon">
+          <span class="material-icons it-mi">chat_bubble_outline</span>
+        </div>
+        <div class="it-prKpiLabel">Total</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.total }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon it-prIcon--amber">
+          <span class="material-icons it-mi it-mi-amber">schedule</span>
+        </div>
+        <div class="it-prKpiLabel">En attente</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.pending }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon">
+          <span class="material-icons it-mi">verified</span>
+        </div>
+        <div class="it-prKpiLabel">Validés</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.validated }}</div>
+    </article>
+
+    <article class="it-prKpiCard">
+      <div class="it-prKpiTop">
+        <div class="it-prIcon it-prIcon--red">
+          <span class="material-icons it-mi it-mi-red">cancel</span>
+        </div>
+        <div class="it-prKpiLabel">Rejetés</div>
+      </div>
+      <div class="it-prKpiValue">{{ stats.rejected }}</div>
+    </article>
+  </div>
+
+  <div class="it-prFilter">
+    <div class="it-prSearch">
+      <span class="material-icons it-prSIcon">search</span>
+      <input [(ngModel)]="query" placeholder="Rechercher par code, lieu ou description..." />
+    </div>
+
+    <div class="it-prSelect">
+      <select [(ngModel)]="statusFilter">
+        <option value="All">Tous les statuts</option>
+        <option value="PendingReview">En attente de validation</option>
+        <option value="Validated">Validé</option>
+        <option value="Rejected">Rejeté</option>
+        <option value="Assigned">Affecté</option>
+        <option value="Resolved">Résolu</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="it-loading">Chargement des signalements...</div>
+  <div *ngIf="!loading && error" class="it-error">{{ error }}</div>
+
+  <div class="it-prList" *ngIf="!loading && !error">
+    <article class="it-prCard" *ngFor="let r of filteredReports">
+
+      <div class="it-prImg">
+        <img *ngIf="r.imageUrl; else noImage" [src]="r.imageUrl" alt="Signalement" class="it-prRealImg" />
+        <ng-template #noImage>
+          <span class="material-icons it-prImgIcon">image</span>
+        </ng-template>
+      </div>
+
+      <div class="it-prBody">
+        <div class="it-prTopRow">
+          <div class="it-prCode">{{ r.code }}</div>
+
+          <div class="it-prBadges">
+            <span class="it-badge" [ngClass]="statusClass(r.status)">
+              {{ statusLabel(r.status) }}
+            </span>
+
+            <span class="it-badge2" [ngClass]="priorityClass(r.priority)">
+              Priorité {{ priorityLabel(r.priority) }}
+            </span>
+          </div>
+
+          <div class="it-prTime">{{ r.timeAgo }}</div>
+        </div>
+
+        <div class="it-prLoc">
+          <span class="material-icons it-pin">place</span>
+          <b>{{ r.location }}</b>
+        </div>
+
+        <p class="it-prDesc">{{ r.description || 'Aucune description fournie.' }}</p>
+
+        <div class="it-prChips">
+          <span class="it-chip">
+            Coordonnées : <b>{{ r.lat.toFixed(4) }}, {{ r.lng.toFixed(4) }}</b>
+          </span>
+
+          <span class="it-chip" *ngIf="r.reportType">
+            Type : <b>{{ r.reportType }}</b>
+          </span>
+
+          <span class="it-chip" *ngIf="r.qualificationNote">
+            Qualification : <b>{{ r.qualificationNote }}</b>
+          </span>
+
+          <span class="it-chip it-chip--reject" *ngIf="r.duplicateOfReportId">
+            Doublon possible : <b>#{{ r.duplicateOfReportId }}</b>
+          </span>
+
+          <span class="it-chip it-chip--mint" *ngIf="r.status === 'Assigned'">
+            Affecté à : <b class="it-green">{{ r.assignedTo }}</b>
+          </span>
+
+          <span class="it-chip it-chip--mint" *ngIf="r.status === 'Resolved'">
+            Résolu : <b>{{ r.resolvedAgo }}</b>
+          </span>
+
+          <span class="it-chip it-chip--reject" *ngIf="r.status === 'Rejected' && r.resolvedNote">
+            Motif : <b>{{ r.resolvedNote }}</b>
+          </span>
+        </div>
+
+        <div class="it-prActions">
+          <div class="it-prActionsMain">
+            <button
+              class="it-btn it-btn--green"
+              *ngIf="canValidate(r)"
+              (click)="validate(r)"
+              [disabled]="actingId === r.id">
+              {{ actingId === r.id ? 'Validation...' : 'Valider' }}
+            </button>
+
+            <button
+              class="it-btn it-btn--danger"
+              *ngIf="canReject(r)"
+              (click)="reject(r)"
+              [disabled]="actingId === r.id">
+              {{ actingId === r.id ? 'Rejet...' : 'Rejeter' }}
+            </button>
+
+            <button
+              class="it-btn it-btn--green"
+              *ngIf="canAssign(r)"
+              (click)="assignToTruck(r)">
+              Affecter
+            </button>
+          </div>
+
+          <div class="it-prActionsSecondary">
+            <button class="it-btn it-btn--ghost" (click)="qualify(r)">
+              Qualifier
+            </button>
+
+            <button class="it-btn it-btn--ghost" (click)="viewHistory(r)">
+              Historique
+            </button>
+
+            <button class="it-btn it-btn--ghost" (click)="viewOnMap(r)">
+              Carte
+            </button>
+
+            <button
+              class="it-btn it-btn--ghost"
+              *ngIf="canResolve(r)"
+              (click)="resolveReport(r)">
+              Marquer résolu
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </div>
+
+</section>

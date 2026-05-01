@@ -1,0 +1,157 @@
+<div class="interventions-page">
+  <div class="page-top">
+    <div>
+      <h1>Interventions Maintenance</h1>
+      <p>Gestion et planification des interventions de maintenance</p>
+    </div>
+
+    <button class="new-task-btn">
+      <mat-icon>add</mat-icon>
+      Nouvelle Tâche
+    </button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" *ngFor="let stat of stats">
+      <div class="stat-head">
+        <div class="stat-icon" [ngClass]="stat.iconClass">
+          <mat-icon>{{ stat.icon }}</mat-icon>
+        </div>
+
+        <span class="stat-badge" *ngIf="stat.badge">{{ stat.badge }}</span>
+      </div>
+
+      <div class="stat-value">{{ stat.value }}</div>
+      <div class="stat-label">{{ stat.label }}</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Tâches Complétées Cette Semaine</h3>
+
+    <div class="bars-chart">
+      <div class="chart-grid-line" *ngFor="let x of [1,2,3,4]"></div>
+
+      <div class="bars-row">
+        <div class="bar-item" *ngFor="let value of chartBars; let i = index">
+          <div class="bar" [style.height.%]="value * 6"></div>
+          <span>{{ chartLabels[i] }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar-card">
+    <div class="search-box">
+      <mat-icon>search</mat-icon>
+      <input
+        type="text"
+        placeholder="Rechercher par ID, équipement, problème, localisation ou technicien..."
+      />
+    </div>
+
+    <div class="filters-row">
+      <div class="filter-group">
+        <span class="filter-label">Statut:</span>
+
+        <button [class.active]="activeStatus === 'Tous'" (click)="setStatusFilter('Tous')">Tous</button>
+        <button [class.active]="activeStatus === 'En Attente'" (click)="setStatusFilter('En Attente')">En Attente</button>
+        <button [class.active]="activeStatus === 'En Cours'" (click)="setStatusFilter('En Cours')">En Cours</button>
+        <button [class.active]="activeStatus === 'Planifiée'" (click)="setStatusFilter('Planifiée')">Planifiées</button>
+        <button [class.active]="activeStatus === 'Complétée'" (click)="setStatusFilter('Complétée')">Complétées</button>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Priorité:</span>
+
+        <button [class.active]="activePriority === 'Toutes'" (click)="setPriorityFilter('Toutes')">Toutes</button>
+        <button [class.active]="activePriority === 'Critique'" (click)="setPriorityFilter('Critique')">Critique</button>
+        <button [class.active]="activePriority === 'Haute'" (click)="setPriorityFilter('Haute')">Haute</button>
+        <button [class.active]="activePriority === 'Moyenne'" (click)="setPriorityFilter('Moyenne')">Moyenne</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tasks-list">
+    <div class="task-card" *ngFor="let task of filteredTasks">
+      <div class="task-main">
+        <div class="task-head">
+          <div class="task-title-row">
+            <h3>{{ task.code }}</h3>
+
+            <span class="status-chip" [ngClass]="getStatusClass(task.status)">
+              {{ task.status }}
+            </span>
+
+            <span class="priority-chip" [ngClass]="getPriorityClass(task.priority)">
+              {{ task.priority }}
+            </span>
+          </div>
+
+          <div class="task-actions">
+            <button class="details-btn">Voir Détails</button>
+
+            <button
+              *ngIf="isPrimaryAction(task)"
+              class="action-btn"
+            >
+              {{ getActionLabel(task) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="task-asset">
+          <mat-icon>build</mat-icon>
+          <strong>{{ task.asset }}</strong>
+          <span>•</span>
+          <span>{{ task.assetType }}</span>
+        </div>
+
+        <p class="task-desc">{{ task.title }}</p>
+
+        <div class="progress-block" *ngIf="task.status === 'En Cours'">
+          <div class="progress-head">
+            <span>Progression</span>
+            <strong>{{ task.progress }}%</strong>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="task.progress"></div>
+          </div>
+        </div>
+
+        <div class="task-meta">
+          <div class="meta-item">
+            <mat-icon>person_outline</mat-icon>
+            <span>Assigné à:</span>
+            <strong [class.unassigned]="task.assignedTo === 'Non assigné'">{{ task.assignedTo }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <mat-icon>calendar_today</mat-icon>
+            <span>Planifiée:</span>
+            <strong>{{ task.plannedDate }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <mat-icon>schedule</mat-icon>
+            <span>Durée:</span>
+            <strong>{{ task.duration }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <mat-icon>location_on</mat-icon>
+            <span>Localisation:</span>
+            <strong>{{ task.location }}</strong>
+          </div>
+
+          <div class="meta-item done-item" *ngIf="task.completedDate">
+            <mat-icon>check_circle</mat-icon>
+            <span>Complétée:</span>
+            <strong>{{ task.completedDate }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

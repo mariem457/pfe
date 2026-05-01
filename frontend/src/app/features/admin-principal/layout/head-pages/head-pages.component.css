@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+
+.head-page {
+  height: 74px;
+  background: #ffffff;
+  border-bottom: 1px solid #eef0f3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 26px;
+  border-radius: 50px;
+}
+
+.head-page h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions mat-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #374151;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.actions mat-icon:hover {
+  background: #eaf7f1;
+  color: #16c784;
+}

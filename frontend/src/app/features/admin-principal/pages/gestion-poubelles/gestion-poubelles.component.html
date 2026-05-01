@@ -1,0 +1,174 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>Gestion des poubelles</h1>
+      <p>Consultez les poubelles, leurs zones, statuts et niveaux de remplissage.</p>
+    </div>
+
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        type="text"
+        placeholder="Rechercher une poubelle..."
+        [(ngModel)]="termeRecherche" />
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon stat-total">
+        <span class="material-icons">delete</span>
+      </div>
+      <div>
+        <p>Total poubelles</p>
+        <h2>{{ nombreTotalPoubelles }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-full">
+        <span class="material-icons">warning</span>
+      </div>
+      <div>
+        <p>Poubelles pleines</p>
+        <h2>{{ nombrePoubellesPleines }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-active">
+        <span class="material-icons">check_circle</span>
+      </div>
+      <div>
+        <p>Poubelles actives</p>
+        <h2>{{ nombrePoubellesActives }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-maintenance">
+        <span class="material-icons">engineering</span>
+      </div>
+      <div>
+        <p>Maintenance</p>
+        <h2>{{ nombrePoubellesMaintenance }}</h2>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <button
+      type="button"
+      *ngFor="let filtre of filtres"
+      [class.active]="filtreSelectionne === filtre"
+      (click)="selectionnerFiltre(filtre)">
+
+      <span>{{ filtre }}</span>
+
+      <span class="filter-count" *ngIf="filtre === 'Toutes'">
+        {{ nombreTotalPoubelles }}
+      </span>
+
+      <span class="filter-count" *ngIf="filtre === 'Actives'">
+        {{ nombrePoubellesActives }}
+      </span>
+
+      <span class="filter-count" *ngIf="filtre === 'Pleines'">
+        {{ nombrePoubellesPleines }}
+      </span>
+
+      <span class="filter-count" *ngIf="filtre === 'Maintenance'">
+        {{ nombrePoubellesMaintenance }}
+      </span>
+    </button>
+  </div>
+
+  <div class="table-title">
+    <h2>{{ filtreSelectionne }}</h2>
+    <p>{{ poubellesFiltrees.length }} poubelle(s) affichée(s)</p>
+  </div>
+
+  <div *ngIf="loading" class="message-info">
+    Chargement des poubelles...
+  </div>
+
+  <div *ngIf="!loading && errorMessage" class="message-error">
+    {{ errorMessage }}
+  </div>
+
+  <div class="table-card" *ngIf="!loading && !errorMessage">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Nom</th>
+          <th>Zone</th>
+          <th>Statut</th>
+          <th>Remplissage</th>
+          <th>Batterie</th>
+          <th>Signal</th>
+          <th>Température</th>
+          <th>Dernière collecte</th>
+          <th>Prochaine collecte</th>
+        </tr>
+      </thead>
+
+      <tbody>
+       <tr
+  *ngFor="let poubelle of poubellesFiltrees"
+  [ngClass]="{
+    'row-full': poubelle.statut === 'Full',
+    'row-maintenance': poubelle.statut === 'Maintenance'
+  }">
+
+          <td>
+            <div class="bin-cell">
+              <div class="bin-avatar">
+                <span class="material-icons">delete</span>
+              </div>
+              <span class="bin-code">{{ poubelle.code }}</span>
+            </div>
+          </td>
+
+          <td>{{ poubelle.nom }}</td>
+          <td>{{ poubelle.zone }}</td>
+
+          <td>
+            <span class="status-badge" [ngClass]="getClasseStatut(poubelle.statut)">
+              {{ getLibelleStatut(poubelle.statut) }}
+            </span>
+          </td>
+
+          <td>
+            <div class="fill-cell">
+              <strong>{{ poubelle.niveauRemplissage }}%</strong>
+              <div class="progress">
+                <div
+                  class="progress-value"
+                  [ngClass]="getClasseRemplissage(poubelle.niveauRemplissage)"
+                  [style.width.%]="poubelle.niveauRemplissage">
+                </div>
+              </div>
+            </div>
+          </td>
+
+          <td>{{ poubelle.batterie }}%</td>
+          <td>{{ poubelle.signal }}</td>
+          <td>{{ poubelle.temperature }}</td>
+          <td>{{ poubelle.derniereCollecte }}</td>
+          <td>{{ poubelle.prochaineCollecte }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="poubellesFiltrees.length === 0" class="empty-state">
+      Aucune poubelle trouvée.
+    </div>
+
+    <div class="table-footer">
+      Affichage de {{ poubellesFiltrees.length }} poubelle(s) sur {{ nombreTotalPoubelles }}
+    </div>
+  </div>
+
+</div>

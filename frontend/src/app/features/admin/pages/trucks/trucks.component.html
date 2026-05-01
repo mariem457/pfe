@@ -1,0 +1,136 @@
+<section class="it-trk">
+
+  <!-- Header -->
+  <div class="it-trkHead">
+    <div>
+      <h1 class="it-trkTitle">Suivi de la flotte</h1>
+      <p class="it-trkSub">
+        Surveillance GPS en temps réel de tous les camions de collecte des déchets
+      </p>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="it-trkKpi">
+    <article class="it-trkKpiCard" *ngFor="let k of kpis">
+
+      <div class="it-trkKpiIcon">
+        <span class="material-icons it-mi">{{ k.icon }}</span>
+      </div>
+
+      <div class="it-trkKpiLabel">{{ k.label }}</div>
+      <div class="it-trkKpiValue">{{ k.value }}</div>
+
+    </article>
+  </div>
+
+  <!-- MAP + LIST -->
+  <div class="it-trkRow">
+
+    <!-- MAP -->
+    <section class="it-card it-card--map">
+
+      <div class="it-cardHead">
+        <div>
+          <div class="it-cardTitle">Carte de la flotte en direct</div>
+          <div class="it-cardSub">
+            Localisation et itinéraires des camions en temps réel
+          </div>
+        </div>
+
+        <div class="it-livePill">
+          <span class="it-liveDot"></span> En direct
+        </div>
+      </div>
+
+      <!-- REAL MAP -->
+      <app-fleet-map
+  [showTrucks]="true"
+  [allowAddBins]="false"
+  [showHeader]="false">
+</app-fleet-map>
+
+    </section>
+
+    <!-- TRUCK LIST -->
+    <section class="it-card it-card--list">
+
+      <div class="it-cardHead">
+        <div>
+          <div class="it-cardTitle">Camions actifs</div>
+          <div class="it-cardSub">
+            État actuel de la flotte
+          </div>
+        </div>
+      </div>
+
+      <div class="it-trkList">
+
+        <article class="it-trkItem" *ngFor="let t of trucks">
+
+          <div class="it-trkItemTop">
+
+            <div>
+              <div class="it-trkId">{{ t.id }}</div>
+              <div class="it-trkDriver">{{ t.driver }}</div>
+            </div>
+
+            <span class="it-pill">{{ t.status }}</span>
+
+          </div>
+
+          <div class="it-trkLoc">
+            <span class="material-icons it-mi it-pin">place</span>
+            <span>{{ t.location }}</span>
+          </div>
+
+          <div class="it-trkProgHead">
+            <span class="it-muted">Progression de l’itinéraire</span>
+            <b>{{ t.progress }}%</b>
+          </div>
+
+          <div class="it-progBar">
+            <div class="it-progIn" [style.width.%]="t.progress"></div>
+          </div>
+
+          <div class="it-chips">
+
+            <div class="it-chip">
+              <div class="it-chipLabel">Collectés</div>
+              <div class="it-chipVal">{{ t.collected }} bacs</div>
+            </div>
+
+            <div class="it-chip">
+              <div class="it-chipLabel">Restants</div>
+              <div class="it-chipVal">{{ t.remaining }} bacs</div>
+            </div>
+
+          </div>
+
+          <div class="it-trkMeta">
+
+            <div class="it-metaItem">
+              <span class="material-icons it-mi it-metaIcon">
+                local_gas_station
+              </span>
+              <span class="it-muted">Carburant :</span> {{ t.fuel }}%
+            </div>
+
+            <div class="it-metaItem">
+              <span class="material-icons it-mi it-metaIcon">
+                schedule
+              </span>
+              <span class="it-muted">ETA :</span> {{ t.etaMins }} min
+            </div>
+
+          </div>
+
+        </article>
+
+      </div>
+
+    </section>
+
+  </div>
+
+</section>

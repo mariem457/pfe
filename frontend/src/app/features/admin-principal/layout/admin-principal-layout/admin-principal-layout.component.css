@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.admin-layout {
+  min-height: 100vh;
+}
+
+/* sidebar ثابت */
+app-sidebar {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  z-index: 1000;
+}
+
+/* المحتوى الرئيسي بعد الـ sidebar */
+.admin-main {
+  margin-left: 280px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* header عادي */
+app-header {
+  display: block;
+  position: static !important;
+  width: 100%;
+}
+
+/* content */
+.admin-content {
+  flex: 1;
+  padding: 24px;
+  min-width: 0;
+  background: transparent;
+}

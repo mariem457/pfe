@@ -1,0 +1,91 @@
+<section class="login-page">
+
+  <div *ngIf="showSuccessToast" class="success-toast">
+    <span class="material-icons">check_circle</span>
+    <span>{{ successMessage }}</span>
+    <button type="button" class="toast-close" (click)="hideSuccess()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div *ngIf="showErrorToast" class="error-toast">
+    <span class="material-icons">error</span>
+    <span>{{ errorMessage }}</span>
+    <button type="button" class="toast-close error-close" (click)="hideError()">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div class="login-card">
+
+    <div class="logo-wrap">
+      <img src="/images/logo.png" alt="WiseTrash logo" class="logo-img" />
+    </div>
+
+    <p class="login-subtitle">Connectez-vous pour accéder à votre tableau de bord</p>
+
+    <form (ngSubmit)="login()">
+      <label for="email">Adresse e-mail</label>
+      <div class="input-group">
+        <span class="material-icons">mail</span>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          [(ngModel)]="email"
+          placeholder="admin@ville.gov"
+          autocomplete="off"
+          required
+        />
+      </div>
+
+      <label for="password">Mot de passe</label>
+      <div class="input-group" [class.active]="showPassword">
+        <span class="material-icons">lock</span>
+        <input
+          id="password"
+          [type]="showPassword ? 'text' : 'password'"
+          name="password"
+          [(ngModel)]="password"
+          placeholder="••••••••"
+          autocomplete="new-password"
+          required
+        />
+        <button
+          type="button"
+          class="eye-btn"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+        >
+          <span class="material-icons">
+            {{ showPassword ? 'visibility_off' : 'visibility' }}
+          </span>
+        </button>
+      </div>
+
+      <div class="options">
+        <label class="remember">
+          <input
+            type="checkbox"
+            name="rememberMe"
+            [(ngModel)]="rememberMe"
+          />
+          <span>Se souvenir de moi</span>
+        </label>
+
+        <a href="javascript:void(0)" (click)="forgotPassword()">
+          Mot de passe oublié ?
+        </a>
+      </div>
+
+      <button type="submit" class="btn-login" [disabled]="isLoading || showSuccessToast">
+        {{ isLoading ? 'Connexion...' : 'Se connecter' }}
+      </button>
+
+      <a routerLink="/" class="back-link">
+        <span class="material-icons">arrow_back</span>
+        Retour à l'accueil
+      </a>
+    </form>
+  </div>
+</section>

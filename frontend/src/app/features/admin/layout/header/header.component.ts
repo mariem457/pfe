@@ -1,0 +1,39 @@
+import { Component } from '@angular/core';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
+import { filter, map } from 'rxjs';
+import { MatIconModule } from '@angular/material/icon';
+import { ThemeService } from '../../../../services/theme.service';
+
+@Component({
+  selector: 'app-header',
+  standalone: true,
+  imports: [MatIconModule],
+  templateUrl: './header.component.html',
+  styleUrls: ['./header.component.css']
+})
+export class HeaderComponent {
+  title = '';
+
+  constructor(
+    private router: Router,
+    private route: ActivatedRoute,
+    public themeService: ThemeService
+  ) {
+    this.router.events
+      .pipe(
+        filter(event => event instanceof NavigationEnd),
+        map(() => {
+          let currentRoute = this.route;
+          while (currentRoute.firstChild) {
+            currentRoute = currentRoute.firstChild;
+          }
+          return currentRoute.snapshot.data['title'];
+        })
+      )
+      .subscribe(title => this.title = title || '');
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+}

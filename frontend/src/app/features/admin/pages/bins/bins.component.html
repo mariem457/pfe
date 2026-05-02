@@ -13,7 +13,7 @@
         Dernière mise à jour : {{ lastUpdatedLabel }}
       </div>
 
-      <button class="it-secondaryBtn" type="button" (click)="reloadBins()">
+      <button class="it-secondaryBtn" type="button" (click)="refreshAll()">
         Actualiser
       </button>
 
@@ -44,13 +44,13 @@
     </div>
 
     <div class="it-statCard">
-      <div class="it-statLabel">Vides</div>
-      <div class="it-statValue">{{ stats.empty }}</div>
+      <div class="it-statLabel">Alertes ouvertes</div>
+      <div class="it-statValue">{{ stats.withAlerts }}</div>
     </div>
 
-    <div class="it-statCard">
-      <div class="it-statLabel">Maintenance</div>
-      <div class="it-statValue">{{ stats.maintenance }}</div>
+    <div class="it-statCard it-statCard--danger">
+      <div class="it-statLabel">Alertes critiques</div>
+      <div class="it-statValue">{{ stats.criticalAlerts }}</div>
     </div>
   </div>
 
@@ -58,7 +58,7 @@
     <div class="it-search">
       <input
         [(ngModel)]="query"
-        placeholder="Rechercher par code ou zone..."
+        placeholder="Rechercher par code, zone ou type..."
         aria-label="Rechercher par code ou zone" />
     </div>
 
@@ -92,9 +92,20 @@
     </div>
 
     <div class="it-select">
+      <select [(ngModel)]="alertFilter" aria-label="Filtrer par alertes">
+        <option value="All">Alertes : toutes</option>
+        <option value="WithAlerts">Avec alertes</option>
+        <option value="WithoutAlerts">Sans alertes</option>
+        <option value="Critical">Critiques uniquement</option>
+      </select>
+      <span class="it-caret"></span>
+    </div>
+
+    <div class="it-select">
       <select [(ngModel)]="sortBy" aria-label="Trier les bacs">
         <option value="fill_desc">Remplissage : élevé → faible</option>
         <option value="fill_asc">Remplissage : faible → élevé</option>
+        <option value="alerts_desc">Alertes : élevé → faible</option>
         <option value="battery_desc">Batterie : élevée → faible</option>
         <option value="battery_asc">Batterie : faible → élevée</option>
         <option value="id_asc">Code du bac</option>
@@ -115,6 +126,10 @@
     {{ error }}
   </div>
 
+  <div *ngIf="!loading && alertsError" class="it-stateBox it-stateBox--warning" aria-live="polite">
+    {{ alertsError }}
+  </div>
+
   <div *ngIf="!loading && !error && filteredRows.length === 0" class="it-stateBox">
     Aucun bac trouvé avec les filtres actuels.
   </div>
@@ -130,6 +145,7 @@
           <th>État</th>
           <th>Statut</th>
           <th>Batterie</th>
+          <th>Alertes</th>
           <th>Dernière télémétrie</th>
           <th>Actions</th>
         </tr>
@@ -195,6 +211,18 @@
             </div>
           </td>
 
+          <td>
+            <button
+              class="it-alertChip"
+              type="button"
+              [ngClass]="alertBadgeClass(r)"
+              [disabled]="r.alertsCount === 0"
+              (click)="openAlertsDrawer(r)">
+              <span class="it-alertChip__dot"></span>
+              <span>{{ alertBadgeLabel(r) }}</span>
+            </button>
+          </td>
+
           <td class="it-muted">{{ r.lastTelemetry }}</td>
 
           <td class="it-actionsCell">
@@ -221,6 +249,7 @@
     </table>
   </div>
 
+  <!-- ================= FORM MODAL ================= -->
   <div
     *ngIf="showFormModal"
     class="it-modalOverlay"
@@ -248,7 +277,7 @@
 
       <div class="it-formGrid">
         <div class="it-field">
-          <label>Code du bac (optionnel)</label>
+          <label>Code du bac</label>
           <input
             [(ngModel)]="form.id"
             [disabled]="modalMode === 'view'"
@@ -293,10 +322,10 @@
         <div class="it-field">
           <label>Type de déchet</label>
           <select [(ngModel)]="form.wasteType" [disabled]="modalMode === 'view'">
-            <option value="GRAY">GRAY</option>
-            <option value="GREEN">GREEN</option>
-            <option value="YELLOW">YELLOW</option>
-            <option value="WHITE">WHITE</option>
+            <option value="GRAY">Déchets ménagers</option>
+            <option value="GREEN">Déchets organiques</option>
+            <option value="YELLOW">Emballages recyclables</option>
+            <option value="WHITE">Verre</option>
           </select>
         </div>
 
@@ -343,6 +372,78 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- ================= ALERTS DRAWER ================= -->
+  <div
+    *ngIf="showAlertsDrawer"
+    class="it-drawerOverlay"
+    (click)="closeAlertsDrawer()">
+
+    <aside class="it-alertDrawer" (click)="$event.stopPropagation()">
+      <div class="it-drawerHead">
+        <div>
+          <div class="it-drawerEyebrow">Alertes du bac</div>
+          <h3>{{ selectedAlertBin?.id }}</h3>
+          <p>{{ selectedAlertBin?.zone }}</p>
+        </div>
+
+        <button class="it-closeBtn" type="button" (click)="closeAlertsDrawer()">✕</button>
+      </div>
+
+      <div class="it-drawerStats" *ngIf="selectedAlertBin">
+        <div>
+          <span>Remplissage</span>
+          <strong>{{ selectedAlertBin.fill }}%</strong>
+        </div>
+        <div>
+          <span>Batterie</span>
+          <strong>{{ selectedAlertBin.battery }}%</strong>
+        </div>
+        <div>
+          <span>Alertes</span>
+          <strong>{{ selectedAlertBin.alertsCount }}</strong>
+        </div>
+      </div>
+
+      <div *ngIf="alertsForRow(selectedAlertBin).length === 0" class="it-drawerEmpty">
+        Aucune alerte ouverte pour ce bac.
+      </div>
+
+      <article
+        class="it-drawerAlert"
+        *ngFor="let a of alertsForRow(selectedAlertBin); trackBy: trackByAlert"
+        [ngClass]="{
+          'is-critical': a.severity === 'HIGH' || a.severity === 'CRITICAL',
+          'is-medium': a.severity === 'MEDIUM',
+          'is-low': a.severity === 'LOW'
+        }">
+
+        <div class="it-drawerAlertTop">
+          <strong>{{ alertTypeLabel(a.alertType) }}</strong>
+          <span>{{ severityLabel(a.severity) }}</span>
+        </div>
+
+        <p class="it-drawerAlertMessage">{{ a.message }}</p>
+
+        <div class="it-drawerRecommendation" *ngIf="a.recommendation">
+          <span>Conseil</span>
+          <p>{{ a.recommendation }}</p>
+        </div>
+
+        <div class="it-drawerAlertFoot">
+          <span>{{ timeAgo(a.createdAt) }}</span>
+
+          <button
+            class="it-actionBtn it-actionBtn--dark"
+            type="button"
+            [disabled]="resolvingAlertId === a.id"
+            (click)="resolveBinAlert(a)">
+            {{ resolvingAlertId === a.id ? 'Traitement...' : 'Résoudre' }}
+          </button>
+        </div>
+      </article>
+    </aside>
   </div>
 
 </section>

@@ -852,3 +852,329 @@ body.dark-mode .it-stateBox--error {
   box-shadow: none !important;
   outline: none !important;
 }
+
+/* ================= ALERTS COLUMN ================= */
+.it-statCard--danger {
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.it-statCard--danger .it-statValue {
+  color: #dc2626;
+}
+
+.it-alertChip {
+  min-height: 32px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.it-alertChip:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, .08);
+}
+
+.it-alertChip:disabled {
+  cursor: default;
+  opacity: .75;
+}
+
+.it-alertChip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.it-alertChip.is-none {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+.it-alertChip.is-warning {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: rgba(249, 115, 22, .18);
+}
+
+.it-alertChip.is-critical {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, .20);
+}
+
+.it-alertChip.is-maintenance {
+  background: #dbeafe;
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, .18);
+}
+
+/* ================= ALERTS DRAWER ================= */
+.it-drawerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(15, 23, 42, .34);
+  display: flex;
+  justify-content: flex-end;
+  backdrop-filter: blur(5px);
+}
+
+.it-alertDrawer {
+  width: min(470px, 100%);
+  height: 100%;
+  background: var(--card-color);
+  border-left: 1px solid var(--border-color);
+  box-shadow: -24px 0 60px rgba(15, 23, 42, .22);
+  padding: 22px;
+  overflow-y: auto;
+  color: var(--text-color);
+  animation: drawerIn .22s ease;
+}
+
+@keyframes drawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.it-drawerHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.it-drawerEyebrow {
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.it-drawerHead h3 {
+  margin: 6px 0 4px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -.04em;
+  color: var(--text-color);
+}
+
+.it-drawerHead p {
+  margin: 0;
+  color: var(--muted-color);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.it-drawerStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.it-drawerStats div {
+  background: var(--soft-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 13px;
+}
+
+.it-drawerStats span {
+  display: block;
+  color: var(--muted-color);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 7px;
+}
+
+.it-drawerStats strong {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text-color);
+}
+
+.it-drawerEmpty {
+  min-height: 130px;
+  border: 1px dashed var(--border-color);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-color);
+  font-weight: 800;
+  text-align: center;
+  padding: 18px;
+}
+
+.it-drawerAlert {
+  border: 1px solid var(--border-color);
+  border-left: 5px solid #f59e0b;
+  border-radius: 18px;
+  background: var(--card-color);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+}
+
+.it-drawerAlert.is-critical {
+  border-left-color: #ef4444;
+}
+
+.it-drawerAlert.is-medium {
+  border-left-color: #f59e0b;
+}
+
+.it-drawerAlert.is-low {
+  border-left-color: #22c55e;
+}
+
+.it-drawerAlertTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.it-drawerAlertTop strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text-color);
+}
+
+.it-drawerAlertTop span {
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #ea580c;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.it-drawerAlertMessage {
+  margin: 10px 0 0;
+  color: var(--muted-color);
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 650;
+}
+
+.it-drawerRecommendation {
+  margin-top: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.it-drawerRecommendation span {
+  display: block;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 5px;
+}
+
+.it-drawerRecommendation p {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.it-drawerAlertFoot {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.it-drawerAlertFoot > span {
+  color: var(--muted-color);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ================= WARNING STATE ================= */
+.it-stateBox--warning {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* ================= DARK MODE ================= */
+body.dark-mode .it-alertChip.is-none {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+body.dark-mode .it-alertChip.is-warning {
+  background: rgba(245, 158, 11, .13);
+  color: #fbbf24;
+}
+
+body.dark-mode .it-alertChip.is-critical {
+  background: rgba(239, 68, 68, .13);
+  color: #fca5a5;
+}
+
+body.dark-mode .it-alertChip.is-maintenance {
+  background: rgba(59, 130, 246, .15);
+  color: #93c5fd;
+}
+
+body.dark-mode .it-drawerRecommendation {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .it-drawerRecommendation p {
+  color: #cbd5e1;
+}
+
+/* ================= RESPONSIVE DRAWER ================= */
+@media (max-width: 640px) {
+  .it-alertDrawer {
+    width: 100%;
+    padding: 18px;
+  }
+
+  .it-drawerStats {
+    grid-template-columns: 1fr;
+  }
+
+  .it-drawerAlertFoot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .it-drawerAlertFoot .it-actionBtn {
+    width: 100%;
+  }
+}

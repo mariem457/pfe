@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.MissionResponse;
 import com.example.demo.dto.routing.ReplanRequestDto;
+import com.example.demo.dto.routing.RoutingDisposalSiteDto;
 import com.example.demo.dto.routing.RoutingMissionDto;
 import com.example.demo.dto.routing.RoutingRequestDto;
 import com.example.demo.dto.routing.RoutingResponseDto;
@@ -18,6 +19,7 @@ import com.example.demo.entity.Truck;
 import com.example.demo.entity.TruckIncident;
 import com.example.demo.exception.BadRequestException;
 import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.DepotRepository;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.MissionBinRepository;
@@ -68,6 +70,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     private final DriverRepository driverRepository;
     private final RoutingPayloadBuilderService routingPayloadBuilderService;
     private final PythonRoutingClient pythonRoutingClient;
+    private final BinRepository binRepository;
 
     public DynamicReplanningServiceImpl(MissionRepository missionRepository,
                                         MissionBinRepository missionBinRepository,
@@ -79,7 +82,8 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                         DepotRepository depotRepository,
                                         DriverRepository driverRepository,
                                         RoutingPayloadBuilderService routingPayloadBuilderService,
-                                        PythonRoutingClient pythonRoutingClient) {
+                                        PythonRoutingClient pythonRoutingClient,
+                                        BinRepository binRepository) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
         this.missionReassignmentRepository = missionReassignmentRepository;
@@ -91,6 +95,248 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         this.driverRepository = driverRepository;
         this.routingPayloadBuilderService = routingPayloadBuilderService;
         this.pythonRoutingClient = pythonRoutingClient;
+        this.binRepository = binRepository;
+    }
+
+    @Override
+    @Transactional
+    public void handleUrgentBin(Long binId, Long telemetryId) {
+        if (binId == null) {
+            System.out.println("URGENT BIN IGNORED => binId is null");
+            return;
+        }
+
+        Bin bin = binRepository.findById(binId)
+                .orElseThrow(() -> new ResourceNotFoundException("Urgent bin not found: " + binId));
+
+        if (bin.getZone() == null) {
+            System.out.println("URGENT BIN IGNORED => bin has no zone, binId=" + binId);
+            return;
+        }
+
+        List<String> activeStatuses = List.of("IN_PROGRESS", "CREATED", "PLANNED");
+
+        Mission mission = missionRepository
+                .findTopByZoneAndStatusInOrderByCreatedAtDesc(bin.getZone(), activeStatuses)
+                .orElse(null);
+
+        if (mission == null) {
+            System.out.println("URGENT BIN => no active mission found in same zone, binId=" + binId);
+            return;
+        }
+
+        validateMissionEligibleForReplan(mission);
+
+        boolean alreadyAssigned = missionBinRepository.existsByMissionIdAndBinId(mission.getId(), binId);
+
+        if (alreadyAssigned) {
+            System.out.println("URGENT BIN IGNORED => already assigned to missionId=" + mission.getId());
+            return;
+        }
+
+        MissionBin urgentMissionBin = new MissionBin();
+        urgentMissionBin.setMission(mission);
+        urgentMissionBin.setBin(bin);
+        urgentMissionBin.setVisitOrder(9999);
+        urgentMissionBin.setCollected(false);
+        urgentMissionBin.setAssignedReason("URGENT_BIN");
+        urgentMissionBin.setAssignmentStatus(MissionBin.AssignmentStatus.PLANNED);
+
+        missionBinRepository.save(urgentMissionBin);
+
+        List<MissionBin> remainingBins =
+                missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(mission.getId());
+
+        RoutingRequestDto routingRequest = routingPayloadBuilderService.buildReplanRequest(
+                List.of(mission.getTruck()),
+                remainingBins
+        );
+
+        RoutingResponseDto routingResponse = pythonRoutingClient.optimizeRoutes(routingRequest);
+
+        if (routingResponse == null
+                || routingResponse.getMissions() == null
+                || routingResponse.getMissions().isEmpty()) {
+            throw new BadRequestException("Urgent bin routing failed for binId=" + binId);
+        }
+
+        RoutingMissionDto routingMission = routingResponse.getMissions().get(0);
+
+        updateMissionBinVisitOrders(mission, routingMission);
+
+        replaceCurrentRoutePlanForUrgentBin(
+                mission,
+                mission.getTruck(),
+                mission.getDepot() != null ? mission.getDepot() : resolveActiveDepot(),
+                routingMission,
+                routingRequest
+        );
+
+        System.out.println(
+                "✅ URGENT BIN INSERTED => binId="
+                        + binId
+                        + ", telemetryId="
+                        + telemetryId
+                        + ", missionId="
+                        + mission.getId()
+        );
+    }
+
+    private void updateMissionBinVisitOrders(Mission mission, RoutingMissionDto routingMission) {
+        if (mission == null || routingMission == null || routingMission.getStops() == null) {
+            return;
+        }
+
+        int order = 1;
+
+        for (RoutingStopDto stop : routingMission.getStops()) {
+            if (stop == null || stop.getBinId() == null) {
+                continue;
+            }
+
+            MissionBin missionBin = missionBinRepository
+                    .findByMissionIdAndBinId(mission.getId(), stop.getBinId())
+                    .orElse(null);
+
+            if (missionBin == null) {
+                continue;
+            }
+
+            missionBin.setVisitOrder(order++);
+            missionBinRepository.save(missionBin);
+        }
+    }
+
+    private void replaceCurrentRoutePlanForUrgentBin(Mission mission,
+                                                     Truck truck,
+                                                     Depot depot,
+                                                     RoutingMissionDto routingMissionDto,
+                                                     RoutingRequestDto routingRequest) {
+        List<RoutePlan> existingPlans = routePlanRepository.findByMissionOrderByCreatedAtDesc(mission);
+
+        if (!existingPlans.isEmpty()) {
+            RoutePlan latestPlan = existingPlans.get(0);
+            latestPlan.setPlanStatus(RoutePlan.PlanStatus.REPLACED);
+            routePlanRepository.save(latestPlan);
+        }
+
+        RoutePlan routePlan = new RoutePlan();
+        routePlan.setMission(mission);
+        routePlan.setTruck(truck);
+        routePlan.setDepot(depot);
+        routePlan.setPlanType(RoutePlan.PlanType.REPLANNED);
+        routePlan.setPlanStatus(RoutePlan.PlanStatus.PLANNED);
+        routePlan.setOptimizationAlgorithm("OR_TOOLS_OSRM_URGENT_BIN");
+        routePlan.setOptimizationVersion(REPLAN_ALGORITHM_VERSION);
+        routePlan.setTrafficMode(RoutePlan.TrafficMode.REAL);
+
+        if (routingMissionDto.getTotalDistanceKm() != null) {
+            routePlan.setTotalDistanceKm(BigDecimal.valueOf(routingMissionDto.getTotalDistanceKm()));
+        }
+
+        if (routingMissionDto.getTotalDurationMinutes() != null) {
+            routePlan.setEstimatedDurationMin((int) Math.round(routingMissionDto.getTotalDurationMinutes()));
+        }
+
+        RoutePlan savedRoutePlan = routePlanRepository.save(routePlan);
+
+        int stopOrder = 1;
+
+        RouteStop depotStart = new RouteStop();
+        depotStart.setRoutePlan(savedRoutePlan);
+        depotStart.setStopOrder(stopOrder++);
+        depotStart.setStopType(RouteStop.StopType.DEPOT_START);
+        depotStart.setLat(resolveDepotLat(routingRequest, depot));
+        depotStart.setLng(resolveDepotLng(routingRequest, depot));
+        depotStart.setStatus(RouteStop.StopStatus.PLANNED);
+        depotStart.setNotes("Départ après injection d'un bac urgent");
+        routeStopRepository.save(depotStart);
+
+        if (routingMissionDto.getStops() != null) {
+            for (RoutingStopDto stopDto : routingMissionDto.getStops()) {
+                if (stopDto == null) {
+                    continue;
+                }
+
+                String stopType = stopDto.getStopType() != null
+                        ? stopDto.getStopType().trim().toUpperCase()
+                        : "BIN_PICKUP";
+
+                if ("BIN_PICKUP".equals(stopType)) {
+                    if (stopDto.getBinId() == null) {
+                        continue;
+                    }
+
+                    MissionBin missionBin = missionBinRepository
+                            .findByMissionIdAndBinId(mission.getId(), stopDto.getBinId())
+                            .orElse(null);
+
+                    if (missionBin == null || missionBin.getBin() == null) {
+                        continue;
+                    }
+
+                    Bin stopBin = missionBin.getBin();
+
+                    RouteStop routeStop = new RouteStop();
+                    routeStop.setRoutePlan(savedRoutePlan);
+                    routeStop.setStopOrder(stopOrder++);
+                    routeStop.setStopType(RouteStop.StopType.BIN_PICKUP);
+                    routeStop.setBin(stopBin);
+                    routeStop.setLat(resolveBinRoutingLat(stopBin));
+                    routeStop.setLng(resolveBinRoutingLng(stopBin));
+                    routeStop.setStatus(RouteStop.StopStatus.PLANNED);
+                    routeStop.setNotes("Collecte après injection temps réel d'un bac urgent");
+                    routeStopRepository.save(routeStop);
+
+                    continue;
+                }
+
+                if ("DISPOSAL_SITE".equals(stopType)) {
+                    if (stopDto.getDisposalSiteId() == null) {
+                        continue;
+                    }
+
+                    RoutingDisposalSiteDto disposalSite = null;
+
+                    if (routingRequest != null && routingRequest.getDisposalSites() != null) {
+                        disposalSite = routingRequest.getDisposalSites()
+                                .stream()
+                                .filter(site -> stopDto.getDisposalSiteId().equals(site.getId()))
+                                .findFirst()
+                                .orElse(null);
+                    }
+
+                    if (disposalSite == null) {
+                        throw new BadRequestException(
+                                "Disposal site not found in urgent bin routing request: "
+                                        + stopDto.getDisposalSiteId()
+                        );
+                    }
+
+                    RouteStop disposalStop = new RouteStop();
+                    disposalStop.setRoutePlan(savedRoutePlan);
+                    disposalStop.setStopOrder(stopOrder++);
+                    disposalStop.setStopType(RouteStop.StopType.DISPOSAL_SITE);
+                    disposalStop.setDisposalSiteId(disposalSite.getId());
+                    disposalStop.setDisposalSiteName(disposalSite.getName());
+                    disposalStop.setLat(disposalSite.getLat());
+                    disposalStop.setLng(disposalSite.getLng());
+                    disposalStop.setStatus(RouteStop.StopStatus.PLANNED);
+                    disposalStop.setNotes("Déchargement pendant route mise à jour temps réel");
+                    routeStopRepository.save(disposalStop);
+                }
+            }
+        }
+
+        RouteStop depotReturn = new RouteStop();
+        depotReturn.setRoutePlan(savedRoutePlan);
+        depotReturn.setStopOrder(stopOrder);
+        depotReturn.setStopType(RouteStop.StopType.DEPOT_RETURN);
+        depotReturn.setLat(resolveDepotLat(routingRequest, depot));
+        depotReturn.setLng(resolveDepotLng(routingRequest, depot));
+        depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
+        depotReturn.setNotes("Retour dépôt après route mise à jour temps réel");
+        routeStopRepository.save(depotReturn);
     }
 
     @Override
@@ -117,13 +363,6 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             );
         }
 
-        System.out.println(
-                "REPLAN INCIDENT => missionId=" + missionId
-                        + ", affectedTruckId=" + affectedTruckId
-                        + ", incidentType=" + request.getIncidentType()
-                        + ", reason=" + request.getReason()
-        );
-
         Set<Long> trucksWithActiveBlockingIncidents = findTrucksWithActiveBlockingIncidents();
 
         List<Truck> availableTrucks = truckRepository.findByIsActiveTrue()
@@ -132,14 +371,6 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 .filter(t -> !t.getId().equals(affectedTruckId))
                 .filter(t -> !trucksWithActiveBlockingIncidents.contains(t.getId()))
                 .toList();
-
-        System.out.println(
-                "REPLAN ELIGIBILITY => affectedTruckId=" + affectedTruckId
-                        + " excluded from replan candidates, trucksWithActiveBlockingIncidents="
-                        + trucksWithActiveBlockingIncidents
-                        + ", availableTrucks="
-                        + availableTrucks.stream().map(Truck::getId).toList()
-        );
 
         if (availableTrucks.isEmpty()) {
             throw new BadRequestException("No available trucks for replanning");
@@ -202,7 +433,6 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                     )
             );
         } catch (Exception e) {
-            System.out.println("REPLAN INCIDENT FILTER WARNING => unable to load active incidents: " + e.getMessage());
             return Set.of();
         }
 
@@ -347,7 +577,20 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
         if (routingMissionDto.getStops() != null && !routingMissionDto.getStops().isEmpty()) {
             int fallbackOrder = 1;
+
             for (RoutingStopDto stopDto : routingMissionDto.getStops()) {
+                if (stopDto == null) {
+                    continue;
+                }
+
+                String stopType = stopDto.getStopType() != null
+                        ? stopDto.getStopType().trim().toUpperCase()
+                        : "BIN_PICKUP";
+
+                if (!"BIN_PICKUP".equals(stopType) || stopDto.getBinId() == null) {
+                    continue;
+                }
+
                 MissionBin missionBin = buildMissionBin(
                         savedMission,
                         stopDto,
@@ -357,6 +600,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                         targetTruck,
                         request
                 );
+
                 missionBinRepository.save(missionBin);
             }
         }
@@ -408,7 +652,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         routePlan.setDepot(depot);
         routePlan.setPlanType(RoutePlan.PlanType.REPLANNED);
         routePlan.setPlanStatus(RoutePlan.PlanStatus.PLANNED);
-        routePlan.setOptimizationAlgorithm("OR_TOOLS_TOMTOM_REPLAN");
+        routePlan.setOptimizationAlgorithm("OR_TOOLS_OSRM_REPLAN");
         routePlan.setOptimizationVersion(REPLAN_ALGORITHM_VERSION);
         routePlan.setTrafficMode(RoutePlan.TrafficMode.REAL);
 
@@ -431,28 +675,79 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         depotStart.setLat(resolveDepotLat(routingRequest, depot));
         depotStart.setLng(resolveDepotLng(routingRequest, depot));
         depotStart.setStatus(RouteStop.StopStatus.PLANNED);
-        depotStart.setNotes("Départ de la route replanifiée depuis le dépôt");
+        depotStart.setNotes("Depart de la route replanifiee depuis le depot");
         routeStopRepository.save(depotStart);
 
         if (routingMissionDto.getStops() != null) {
             for (RoutingStopDto stopDto : routingMissionDto.getStops()) {
-                MissionBin remainingMissionBin = remainingMissionBinsByBinId.get(stopDto.getBinId());
-                if (remainingMissionBin == null || remainingMissionBin.getBin() == null) {
+                if (stopDto == null) {
                     continue;
                 }
 
-                Bin bin = remainingMissionBin.getBin();
+                String stopType = stopDto.getStopType() != null
+                        ? stopDto.getStopType().trim().toUpperCase()
+                        : "BIN_PICKUP";
 
-                RouteStop routeStop = new RouteStop();
-                routeStop.setRoutePlan(savedRoutePlan);
-                routeStop.setStopOrder(stopOrder++);
-                routeStop.setStopType(RouteStop.StopType.BIN_PICKUP);
-                routeStop.setBin(bin);
-                routeStop.setLat(resolveBinRoutingLat(bin));
-                routeStop.setLng(resolveBinRoutingLng(bin));
-                routeStop.setStatus(RouteStop.StopStatus.PLANNED);
-                routeStop.setNotes("Collecte du bac dans la mission replanifiée");
-                routeStopRepository.save(routeStop);
+                if ("BIN_PICKUP".equals(stopType)) {
+                    if (stopDto.getBinId() == null) {
+                        continue;
+                    }
+
+                    MissionBin remainingMissionBin = remainingMissionBinsByBinId.get(stopDto.getBinId());
+                    if (remainingMissionBin == null || remainingMissionBin.getBin() == null) {
+                        continue;
+                    }
+
+                    Bin bin = remainingMissionBin.getBin();
+
+                    RouteStop routeStop = new RouteStop();
+                    routeStop.setRoutePlan(savedRoutePlan);
+                    routeStop.setStopOrder(stopOrder++);
+                    routeStop.setStopType(RouteStop.StopType.BIN_PICKUP);
+                    routeStop.setBin(bin);
+                    routeStop.setLat(resolveBinRoutingLat(bin));
+                    routeStop.setLng(resolveBinRoutingLng(bin));
+                    routeStop.setStatus(RouteStop.StopStatus.PLANNED);
+                    routeStop.setNotes("Collecte du bac dans la mission replanifiee");
+                    routeStopRepository.save(routeStop);
+
+                    continue;
+                }
+
+                if ("DISPOSAL_SITE".equals(stopType)) {
+                    if (stopDto.getDisposalSiteId() == null) {
+                        continue;
+                    }
+
+                    RoutingDisposalSiteDto disposalSite = null;
+
+                    if (routingRequest != null && routingRequest.getDisposalSites() != null) {
+                        disposalSite = routingRequest.getDisposalSites()
+                                .stream()
+                                .filter(site -> stopDto.getDisposalSiteId().equals(site.getId()))
+                                .findFirst()
+                                .orElse(null);
+                    }
+
+                    if (disposalSite == null) {
+                        throw new BadRequestException(
+                                "Disposal site not found in replan routing request: "
+                                        + stopDto.getDisposalSiteId()
+                        );
+                    }
+
+                    RouteStop disposalStop = new RouteStop();
+                    disposalStop.setRoutePlan(savedRoutePlan);
+                    disposalStop.setStopOrder(stopOrder++);
+                    disposalStop.setStopType(RouteStop.StopType.DISPOSAL_SITE);
+                    disposalStop.setDisposalSiteId(disposalSite.getId());
+                    disposalStop.setDisposalSiteName(disposalSite.getName());
+                    disposalStop.setLat(disposalSite.getLat());
+                    disposalStop.setLng(disposalSite.getLng());
+                    disposalStop.setStatus(RouteStop.StopStatus.PLANNED);
+                    disposalStop.setNotes("Dechargement du camion pendant la mission replanifiee");
+                    routeStopRepository.save(disposalStop);
+                }
             }
         }
 
@@ -463,7 +758,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         depotReturn.setLat(resolveDepotLat(routingRequest, depot));
         depotReturn.setLng(resolveDepotLng(routingRequest, depot));
         depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
-        depotReturn.setNotes("Retour au dépôt après la mission replanifiée");
+        depotReturn.setNotes("Retour au depot apres la mission replanifiee");
         routeStopRepository.save(depotReturn);
     }
 
@@ -609,12 +904,12 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
         String reason = request != null && request.getReason() != null
                 ? request.getReason()
-                : "Aucune raison détaillée fournie";
+                : "Aucune raison detaillee fournie";
 
         Long sourceTruckId = sourceTruck != null ? sourceTruck.getId() : null;
         Long targetTruckId = targetTruck != null ? targetTruck.getId() : null;
 
-        return "Réaffectation de mission | missionInitialeId=" + originalMission.getId()
+        return "Reaffectation de mission | missionInitialeId=" + originalMission.getId()
                 + " | camionSourceId=" + sourceTruckId
                 + " | camionCibleId=" + targetTruckId
                 + " | bacId=" + (bin != null ? bin.getId() : null)
@@ -636,21 +931,21 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
         String reason = request != null && request.getReason() != null && !request.getReason().isBlank()
                 ? request.getReason()
-                : "Aucune raison détaillée fournie";
+                : "Aucune raison detaillee fournie";
 
         String incidentLabel = switch (incidentType) {
             case "BREAKDOWN" -> "panne du camion";
             case "TRAFFIC", "TRAFFIC_BLOCK" -> "blocage ou perturbation du trafic";
             case "FUEL_LOW" -> "niveau de carburant faible";
             case "REFUEL_REQUIRED" -> "ravitaillement requis";
-            case "DELAY" -> "retard opérationnel";
+            case "DELAY" -> "retard operationnel";
             case "MANUAL" -> "replanification manuelle";
-            default -> "incident opérationnel";
+            default -> "incident operationnel";
         };
 
-        return "Mission replanifiée à partir de la mission "
+        return "Mission replanifiee a partir de la mission "
                 + originalMission.getId()
-                + " suite à un incident : "
+                + " suite a un incident : "
                 + incidentLabel
                 + ". Motif : "
                 + reason;
@@ -658,6 +953,13 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
     private String generateMissionCode() {
         return "MIS-" + System.currentTimeMillis();
+    }
+
+    private boolean isValidCoordinatePair(Double lat, Double lng) {
+        return lat != null && lng != null
+                && lat >= -90 && lat <= 90
+                && lng >= -180 && lng <= 180
+                && !(lat == 0.0 && lng == 0.0);
     }
 
     private MissionResponse mapMissionToResponse(Mission mission) {

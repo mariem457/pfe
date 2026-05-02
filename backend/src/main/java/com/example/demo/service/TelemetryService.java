@@ -18,7 +18,6 @@ public class TelemetryService {
 
     private final BinRepository binRepository;
     private final BinTelemetryRepository telemetryRepository;
-
     private final BinTimePredictionService binTimePredictionService;
     private final AnomalyDetectionService anomalyDetectionService;
     private final AlertRuleService alertRuleService;
@@ -48,8 +47,6 @@ public class TelemetryService {
             Short rssi,
             Boolean collected
     ) {
-        System.out.println("INSIDE TelemetryService.saveTelemetry");
-
         Bin bin = binRepository.findByBinCode(binCode)
                 .orElseThrow(() -> new RuntimeException("Bin not found: " + binCode));
 
@@ -60,25 +57,14 @@ public class TelemetryService {
         telemetry.setBin(bin);
         telemetry.setTimestamp(Instant.now());
         telemetry.setFillLevel(fillLevel);
-
-        if (batteryLevel != null) {
-            telemetry.setBatteryLevel(batteryLevel);
-        }
-
-        if (weightKg != null) {
-            telemetry.setWeightKg(weightKg);
-        }
-
-        if (rssi != null) {
-            telemetry.setRssi(rssi);
-        }
-
+        telemetry.setBatteryLevel(batteryLevel);
+        telemetry.setWeightKg(weightKg);
+        telemetry.setRssi(rssi);
         telemetry.setCollected(collected != null ? collected : false);
         telemetry.setStatus(status);
         telemetry.setSource(source);
 
         BinTelemetry saved = telemetryRepository.save(telemetry);
-        System.out.println("AFTER telemetry save id=" + saved.getId());
 
         double fillRate = 0.0;
 
@@ -90,7 +76,8 @@ public class TelemetryService {
 
             double hoursDiff = seconds / 3600.0;
 
-            if (hoursDiff > 0) {
+            // ✅ avoid fake huge rates when telemetry comes seconds apart
+            if (seconds >= 120 && hoursDiff > 0) {
                 fillRate = (saved.getFillLevel() - previous.getFillLevel()) / hoursDiff;
             }
         }
@@ -100,8 +87,6 @@ public class TelemetryService {
                 .getHour();
 
         try {
-            System.out.println("BEFORE model2 prediction");
-
             binTimePredictionService.predictAndSave(
                     bin.getId(),
                     saved.getId(),
@@ -113,16 +98,21 @@ public class TelemetryService {
                     saved.getRssi() != null ? saved.getRssi() : 0,
                     Boolean.TRUE.equals(saved.getCollected())
             );
-
-            System.out.println("AFTER model2 prediction");
-
         } catch (Exception e) {
             System.err.println("Time prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
-            e.printStackTrace();
         }
 
-        anomalyDetectionService.evaluateAndPersist(bin, saved);
-        alertRuleService.evaluateAndCreateAlerts(bin, saved);
+        try {
+            anomalyDetectionService.evaluateAndPersist(bin, saved);
+        } catch (Exception e) {
+            System.err.println("Anomaly detection failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
+        }
+
+        try {
+            alertRuleService.evaluateAndCreateAlerts(bin, saved);
+        } catch (Exception e) {
+            System.err.println("Alert rules failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
+        }
 
         TelemetryResponse res = new TelemetryResponse();
         res.id = saved.getId();

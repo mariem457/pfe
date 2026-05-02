@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { AlertService, AlertDto } from '../../../../services/alert.service';
 import { FormsModule } from '@angular/forms';
 import {
   MissionBinResponse,
@@ -15,7 +17,7 @@ import {
   FleetMapRouteStop
 } from '../trucks/fleet-map/fleet-map.component';
 
-type MissionTab = 'overview' | 'map' | 'bins';
+type MissionTab = 'overview' | 'map' | 'bins' | 'alerts';
 
 @Component({
   selector: 'app-missions-page',
@@ -24,7 +26,7 @@ type MissionTab = 'overview' | 'map' | 'bins';
   templateUrl: './missions.component.html',
   styleUrls: ['./missions.component.css']
 })
-export class MissionsComponent implements OnInit {
+export class MissionsComponent implements OnInit, OnDestroy {
   missions = signal<MissionResponse[]>([]);
   selectedMission = signal<MissionResponse | null>(null);
   missionBins = signal<MissionBinResponse[]>([]);
@@ -58,11 +60,40 @@ export class MissionsComponent implements OnInit {
 
   debugMode = signal(false);
   routeDistances = signal<number[]>([]);
+  missionAlerts = signal<AlertDto[]>([]);
+  loadingMissionAlerts = signal(false);
+  private alertSub = new Subscription();
 
-  constructor(private missionService: MissionService) {}
+  constructor(
+  private missionService: MissionService,
+  private alertService: AlertService
+) {}
 
-  ngOnInit(): void {
-    this.loadMissions();
+ ngOnInit(): void {
+  this.loadMissions();
+
+  this.alertSub.add(
+    this.alertService.realtimeAlert$.subscribe(alert => {
+      const mission = this.selectedMission();
+      if (!mission) return;
+
+      if (alert.missionId === mission.id && !alert.resolved) {
+        const exists = this.missionAlerts().some(a => a.id === alert.id);
+        if (!exists) {
+          this.missionAlerts.update(list => [alert, ...list]);
+        }
+      }
+    })
+  );
+
+  this.alertSub.add(
+    this.alertService.realtimeResolved$.subscribe(alert => {
+      this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
+    })
+  );
+}
+  ngOnDestroy(): void {
+    this.alertSub.unsubscribe();
   }
 
   private sortMissionList(list: MissionResponse[]): MissionResponse[] {
@@ -321,6 +352,7 @@ export class MissionsComponent implements OnInit {
     this.debugMode.set(false);
     this.loadMissionBins(mission.id);
     this.loadMissionRoute(mission.id);
+    this.loadMissionAlerts(mission.id);
   }
 
   loadMissionBins(missionId: number): void {
@@ -381,6 +413,7 @@ export class MissionsComponent implements OnInit {
         this.selectedMission.set(data);
         this.loadMissionBins(data.id);
         this.loadMissionRoute(data.id);
+        this.loadMissionAlerts(data.id);
         this.loadMissions();
         this.actionLoading.set(false);
       },
@@ -580,4 +613,50 @@ export class MissionsComponent implements OnInit {
 
     return this.routeDistances().reduce((sum, d) => sum + d, 0);
   }
+  loadMissionAlerts(missionId: number): void {
+  this.loadingMissionAlerts.set(true);
+
+  this.alertService.getAlertsByMission(missionId).subscribe({
+    next: (alerts: AlertDto[]) => {
+      this.missionAlerts.set((alerts || []).filter(a => !a.resolved));
+      this.loadingMissionAlerts.set(false);
+    },
+    error: (err: any) => {
+      console.error('Mission alerts error:', err);
+      this.missionAlerts.set([]);
+      this.loadingMissionAlerts.set(false);
+    }
+  });
+}
+
+resolveMissionAlert(alert: AlertDto): void {
+  this.alertService.resolveAlert(alert.id).subscribe({
+    next: () => {
+      this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
+    },
+    error: (err: any) => {
+      console.error('Resolve mission alert error:', err);
+    }
+  });
+}
+
+getAlertSeverityLabel(severity?: string): string {
+  switch ((severity || '').toUpperCase()) {
+    case 'CRITICAL': return 'Critique';
+    case 'HIGH': return 'Élevée';
+    case 'MEDIUM': return 'Moyenne';
+    case 'LOW': return 'Faible';
+    default: return severity || '—';
+  }
+}
+
+alertSeverityClass(severity?: string): string {
+  switch ((severity || '').toUpperCase()) {
+    case 'CRITICAL': return 'mission-alert critical';
+    case 'HIGH': return 'mission-alert high';
+    case 'MEDIUM': return 'mission-alert medium';
+    case 'LOW': return 'mission-alert low';
+    default: return 'mission-alert medium';
+  }
+}
 }

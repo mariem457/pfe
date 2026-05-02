@@ -1,0 +1,8 @@
+ALTER TABLE alerts
+    ALTER COLUMN alert_type TYPE VARCHAR(60);
+
+ALTER TABLE alerts
+    ALTER COLUMN title TYPE VARCHAR(150);
+
+ALTER TABLE alerts
+    ALTER COLUMN action_type TYPE VARCHAR(60);

@@ -29,6 +29,19 @@ DISPOSAL_SERVICE_TIME_MINUTES = 5
 MORNING_START_MINUTE_OF_DAY = 6 * 60
 EVENING_START_MINUTE_OF_DAY = 17 * 60
 
+MAX_PASS2_BINS = 90
+
+def is_bin_urgent(bin_dto) -> bool:
+    predicted_hours = bin_dto.predictedHoursToFull
+    priority = float(bin_dto.predictedPriority or 0.0)
+
+    if predicted_hours is not None and predicted_hours <= 3:
+        return True
+
+    if priority >= 0.9:
+        return True
+
+    return False
 
 def normalize_text(value) -> str:
     if value is None:
@@ -87,6 +100,9 @@ def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int
 
 
 def normalize_category(bin_dto) -> str:
+    if is_bin_urgent(bin_dto):
+        return "MANDATORY"
+
     category = normalize_text(bin_dto.decisionCategory)
 
     if category in {"MANDATORY", "OPPORTUNISTIC", "REPORTABLE"}:
@@ -151,36 +167,28 @@ def resolve_relative_time_window(bin_dto, current_run: str | None, run_max_minut
     end_rel = intersect_end - run_start_abs
 
     return start_rel, end_rel
-
-
 def compute_drop_penalty(bin_dto) -> int:
-    priority = float(bin_dto.predictedPriority or 0.0)
-    predicted_hours = bin_dto.predictedHoursToFull
-    feedback_score = float(bin_dto.feedbackScore or 0.0)
-    postponement_count = int(bin_dto.postponementCount or 0)
-    opportunistic_score = float(bin_dto.opportunisticScore or 0.0)
+
+    if is_bin_urgent(bin_dto):
+        return 200000
+
     category = normalize_category(bin_dto)
 
+    priority = float(bin_dto.predictedPriority or 0.0)
+    feedback_score = float(bin_dto.feedbackScore or 0.0)
+    postponement_count = int(bin_dto.postponementCount or 0)
+    predicted_hours = bin_dto.predictedHoursToFull
+
+    # MANDATORY
     if category == "MANDATORY":
-        penalty = MANDATORY_BASE_PENALTY
-        penalty += int(priority * 10000)
-        penalty += int(feedback_score * 3000)
-        penalty += postponement_count * 1500
+        return 100000
 
-        if predicted_hours is not None:
-            if predicted_hours <= 6:
-                penalty += 30000
-            elif predicted_hours <= 12:
-                penalty += 15000
-
-        return penalty
-
+    # OPPORTUNISTIC
     if category == "OPPORTUNISTIC":
         penalty = OPPORTUNISTIC_BASE_PENALTY
         penalty += int(priority * 12000)
         penalty += int(feedback_score * 1500)
         penalty += postponement_count * 800
-        penalty += int(opportunistic_score * 1000)
 
         if predicted_hours is not None:
             if predicted_hours <= 12:
@@ -190,6 +198,7 @@ def compute_drop_penalty(bin_dto) -> int:
 
         return penalty
 
+    # REPORTABLE
     if category == "REPORTABLE":
         penalty = REPORTABLE_BASE_PENALTY
         penalty += int(priority * 5000)
@@ -197,11 +206,7 @@ def compute_drop_penalty(bin_dto) -> int:
         penalty += postponement_count * 300
         return penalty
 
-    mandatory = bool(bin_dto.mandatory) if bin_dto.mandatory is not None else False
-
-    if mandatory:
-        return 100000
-
+    # DEFAULT
     base_penalty = DEFAULT_BIN_DROPOUT_PENALTY + int(priority * 20000)
 
     if predicted_hours is None:
@@ -645,7 +650,7 @@ def solve_single_pass(
 
             for vehicle_index in range(len(eligible_trucks)):
                 if vehicle_index not in allowed_set:
-                    routing.VehicleVar(node_index).RemoveValue(vehicle_index)
+                    routing.SetAllowedVehiclesForIndex(node_index, list(allowed_set))
         else:
             print(
                 f"No compatible truck for binId={bin_dto.id}, "
@@ -677,8 +682,8 @@ def solve_single_pass(
                 flush=True,
             )
 
-        if category != "MANDATORY":
-            routing.AddDisjunction([node_index], penalty)
+        if category != "MANDATORY" and not is_bin_urgent(bin_dto):
+              routing.AddDisjunction([node_index], penalty)
 
         print(
             f"Bin configured -> "
@@ -853,8 +858,19 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         flush=True,
     )
 
+    if opportunistic_bins:
+        print("Sorted opportunistic bins by opportunisticScore:", flush=True)
+        for b in opportunistic_bins:
+            print(
+                f"binId={b.id}, opportunisticScore={b.opportunisticScore}, "
+                f"feedbackScore={b.feedbackScore}, predictedHoursToFull={b.predictedHoursToFull}, "
+                f"zoneId={b.zoneId}, clusterId={b.clusterId}",
+                flush=True,
+            )
+
     pass1_response = None
     pass2_response = None
+
     mandatory_bin_ids = {b.id for b in mandatory_bins}
 
     if mandatory_bins:
@@ -871,7 +887,14 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
     pass2_bins = mandatory_bins + opportunistic_bins
 
-    if pass2_bins:
+    if len(pass2_bins) > MAX_PASS2_BINS:
+        print(
+            f"Skipping PASS 2 because it has too many bins: {len(pass2_bins)} > {MAX_PASS2_BINS}. "
+            f"Using PASS 1 result only.",
+            flush=True,
+        )
+        pass2_response = None
+    elif pass2_bins:
         print("Starting PASS 2: mandatory + opportunistic bins", flush=True)
         pass2_request = build_sub_request(request, pass2_bins)
         pass2_response = solve_single_pass(
@@ -905,5 +928,6 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
         f"dropped={len(best_response.droppedBinIds)}",
         flush=True,
     )
+   
 
     return best_response

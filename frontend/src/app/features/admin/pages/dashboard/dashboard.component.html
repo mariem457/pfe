@@ -68,7 +68,7 @@
       <div class="it-panelHead">
         <div>
           <div class="it-panelTitle">Alertes récentes</div>
-          <div class="it-panelSub">Bacs nécessitant une intervention</div>
+          <div class="it-panelSub">Bacs et incidents nécessitant une intervention</div>
         </div>
 
         <button class="it-refreshBtn" (click)="loadAlerts()">
@@ -86,6 +86,7 @@
 
         <select [(ngModel)]="filterSeverity" (change)="loadAlerts()">
           <option value="">Sévérité : toutes</option>
+          <option value="CRITICAL">Critique</option>
           <option value="HIGH">Élevée</option>
           <option value="MEDIUM">Moyenne</option>
           <option value="LOW">Faible</option>
@@ -93,16 +94,29 @@
 
         <select [(ngModel)]="filterType" (change)="loadAlerts()">
           <option value="">Type : tous</option>
-          <option value="MAINTENANCE">Maintenance</option>
-          <option value="THRESHOLD">Seuil</option>
-          <option value="ANOMALY">Anomalie</option>
-          <option value="SYSTEM">Système</option>
+
+          <option value="BIN_FULL">Bac plein</option>
+          <option value="BIN_ALMOST_FULL">Bac presque plein</option>
+          <option value="BIN_FAST_FILLING">Remplissage rapide</option>
+          <option value="BIN_SUDDEN_FILL">Remplissage soudain</option>
+          <option value="BIN_SENSOR_STUCK">Capteur bloqué</option>
+          <option value="BIN_BATTERY_LOW">Batterie faible</option>
+          <option value="BIN_SENSOR_OR_OVERFLOW">Capteur / Overflow</option>
+          <option value="NEED_EXTRA_BIN_NEARBY">Besoin bac supplémentaire</option>
+
+          <option value="TRUCK_BREAKDOWN">Panne camion</option>
+          <option value="TRUCK_GPS_LOST">GPS perdu</option>
+          <option value="TRUCK_FUEL_LOW">Carburant faible</option>
+          <option value="TRUCK_OVERLOAD">Surcharge camion</option>
+          <option value="TRUCK_DELAY">Retard camion</option>
+          <option value="TRUCK_TRAFFIC_BLOCK">Blocage trafic</option>
+          <option value="DRIVER_UNAVAILABLE">Chauffeur indisponible</option>
         </select>
 
         <input
           [(ngModel)]="searchText"
           (keyup.enter)="loadAlerts()"
-          placeholder="Rechercher : BIN-001 / titre..." />
+          placeholder="Rechercher : BIN-001 / TRUCK-201 / titre..." />
 
         <button class="it-filterBtn it-filterBtn--primary" (click)="loadAlerts()">
           Rechercher
@@ -132,12 +146,14 @@
         <article class="it-alertCard" *ngFor="let a of alerts">
           <div class="it-alertCard__top">
             <div class="it-alertId">
-              <span class="it-alertDot"
-                    [ngClass]="{
-                      'dot-high': a.severity==='HIGH',
-                      'dot-med': a.severity==='MEDIUM',
-                      'dot-low': a.severity==='LOW'
-                    }"></span>
+              <span
+                class="it-alertDot"
+                [ngClass]="{
+                  'dot-high': a.severity === 'HIGH' || a.severity === 'CRITICAL',
+                  'dot-med': a.severity === 'MEDIUM',
+                  'dot-low': a.severity === 'LOW'
+                }">
+              </span>
               <span>{{ a.id }}</span>
             </div>
 
@@ -149,11 +165,24 @@
           </div>
 
           <div class="it-alertMeta">
-            <div class="it-badge"
-                 [class.isFull]="a.status==='Plein'"
-                 [class.isMaint]="a.status==='Maintenance'">
+            <div
+              class="it-badge"
+              [class.isFull]="a.status === 'Plein'"
+              [class.isMaint]="a.status === 'Maintenance'">
               {{ a.status }}
             </div>
+
+           <div class="it-badge it-badge--entity">
+  {{ entityLabel(a) }}
+</div>
+
+<div class="it-badge it-badge--type" *ngIf="a.alertType">
+  {{ alertTypeLabel(a.alertType) }}
+</div>
+
+<div class="it-badge it-badge--severity">
+  {{ severityLabel(a.severity) }}
+</div>
           </div>
 
           <div class="it-alertActions">
@@ -177,16 +206,24 @@
 
           <div class="it-modalHeader">
             <h3>Détails de l’alerte</h3>
-            <button (click)="closeDetails()">✕</button>
+            <button type="button" (click)="closeDetails()">✕</button>
           </div>
 
           <div *ngIf="detailsLoading" class="it-muted">Chargement...</div>
           <div *ngIf="detailsError" class="it-error">{{ detailsError }}</div>
 
           <div *ngIf="selectedDetails" class="it-detailsGrid">
+
             <div class="it-detailItem">
-              <span class="it-detailLabel">Bac</span>
-              <span class="it-detailValue">{{ selectedDetails.binCode }}</span>
+              <span class="it-detailLabel">Identifiant</span>
+              <span class="it-detailValue">
+                {{ selectedDetails.binCode || selectedDetails.truckCode || selectedDetails.entityType + '-' + selectedDetails.entityId }}
+              </span>
+            </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Entité</span>
+              <span class="it-detailValue">{{ selectedDetails.entityType || '—' }}</span>
             </div>
 
             <div class="it-detailItem">
@@ -204,6 +241,11 @@
               <span class="it-detailValue">{{ selectedDetails.zoneName || '—' }}</span>
             </div>
 
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Action recommandée</span>
+              <span class="it-detailValue">{{ selectedDetails.actionType || '—' }}</span>
+            </div>
+
             <div class="it-detailItem it-detailItem--full">
               <span class="it-detailLabel">Titre</span>
               <span class="it-detailValue">{{ selectedDetails.title }}</span>
@@ -214,25 +256,65 @@
               <span class="it-detailValue">{{ selectedDetails.message }}</span>
             </div>
 
-            <div class="it-detailItem">
-              <span class="it-detailLabel">Coordonnées</span>
-              <span class="it-detailValue">{{ selectedDetails.binLat }}, {{ selectedDetails.binLng }}</span>
+            <div class="it-detailItem it-detailItem--full" *ngIf="selectedDetails.recommendation">
+              <span class="it-detailLabel">Recommandation</span>
+              <span class="it-detailValue">{{ selectedDetails.recommendation }}</span>
             </div>
 
-            <div class="it-detailItem">
+            <div class="it-detailItem" *ngIf="selectedDetails.binId">
+              <span class="it-detailLabel">Bac ID</span>
+              <span class="it-detailValue">{{ selectedDetails.binId }}</span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.truckId">
+              <span class="it-detailLabel">Camion ID</span>
+              <span class="it-detailValue">{{ selectedDetails.truckId }}</span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.incidentId">
+              <span class="it-detailLabel">Incident ID</span>
+              <span class="it-detailValue">{{ selectedDetails.incidentId }}</span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.missionId">
+              <span class="it-detailLabel">Mission ID</span>
+              <span class="it-detailValue">{{ selectedDetails.missionId }}</span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.binLat || selectedDetails.binLng">
+              <span class="it-detailLabel">Coordonnées bac</span>
+              <span class="it-detailValue">
+                {{ selectedDetails.binLat || '—' }}, {{ selectedDetails.binLng || '—' }}
+              </span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.truckLat || selectedDetails.truckLng">
+              <span class="it-detailLabel">Coordonnées camion</span>
+              <span class="it-detailValue">
+                {{ selectedDetails.truckLat || '—' }}, {{ selectedDetails.truckLng || '—' }}
+              </span>
+            </div>
+
+            <div class="it-detailItem" *ngIf="selectedDetails.fillLevel !== null && selectedDetails.fillLevel !== undefined">
               <span class="it-detailLabel">Niveau</span>
               <span class="it-detailValue">{{ selectedDetails.fillLevel }}%</span>
             </div>
 
-            <div class="it-detailItem">
+            <div class="it-detailItem" *ngIf="selectedDetails.batteryLevel !== null && selectedDetails.batteryLevel !== undefined">
               <span class="it-detailLabel">Batterie</span>
               <span class="it-detailValue">{{ selectedDetails.batteryLevel }}%</span>
             </div>
 
-            <div class="it-detailItem">
+            <div class="it-detailItem" *ngIf="selectedDetails.telemetryTimestamp">
               <span class="it-detailLabel">Télémétrie</span>
               <span class="it-detailValue">{{ selectedDetails.telemetryTimestamp }}</span>
             </div>
+
+            <div class="it-detailItem">
+              <span class="it-detailLabel">Créée le</span>
+              <span class="it-detailValue">{{ selectedDetails.createdAt }}</span>
+            </div>
+
           </div>
 
         </div>

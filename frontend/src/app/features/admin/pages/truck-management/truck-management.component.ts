@@ -77,16 +77,9 @@ export class TruckManagementComponent implements OnInit {
   }
 
   loadAvailableDrivers(currentTruck?: TruckResponse): void {
-    this.driverService.getAllDrivers().subscribe({
+    this.driverService.getAvailableDrivers().subscribe({
       next: (drivers) => {
-        const assignedDriverIds = this.trucks
-          .filter(t => t.id !== currentTruck?.id)
-          .map(t => t.assignedDriverId)
-          .filter((id): id is number => id !== null && id !== undefined);
-
-        this.availableDrivers = (drivers || []).filter(driver =>
-          !assignedDriverIds.includes(driver.id)
-        );
+        this.availableDrivers = drivers || [];
 
         if (
           currentTruck?.assignedDriverId &&
@@ -100,7 +93,7 @@ export class TruckManagementComponent implements OnInit {
       },
       error: () => {
         this.availableDrivers = [];
-        this.errorMessage = 'Impossible de charger la liste des chauffeurs.';
+        this.errorMessage = 'Impossible de charger la liste des chauffeurs disponibles.';
       }
     });
   }
@@ -207,20 +200,32 @@ export class TruckManagementComponent implements OnInit {
   getFuelPercent(truck: TruckResponse): number {
     const fuel = Number(truck.fuelLevelLiters || 0);
     const tank = Number(truck.tankCapacityLiters || 0);
-    if (tank <= 0) return 0;
+
+    if (tank <= 0) {
+      return 0;
+    }
+
     return Math.min(100, Math.round((fuel * 100) / tank));
   }
 
   getStatusLabel(status?: string): string {
     switch (status) {
-      case 'AVAILABLE': return 'Disponible';
-      case 'ON_MISSION': return 'En mission';
-      case 'BREAKDOWN': return 'En panne';
-      case 'MAINTENANCE': return 'Maintenance';
-      case 'REFUELING': return 'Ravitaillement';
-      case 'UNAVAILABLE': return 'Indisponible';
-      case 'OUT_OF_SERVICE': return 'Hors service';
-      default: return 'Inconnu';
+      case 'AVAILABLE':
+        return 'Disponible';
+      case 'ON_MISSION':
+        return 'En mission';
+      case 'BREAKDOWN':
+        return 'En panne';
+      case 'MAINTENANCE':
+        return 'Maintenance';
+      case 'REFUELING':
+        return 'Ravitaillement';
+      case 'UNAVAILABLE':
+        return 'Indisponible';
+      case 'OUT_OF_SERVICE':
+        return 'Hors service';
+      default:
+        return 'Inconnu';
     }
   }
 

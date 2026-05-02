@@ -23,4 +23,5 @@ public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
     List<RouteStop> findByRoutePlanAndStatus(RoutePlan routePlan, StopStatus status);
 
     boolean existsByRoutePlanAndStopTypeAndStatus(RoutePlan routePlan, StopType stopType, StopStatus status);
+    void deleteByRoutePlan(RoutePlan routePlan);
 }

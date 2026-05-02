@@ -12,6 +12,9 @@ public class AlertDetailsResponse extends AlertResponse {
     private Integer fillLevel;
     private Integer batteryLevel;
 
+    private Double truckLat;
+    private Double truckLng;
+
     public Double getBinLat() { return binLat; }
     public void setBinLat(Double binLat) { this.binLat = binLat; }
 
@@ -29,4 +32,10 @@ public class AlertDetailsResponse extends AlertResponse {
 
     public Integer getBatteryLevel() { return batteryLevel; }
     public void setBatteryLevel(Integer batteryLevel) { this.batteryLevel = batteryLevel; }
+
+    public Double getTruckLat() { return truckLat; }
+    public void setTruckLat(Double truckLat) { this.truckLat = truckLat; }
+
+    public Double getTruckLng() { return truckLng; }
+    public void setTruckLng(Double truckLng) { this.truckLng = truckLng; }
 }

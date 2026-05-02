@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,11 +16,7 @@ public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long
 
     Optional<BinTelemetry> findTopByBinIdAndIdNotOrderByTimestampDesc(Long binId, Long id);
 
-
-    
-
     Optional<BinTelemetry> findTopByBinOrderByTimestampDesc(Bin bin);
-
 
     @Query(value = """
         SELECT DISTINCT ON (bt.bin_id) bt.*
@@ -82,4 +79,21 @@ public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long
         WHERE latest.fill_level >= 40 AND latest.fill_level < 90
     """, nativeQuery = true)
     long countPartialBins();
+
+    @Query("""
+        SELECT t
+        FROM BinTelemetry t
+        WHERE t.bin.id = :binId
+          AND t.timestamp >= :since
+        ORDER BY t.timestamp DESC
+    """)
+    List<BinTelemetry> findRecentByBinId(Long binId, Instant since);
+
+    @Query("""
+        SELECT t
+        FROM BinTelemetry t
+        WHERE t.bin.id = :binId
+        ORDER BY t.timestamp DESC
+    """)
+    List<BinTelemetry> findAllByBinIdNewestFirst(Long binId, Pageable pageable);
 }

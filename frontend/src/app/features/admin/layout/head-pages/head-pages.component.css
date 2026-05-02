@@ -52,3 +52,78 @@
 .icon-btn:hover mat-icon {
   color: #16c784;
 }
+.notif-wrap {
+  position: relative;
+}
+
+.notif-btn {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notif-menu {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  width: 320px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+  padding: 12px;
+  z-index: 1000;
+}
+
+.notif-title {
+  font-weight: 900;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.notif-empty {
+  color: #64748b;
+  padding: 14px;
+  text-align: center;
+}
+
+.notif-item {
+  padding: 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.notif-item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.notif-item-top span {
+  color: #ef4444;
+  font-weight: 800;
+}
+
+.notif-item-title {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 13px;
+}

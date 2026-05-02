@@ -2,20 +2,26 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+
 import { BinService } from '../../../../services/bin.service';
 import { MapFocusService } from '../../../../services/map-focus.service';
+import { AlertService, AlertDto } from '../../../../services/alert.service';
 
 type BinStatus = 'Plein' | 'Partiel' | 'Vide' | 'Maintenance';
 type ActivityFilter = 'All' | 'Actif' | 'Inactif';
 type BatteryFilter = 'All' | 'Low' | 'Normal';
+type AlertFilter = 'All' | 'WithAlerts' | 'WithoutAlerts' | 'Critical';
+
 type SortOption =
   | 'fill_desc'
   | 'fill_asc'
   | 'battery_desc'
   | 'battery_asc'
+  | 'alerts_desc'
   | 'id_asc';
 
 interface BinRow {
+  backendId: number | null;
   id: string;
   location: string;
   zone: string;
@@ -28,6 +34,10 @@ interface BinRow {
   isActive: boolean;
   lat: number | null;
   lng: number | null;
+
+  alertsCount: number;
+  topAlertSeverity: string | null;
+  topAlertType: string | null;
 }
 
 interface BinFormModel {
@@ -56,6 +66,7 @@ type ModalMode = 'create' | 'edit' | 'view';
 export class BinsComponent implements OnInit {
   constructor(
     private binService: BinService,
+    private alertService: AlertService,
     private router: Router,
     private route: ActivatedRoute,
     private mapFocusService: MapFocusService
@@ -68,26 +79,39 @@ export class BinsComponent implements OnInit {
     empty: 0,
     maintenance: 0,
     active: 0,
-    inactive: 0
+    inactive: 0,
+    withAlerts: 0,
+    criticalAlerts: 0
   };
 
   loading = true;
+  loadingAlerts = false;
   error = '';
+  alertsError = '';
   lastUpdatedLabel = '—';
 
   query = '';
   statusFilter: 'All' | BinStatus = 'All';
   activityFilter: ActivityFilter = 'All';
   batteryFilter: BatteryFilter = 'All';
+  alertFilter: AlertFilter = 'All';
   sortBy: SortOption = 'fill_desc';
 
   rows: BinRow[] = [];
+
+  binAlerts: AlertDto[] = [];
+  alertsByBinCode = new Map<string, AlertDto[]>();
+  alertsByBinId = new Map<number, AlertDto[]>();
 
   showFormModal = false;
   modalMode: ModalMode = 'create';
   selectedBinId: string | null = null;
   formError = '';
   form: BinFormModel = this.createEmptyForm();
+
+  showAlertsDrawer = false;
+  selectedAlertBin: BinRow | null = null;
+  resolvingAlertId: number | null = null;
 
   ngOnInit(): void {
     this.reloadBins();
@@ -111,7 +135,13 @@ export class BinsComponent implements OnInit {
           const lat = rawLat !== null ? Number(rawLat) : null;
           const lng = rawLng !== null ? Number(rawLng) : null;
 
+          const backendId =
+            b.id !== undefined && b.id !== null && !Number.isNaN(Number(b.id))
+              ? Number(b.id)
+              : null;
+
           return {
+            backendId,
             id: b.binCode ?? b.bin_code ?? String(b.binId ?? b.id ?? '—'),
             location: b.address ?? b.location ?? `(${lat ?? '-'}, ${lng ?? '-'})`,
             zone: b.zoneName ?? b.zone?.name ?? 'Zone non définie',
@@ -120,16 +150,26 @@ export class BinsComponent implements OnInit {
             fill,
             status: mappedStatus,
             battery,
-            lastTelemetry: b.timestamp ? this.formatDate(b.timestamp) : '-',
+            lastTelemetry: b.timestamp
+              ? this.formatDate(b.timestamp)
+              : b.lastTelemetryAt
+                ? this.formatDate(b.lastTelemetryAt)
+                : '-',
             isActive: b.active ?? b.isActive ?? true,
             lat: lat !== null && !Number.isNaN(lat) ? lat : null,
-            lng: lng !== null && !Number.isNaN(lng) ? lng : null
+            lng: lng !== null && !Number.isNaN(lng) ? lng : null,
+
+            alertsCount: 0,
+            topAlertSeverity: null,
+            topAlertType: null
           };
         });
 
         this.recomputeStats();
         this.loading = false;
         this.updateLastRefresh();
+
+        this.loadBinAlerts();
       },
       error: (err) => {
         console.error('GET /api/bins failed', err);
@@ -137,6 +177,35 @@ export class BinsComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  loadBinAlerts(): void {
+    this.loadingAlerts = true;
+    this.alertsError = '';
+
+    this.alertService.searchAlerts({
+      resolved: false,
+      entityType: 'BIN'
+    }).subscribe({
+      next: (alerts: AlertDto[]) => {
+        this.binAlerts = alerts || [];
+        this.rebuildAlertIndexes();
+        this.attachAlertsToRows();
+        this.recomputeStats();
+
+        this.loadingAlerts = false;
+        this.updateLastRefresh();
+      },
+      error: (err) => {
+        console.error('GET /api/alerts?entityType=BIN failed', err);
+        this.alertsError = 'Impossible de charger les alertes des bacs.';
+        this.loadingAlerts = false;
+      }
+    });
+  }
+
+  refreshAll(): void {
+    this.reloadBins();
   }
 
   openCreateModal(): void {
@@ -281,6 +350,23 @@ export class BinsComponent implements OnInit {
       return;
     }
 
+    if (existing.backendId) {
+      this.binService.updateBin(existing.backendId, payload).subscribe({
+        next: () => {
+          this.reloadBins();
+          this.closeFormModal();
+        },
+        error: (err) => {
+          console.error('UPDATE BIN FAILED', err);
+          this.formError =
+            err?.error?.message ||
+            err?.error?.error ||
+            'Erreur lors de la modification du bac.';
+        }
+      });
+      return;
+    }
+
     this.binService.getBins().subscribe({
       next: (bins: any[]) => {
         const backendBin = (bins || []).find((b: any) =>
@@ -313,6 +399,16 @@ export class BinsComponent implements OnInit {
   }
 
   toggleActivation(row: BinRow): void {
+    if (row.backendId) {
+      this.binService.updateBin(row.backendId, {
+        isActive: !row.isActive
+      }).subscribe({
+        next: () => this.reloadBins(),
+        error: (err) => console.error('TOGGLE ACTIVE FAILED', err)
+      });
+      return;
+    }
+
     this.binService.getBins().subscribe({
       next: (bins: any[]) => {
         const backendBin = (bins || []).find((b: any) =>
@@ -367,6 +463,59 @@ export class BinsComponent implements OnInit {
     });
   }
 
+  openAlertsDrawer(row: BinRow): void {
+    this.selectedAlertBin = row;
+    this.showAlertsDrawer = true;
+  }
+
+  closeAlertsDrawer(): void {
+    this.showAlertsDrawer = false;
+    this.selectedAlertBin = null;
+    this.resolvingAlertId = null;
+  }
+
+  alertsForRow(row: BinRow | null): AlertDto[] {
+    if (!row) return [];
+
+    const byId =
+      row.backendId !== null
+        ? this.alertsByBinId.get(row.backendId) || []
+        : [];
+
+    const byCode = this.alertsByBinCode.get(row.id) || [];
+
+    const merged = [...byId, ...byCode];
+    const unique = new Map<number, AlertDto>();
+
+    for (const a of merged) {
+      unique.set(a.id, a);
+    }
+
+    return Array.from(unique.values()).sort((a, b) => {
+      const da = new Date(a.createdAt || '').getTime();
+      const db = new Date(b.createdAt || '').getTime();
+      return db - da;
+    });
+  }
+
+  resolveBinAlert(alert: AlertDto): void {
+    if (!alert?.id || this.resolvingAlertId) return;
+
+    this.resolvingAlertId = alert.id;
+
+    this.alertService.resolveAlert(alert.id).subscribe({
+      next: () => {
+        this.resolvingAlertId = null;
+        this.loadBinAlerts();
+      },
+      error: (err) => {
+        console.error('RESOLVE BIN ALERT FAILED', err);
+        this.resolvingAlertId = null;
+        this.alertsError = "Impossible de résoudre l'alerte.";
+      }
+    });
+  }
+
   get filteredRows(): BinRow[] {
     const q = this.query.trim().toLowerCase();
 
@@ -394,7 +543,16 @@ export class BinsComponent implements OnInit {
             ? r.battery < 20
             : r.battery >= 20;
 
-      return matchQuery && matchStatus && matchActivity && matchBattery;
+      const matchAlerts =
+        this.alertFilter === 'All'
+          ? true
+          : this.alertFilter === 'WithAlerts'
+            ? r.alertsCount > 0
+            : this.alertFilter === 'WithoutAlerts'
+              ? r.alertsCount === 0
+              : this.isCriticalAlertSeverity(r.topAlertSeverity);
+
+      return matchQuery && matchStatus && matchActivity && matchBattery && matchAlerts;
     });
 
     data = [...data].sort((a, b) => {
@@ -407,6 +565,8 @@ export class BinsComponent implements OnInit {
           return a.battery - b.battery;
         case 'battery_desc':
           return b.battery - a.battery;
+        case 'alerts_desc':
+          return b.alertsCount - a.alertsCount;
         case 'id_asc':
           return a.id.localeCompare(b.id);
         default:
@@ -422,6 +582,7 @@ export class BinsComponent implements OnInit {
     this.statusFilter = 'All';
     this.activityFilter = 'All';
     this.batteryFilter = 'All';
+    this.alertFilter = 'All';
     this.sortBy = 'fill_desc';
   }
 
@@ -442,6 +603,77 @@ export class BinsComponent implements OnInit {
     return isActive ? 'Actif' : 'Inactif';
   }
 
+  alertTypeLabel(type?: string | null): string {
+    switch ((type || '').toUpperCase()) {
+      case 'BIN_FULL': return 'Bac plein';
+      case 'BIN_ALMOST_FULL': return 'Bac presque plein';
+      case 'BIN_FAST_FILLING': return 'Remplissage rapide';
+      case 'BIN_SUDDEN_FILL': return 'Remplissage soudain';
+      case 'BIN_SENSOR_STUCK': return 'Capteur bloqué';
+      case 'BIN_BATTERY_LOW': return 'Batterie faible';
+      case 'BIN_SENSOR_OR_OVERFLOW': return 'Capteur / débordement';
+      case 'NEED_EXTRA_BIN_NEARBY': return 'Besoin bac supplémentaire';
+      default: return type || 'Alerte';
+    }
+  }
+
+  severityLabel(severity?: string | null): string {
+    switch ((severity || '').toUpperCase()) {
+      case 'CRITICAL': return 'Critique';
+      case 'HIGH': return 'Élevée';
+      case 'MEDIUM': return 'Moyenne';
+      case 'LOW': return 'Faible';
+      default: return severity || '—';
+    }
+  }
+
+  alertBadgeLabel(row: BinRow): string {
+    if (!row.alertsCount) return '—';
+
+    if (this.isCriticalAlertSeverity(row.topAlertSeverity)) {
+      return row.alertsCount > 1 ? `${row.alertsCount} critiques` : 'Critique';
+    }
+
+    if ((row.topAlertType || '').includes('BATTERY') || (row.topAlertType || '').includes('SENSOR')) {
+      return row.alertsCount > 1 ? `${row.alertsCount} maintenance` : 'Maintenance';
+    }
+
+    return row.alertsCount > 1 ? `${row.alertsCount} alertes` : 'Alerte';
+  }
+
+  alertBadgeClass(row: BinRow): string {
+    if (!row.alertsCount) return 'is-none';
+
+    if (this.isCriticalAlertSeverity(row.topAlertSeverity)) {
+      return 'is-critical';
+    }
+
+    if ((row.topAlertType || '').includes('BATTERY') || (row.topAlertType || '').includes('SENSOR')) {
+      return 'is-maintenance';
+    }
+
+    return 'is-warning';
+  }
+
+  timeAgo(iso?: string | null): string {
+    if (!iso) return '—';
+
+    const d = new Date(iso).getTime();
+    if (Number.isNaN(d)) return '—';
+
+    const diff = Date.now() - d;
+    const min = Math.floor(diff / 60000);
+
+    if (min < 1) return "à l'instant";
+    if (min < 60) return `il y a ${min} min`;
+
+    const h = Math.floor(min / 60);
+    if (h < 24) return `il y a ${h} h`;
+
+    const days = Math.floor(h / 24);
+    return `il y a ${days} j`;
+  }
+
   exportCsv(): void {
     const headers = [
       'Code du bac',
@@ -451,6 +683,7 @@ export class BinsComponent implements OnInit {
       'État opérationnel',
       'État administratif',
       'Batterie',
+      'Alertes ouvertes',
       'Dernière télémétrie'
     ];
 
@@ -463,6 +696,7 @@ export class BinsComponent implements OnInit {
         r.status,
         this.activityLabel(r.isActive),
         `${r.battery}%`,
+        String(r.alertsCount),
         r.lastTelemetry
       ]
         .map(v => `"${String(v).replace(/"/g, '""')}"`)
@@ -485,6 +719,74 @@ export class BinsComponent implements OnInit {
     return row.id;
   }
 
+  trackByAlert(_: number, alert: AlertDto): number {
+    return alert.id;
+  }
+
+  private rebuildAlertIndexes(): void {
+    this.alertsByBinCode.clear();
+    this.alertsByBinId.clear();
+
+    for (const alert of this.binAlerts) {
+      if (alert.binCode) {
+        const list = this.alertsByBinCode.get(alert.binCode) || [];
+        list.push(alert);
+        this.alertsByBinCode.set(alert.binCode, list);
+      }
+
+      if (alert.binId !== null && alert.binId !== undefined) {
+        const list = this.alertsByBinId.get(alert.binId) || [];
+        list.push(alert);
+        this.alertsByBinId.set(alert.binId, list);
+      }
+    }
+  }
+
+  private attachAlertsToRows(): void {
+    this.rows = this.rows.map(row => {
+      const alerts = this.alertsForRow(row);
+      const top = this.pickTopAlert(alerts);
+
+      return {
+        ...row,
+        alertsCount: alerts.length,
+        topAlertSeverity: top?.severity || null,
+        topAlertType: top?.alertType || null
+      };
+    });
+  }
+
+  private pickTopAlert(alerts: AlertDto[]): AlertDto | null {
+    if (!alerts.length) return null;
+
+    return [...alerts].sort((a, b) => {
+      const sa = this.severityWeight(a.severity);
+      const sb = this.severityWeight(b.severity);
+
+      if (sb !== sa) return sb - sa;
+
+      const da = new Date(a.createdAt || '').getTime();
+      const db = new Date(b.createdAt || '').getTime();
+
+      return db - da;
+    })[0];
+  }
+
+  private severityWeight(severity?: string | null): number {
+    switch ((severity || '').toUpperCase()) {
+      case 'CRITICAL': return 4;
+      case 'HIGH': return 3;
+      case 'MEDIUM': return 2;
+      case 'LOW': return 1;
+      default: return 0;
+    }
+  }
+
+  private isCriticalAlertSeverity(severity?: string | null): boolean {
+    const s = (severity || '').toUpperCase();
+    return s === 'CRITICAL' || s === 'HIGH';
+  }
+
   private recomputeStats(): void {
     this.stats.total = this.rows.length;
     this.stats.full = this.rows.filter(r => r.status === 'Plein').length;
@@ -493,6 +795,8 @@ export class BinsComponent implements OnInit {
     this.stats.maintenance = this.rows.filter(r => r.status === 'Maintenance').length;
     this.stats.active = this.rows.filter(r => r.isActive).length;
     this.stats.inactive = this.rows.filter(r => !r.isActive).length;
+    this.stats.withAlerts = this.rows.filter(r => r.alertsCount > 0).length;
+    this.stats.criticalAlerts = this.rows.filter(r => this.isCriticalAlertSeverity(r.topAlertSeverity)).length;
   }
 
   private createEmptyForm(): BinFormModel {

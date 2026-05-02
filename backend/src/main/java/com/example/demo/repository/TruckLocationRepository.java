@@ -9,8 +9,11 @@ import java.util.Optional;
 
 public interface TruckLocationRepository extends JpaRepository<TruckLocation, Long> {
 
-    @Query("select tl from TruckLocation tl where tl.driver.id = :driverId order by tl.timestamp desc")
-    Optional<TruckLocation> findLatestByDriverId(Long driverId);
+    Optional<TruckLocation> findTopByDriver_IdOrderByTimestampDesc(Long driverId);
+
+    default Optional<TruckLocation> findLatestByDriverId(Long driverId) {
+        return findTopByDriver_IdOrderByTimestampDesc(driverId);
+    }
 
     @Query(value = """
         SELECT COUNT(*)

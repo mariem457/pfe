@@ -6,81 +6,48 @@
       <p>Consultez les poubelles, leurs zones, statuts et niveaux de remplissage.</p>
     </div>
 
-    <div class="search-box">
-      <span class="material-icons">search</span>
-      <input
-        type="text"
-        placeholder="Rechercher une poubelle..."
-        [(ngModel)]="termeRecherche" />
+    <div class="header-actions">
+      <div class="search-box">
+        <span class="material-icons">search</span>
+        <input type="text" placeholder="Rechercher une poubelle..."
+               [(ngModel)]="termeRecherche" />
+      </div>
+
+      <button class="btn-add-bin" type="button" (click)="openAddModal()">
+        <span class="material-icons">add</span>
+        Ajouter poubelle
+      </button>
     </div>
   </div>
 
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-icon stat-total">
-        <span class="material-icons">delete</span>
-      </div>
-      <div>
-        <p>Total poubelles</p>
-        <h2>{{ nombreTotalPoubelles }}</h2>
-      </div>
+      <div class="stat-icon stat-total"><span class="material-icons">delete</span></div>
+      <div><p>Total poubelles</p><h2>{{ nombreTotalPoubelles }}</h2></div>
     </div>
-
     <div class="stat-card">
-      <div class="stat-icon stat-full">
-        <span class="material-icons">warning</span>
-      </div>
-      <div>
-        <p>Poubelles pleines</p>
-        <h2>{{ nombrePoubellesPleines }}</h2>
-      </div>
+      <div class="stat-icon stat-full"><span class="material-icons">warning</span></div>
+      <div><p>Poubelles pleines</p><h2>{{ nombrePoubellesPleines }}</h2></div>
     </div>
-
     <div class="stat-card">
-      <div class="stat-icon stat-active">
-        <span class="material-icons">check_circle</span>
-      </div>
-      <div>
-        <p>Poubelles actives</p>
-        <h2>{{ nombrePoubellesActives }}</h2>
-      </div>
+      <div class="stat-icon stat-active"><span class="material-icons">check_circle</span></div>
+      <div><p>Poubelles actives</p><h2>{{ nombrePoubellesActives }}</h2></div>
     </div>
-
     <div class="stat-card">
-      <div class="stat-icon stat-maintenance">
-        <span class="material-icons">engineering</span>
-      </div>
-      <div>
-        <p>Maintenance</p>
-        <h2>{{ nombrePoubellesMaintenance }}</h2>
-      </div>
+      <div class="stat-icon stat-maintenance"><span class="material-icons">engineering</span></div>
+      <div><p>Maintenance</p><h2>{{ nombrePoubellesMaintenance }}</h2></div>
     </div>
   </div>
 
   <div class="filters-bar">
-    <button
-      type="button"
-      *ngFor="let filtre of filtres"
-      [class.active]="filtreSelectionne === filtre"
-      (click)="selectionnerFiltre(filtre)">
-
+    <button type="button" *ngFor="let filtre of filtres"
+            [class.active]="filtreSelectionne === filtre"
+            (click)="selectionnerFiltre(filtre)">
       <span>{{ filtre }}</span>
-
-      <span class="filter-count" *ngIf="filtre === 'Toutes'">
-        {{ nombreTotalPoubelles }}
-      </span>
-
-      <span class="filter-count" *ngIf="filtre === 'Actives'">
-        {{ nombrePoubellesActives }}
-      </span>
-
-      <span class="filter-count" *ngIf="filtre === 'Pleines'">
-        {{ nombrePoubellesPleines }}
-      </span>
-
-      <span class="filter-count" *ngIf="filtre === 'Maintenance'">
-        {{ nombrePoubellesMaintenance }}
-      </span>
+      <span class="filter-count" *ngIf="filtre === 'Toutes'">{{ nombreTotalPoubelles }}</span>
+      <span class="filter-count" *ngIf="filtre === 'Actives'">{{ nombrePoubellesActives }}</span>
+      <span class="filter-count" *ngIf="filtre === 'Pleines'">{{ nombrePoubellesPleines }}</span>
+      <span class="filter-count" *ngIf="filtre === 'Maintenance'">{{ nombrePoubellesMaintenance }}</span>
     </button>
   </div>
 
@@ -89,19 +56,14 @@
     <p>{{ poubellesFiltrees.length }} poubelle(s) affichée(s)</p>
   </div>
 
-  <div *ngIf="loading" class="message-info">
-    Chargement des poubelles...
-  </div>
-
-  <div *ngIf="!loading && errorMessage" class="message-error">
-    {{ errorMessage }}
-  </div>
+  <div *ngIf="loading" class="message-info">Chargement des poubelles...</div>
+  <div *ngIf="!loading && errorMessage" class="message-error">{{ errorMessage }}</div>
 
   <div class="table-card" *ngIf="!loading && !errorMessage">
     <table>
       <thead>
         <tr>
-          <th>Code</th>
+          <th style="width:130px">Code</th>
           <th>Nom</th>
           <th>Zone</th>
           <th>Statut</th>
@@ -111,22 +73,17 @@
           <th>Température</th>
           <th>Dernière collecte</th>
           <th>Prochaine collecte</th>
+          <th style="width:180px">QR Code</th>
         </tr>
       </thead>
 
       <tbody>
-       <tr
-  *ngFor="let poubelle of poubellesFiltrees"
-  [ngClass]="{
-    'row-full': poubelle.statut === 'Full',
-    'row-maintenance': poubelle.statut === 'Maintenance'
-  }">
+        <tr *ngFor="let poubelle of poubellesFiltrees"
+            [ngClass]="{ 'row-full': poubelle.statut === 'Full', 'row-maintenance': poubelle.statut === 'Maintenance' }">
 
           <td>
             <div class="bin-cell">
-              <div class="bin-avatar">
-                <span class="material-icons">delete</span>
-              </div>
+              <div class="bin-avatar"><span class="material-icons">delete</span></div>
               <span class="bin-code">{{ poubelle.code }}</span>
             </div>
           </td>
@@ -144,11 +101,9 @@
             <div class="fill-cell">
               <strong>{{ poubelle.niveauRemplissage }}%</strong>
               <div class="progress">
-                <div
-                  class="progress-value"
-                  [ngClass]="getClasseRemplissage(poubelle.niveauRemplissage)"
-                  [style.width.%]="poubelle.niveauRemplissage">
-                </div>
+                <div class="progress-value"
+                     [ngClass]="getClasseRemplissage(poubelle.niveauRemplissage)"
+                     [style.width.%]="poubelle.niveauRemplissage"></div>
               </div>
             </div>
           </td>
@@ -158,6 +113,22 @@
           <td>{{ poubelle.temperature }}</td>
           <td>{{ poubelle.derniereCollecte }}</td>
           <td>{{ poubelle.prochaineCollecte }}</td>
+
+          <td>
+            <div class="qr-actions">
+              <button class="btn-qr"
+                      [disabled]="qrLoading && selectedBin?.id === poubelle.id"
+                      (click)="regenerateQR(poubelle)">
+                <span class="material-icons">qr_code_2</span>
+                <span>{{ qrLoading && selectedBin?.id === poubelle.id ? '...' : 'Régénérer' }}</span>
+              </button>
+
+              <button class="btn-print" (click)="printQR(poubelle)">
+                <span class="material-icons">print</span>
+                <span>Imprimer</span>
+              </button>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -171,4 +142,88 @@
     </div>
   </div>
 
+</div>
+
+<div class="qr-modal-overlay" *ngIf="showQrModal" (click)="closeQrModal()">
+  <div class="qr-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>QR Code</h3>
+      <span class="modal-code">{{ selectedBin?.code }}</span>
+      <button class="modal-close" (click)="closeQrModal()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <img [src]="qrPreviewUrl" alt="QR Code" class="qr-image" />
+
+    <div class="modal-actions">
+      <button class="btn-download" (click)="downloadQR()">
+        <span class="material-icons">download</span> Télécharger
+      </button>
+      <button class="btn-print-modal" (click)="printFromModal()">
+        <span class="material-icons">print</span> Imprimer
+      </button>
+      <button class="btn-cancel" (click)="closeQrModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="add-modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="add-modal" (click)="$event.stopPropagation()">
+
+    <div class="add-modal-header">
+      <h2>Ajouter une poubelle</h2>
+      <button type="button" (click)="closeAddModal()">×</button>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        Code poubelle
+        <input type="text" [(ngModel)]="newBin.binCode" placeholder="Auto si vide" />
+      </label>
+
+      <label>
+        Type
+        <input type="text" [(ngModel)]="newBin.type" placeholder="Ex: plastique, organique..." />
+      </label>
+
+      <label>
+        Zone ID
+        <input type="number" [(ngModel)]="newBin.zoneId" placeholder="Ex: 1" />
+      </label>
+
+      <label>
+        Latitude
+        <input type="number" [(ngModel)]="newBin.lat" placeholder="Ex: 35.5047" />
+      </label>
+
+      <label>
+        Longitude
+        <input type="number" [(ngModel)]="newBin.lng" placeholder="Ex: 11.0622" />
+      </label>
+
+      <label>
+        Date installation
+        <input type="date" [(ngModel)]="newBin.installationDate" />
+      </label>
+
+      <label class="checkbox-line">
+        <input type="checkbox" [(ngModel)]="newBin.isActive" />
+        Active
+      </label>
+
+      <label class="full">
+        Notes
+        <textarea rows="3" [(ngModel)]="newBin.notes" placeholder="Notes..."></textarea>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button type="button" class="btn-save" (click)="addBin()" [disabled]="addLoading">
+        {{ addLoading ? 'Ajout...' : 'Ajouter' }}
+      </button>
+    </div>
+
+  </div>
 </div>

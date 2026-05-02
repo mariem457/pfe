@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FleetMapComponent, FleetMapInitialTruck } from './fleet-map/fleet-map.component';
+import { AlertService, AlertDto } from '../../../../services/alert.service';
 import {
   TruckDashboardService,
   TruckDashboardResponse,
   TruckItem,
   MissionRouteResponse,
 } from '../../../../services/truck-dashboard.service';
+
 import {
   TruckIncident,
   TruckIncidentService,
@@ -34,6 +36,7 @@ interface TruckCard {
   lng?: number;
 }
 
+
 @Component({
   selector: 'app-trucks',
   standalone: true,
@@ -47,8 +50,8 @@ export class TrucksComponent implements OnInit {
   kpis = [
     { icon: 'local_shipping', label: 'Camions actifs', value: '0' },
     { icon: 'assignment', label: 'Missions en cours', value: '0' },
-    { icon: 'check_circle', label: 'Camions hors mission', value: '0' },
-    { icon: 'schedule', label: 'Progression moyenne', value: '0%' },
+    { icon: 'warning', label: 'Incidents ouverts', value: '0' },
+    { icon: 'smart_toy', label: 'Auto-détectés', value: '0' },
   ];
 
   trucks: TruckCard[] = [];
@@ -58,21 +61,27 @@ export class TrucksComponent implements OnInit {
   truckRoutes: any[] = [];
 
   openIncidents: TruckIncident[] = [];
+  alerts: AlertDto[] = [];
   incidentMap: { [truckCode: string]: TruckIncident } = {};
 
   loadingIncidents = false;
+  runningAutoDetection = false;
   replanningIncidentId: number | null = null;
   resolvedIncidentId: number | null = null;
+
+  autoDetectionMessage = '';
 
   constructor(
     private dashboardService: TruckDashboardService,
     private incidentService: TruckIncidentService,
-    private replanService: RoutingReplanService
+    private replanService: RoutingReplanService,
+    private alertService: AlertService
   ) {}
 
   ngOnInit(): void {
     this.loadDashboard();
     this.loadOpenIncidents();
+    this.loadTruckAlerts();
   }
 
   loadDashboard(): void {
@@ -117,43 +126,44 @@ export class TrucksComponent implements OnInit {
             progress: t.progress,
             fuelLevel: t.fuel,
             etaMinutes: t.etaMins,
-            status: t.truckStatus,
+            status: this.getIncidentForTruck(t.id) ? 'INCIDENT' : t.truckStatus,
             currentMissionId: t.currentMissionId ?? null,
           } as any));
 
-        this.kpis = [
-          {
-            icon: 'local_shipping',
-            label: 'Camions actifs',
-            value: data.activeTrucks.toString(),
-          },
-          {
-            icon: 'assignment',
-            label: 'Missions en cours',
-            value: this.missionTrucks.length.toString(),
-          },
-          {
-            icon: 'check_circle',
-            label: 'Camions hors mission',
-            value: this.offMissionTrucks.length.toString(),
-          },
-          {
-            icon: 'schedule',
-            label: 'Progression moyenne',
-            value: data.averageProgress + '%',
-          },
-        ];
-
+        this.updateKpis(data);
         this.loadMissionRoutesForTrucks();
-
-        console.log('DASHBOARD RAW:', data);
-        console.log('MISSION TRUCKS:', this.missionTrucks);
-        console.log('MAP TRUCKS:', this.mapTrucks);
       },
       error: (err: any) => {
         console.error('Dashboard trucks error:', err);
       },
     });
+  }
+
+  updateKpis(data?: TruckDashboardResponse): void {
+    const autoCount = this.openIncidents.filter(i => i.autoDetected).length;
+
+    this.kpis = [
+      {
+        icon: 'local_shipping',
+        label: 'Camions actifs',
+        value: data ? data.activeTrucks.toString() : this.trucks.filter(t => t.status === 'Actif').length.toString(),
+      },
+      {
+        icon: 'assignment',
+        label: 'Missions en cours',
+        value: this.missionTrucks.length.toString(),
+      },
+      {
+        icon: 'warning',
+        label: 'Incidents ouverts',
+        value: this.openIncidents.length.toString(),
+      },
+      {
+        icon: 'smart_toy',
+        label: 'Auto-détectés',
+        value: autoCount.toString(),
+      },
+    ];
   }
 
   async loadMissionRoutesForTrucks(): Promise<void> {
@@ -185,47 +195,9 @@ export class TrucksComponent implements OnInit {
             transferRouteCoordinates: route.transferRouteCoordinates || [],
           };
         });
-
-      console.log('TRUCK ROUTES:', this.truckRoutes);
     } catch (err) {
       console.error('Load truck routes error:', err);
       this.truckRoutes = [];
-    }
-  }
-
-  getMissionPlace(index: number): string {
-    const places = [
-      'Porte de Versailles',
-      'Champs-Élysées',
-      'Alésia',
-      'Place d’Italie',
-      'Ménilmontant',
-      'Montparnasse',
-      'Bercy',
-      'Nation',
-    ];
-
-    return places[index % places.length];
-  }
-
-  getTruckStatusLabel(status: string): string {
-    switch (status) {
-      case 'ON_MISSION':
-        return 'En mission';
-      case 'AVAILABLE':
-        return 'Disponible';
-      case 'REFUELING':
-        return 'Carburant';
-      case 'BREAKDOWN':
-        return 'Panne';
-      case 'MAINTENANCE':
-        return 'Maintenance';
-      case 'UNAVAILABLE':
-        return 'Indisponible';
-      case 'OUT_OF_SERVICE':
-        return 'Hors service';
-      default:
-        return status || 'Inconnu';
     }
   }
 
@@ -234,13 +206,37 @@ export class TrucksComponent implements OnInit {
 
     this.incidentService.getOpenIncidents().subscribe({
       next: (data: TruckIncident[]) => {
-        this.openIncidents = data;
+        this.openIncidents = data || [];
         this.buildIncidentMap();
         this.loadingIncidents = false;
+        this.updateKpis();
+        this.loadDashboard();
       },
       error: (err: any) => {
         console.error('Truck incidents error:', err);
         this.loadingIncidents = false;
+      },
+    });
+  }
+
+  runAutoDetection(): void {
+    if (this.runningAutoDetection) return;
+
+    this.runningAutoDetection = true;
+    this.autoDetectionMessage = '';
+
+    this.incidentService.runAutoDetection().subscribe({
+      next: (res) => {
+        this.autoDetectionMessage =
+          `${res.scannedTrucks} camion(s) analysé(s), ${res.createdIncidents} incident(s) créé(s).`;
+        this.runningAutoDetection = false;
+        this.loadOpenIncidents();
+        this.loadDashboard();
+      },
+      error: (err) => {
+        console.error('Auto detection error:', err);
+        this.autoDetectionMessage = 'Erreur lors de la détection automatique.';
+        this.runningAutoDetection = false;
       },
     });
   }
@@ -258,12 +254,15 @@ export class TrucksComponent implements OnInit {
         return;
       }
 
-      if (!!incident.missionId && !existing.missionId) {
+      if (this.getSeverityWeight(incident.severity) > this.getSeverityWeight(existing.severity)) {
         this.incidentMap[incident.truckCode] = incident;
         return;
       }
 
-      if (!!incident.missionId === !!existing.missionId && incident.id > existing.id) {
+      if (
+        this.getSeverityWeight(incident.severity) === this.getSeverityWeight(existing.severity) &&
+        incident.id > existing.id
+      ) {
         this.incidentMap[incident.truckCode] = incident;
       }
     });
@@ -278,7 +277,6 @@ export class TrucksComponent implements OnInit {
 
     this.incidentService.resolveIncident(incident.id, incident.description).subscribe({
       next: () => {
-        alert('Incident marqué comme résolu.');
         this.resolvedIncidentId = null;
         this.loadOpenIncidents();
         this.loadDashboard();
@@ -321,15 +319,11 @@ export class TrucksComponent implements OnInit {
             )
             .subscribe({
               next: () => {
-                alert(`Replanification réussie pour ${incident.truckCode}.`);
                 this.replanningIncidentId = null;
                 this.loadOpenIncidents();
                 this.loadDashboard();
               },
               error: () => {
-                alert(
-                  `Replanification réussie pour ${incident.truckCode}, mais l’incident n’a pas été fermé.`
-                );
                 this.replanningIncidentId = null;
                 this.loadOpenIncidents();
                 this.loadDashboard();
@@ -343,4 +337,112 @@ export class TrucksComponent implements OnInit {
         },
       });
   }
+
+  getTruckStatusLabel(status: string): string {
+    switch (status) {
+      case 'ON_MISSION':
+        return 'En mission';
+      case 'AVAILABLE':
+        return 'Disponible';
+      case 'REFUELING':
+        return 'Carburant';
+      case 'BREAKDOWN':
+        return 'Panne';
+      case 'MAINTENANCE':
+        return 'Maintenance';
+      case 'UNAVAILABLE':
+        return 'Indisponible';
+      case 'OUT_OF_SERVICE':
+        return 'Hors service';
+      case 'INCIDENT':
+        return 'Incident';
+      default:
+        return status || 'Inconnu';
+    }
+  }
+
+  getIncidentTypeLabel(type: string): string {
+    switch (type) {
+      case 'GPS_LOST':
+        return 'GPS perdu';
+      case 'FUEL_LOW':
+        return 'Carburant faible';
+      case 'BREAKDOWN':
+        return 'Panne';
+      case 'OVERLOAD':
+        return 'Surcharge';
+      case 'DRIVER_UNAVAILABLE':
+        return 'Chauffeur indisponible';
+      case 'TRAFFIC_BLOCK':
+        return 'Trafic bloqué';
+      case 'DELAY':
+        return 'Retard';
+      default:
+        return type;
+    }
+  }
+
+  getSeverityLabel(severity: string): string {
+    switch (severity) {
+      case 'LOW':
+        return 'Faible';
+      case 'MEDIUM':
+        return 'Moyenne';
+      case 'HIGH':
+        return 'Élevée';
+      case 'CRITICAL':
+        return 'Critique';
+      default:
+        return severity;
+    }
+  }
+
+  getSeverityClass(severity: string): string {
+    switch (severity) {
+      case 'LOW':
+        return 'sev-low';
+      case 'MEDIUM':
+        return 'sev-medium';
+      case 'HIGH':
+        return 'sev-high';
+      case 'CRITICAL':
+        return 'sev-critical';
+      default:
+        return 'sev-medium';
+    }
+  }
+
+  getSeverityWeight(severity: string): number {
+    switch (severity) {
+      case 'LOW':
+        return 1;
+      case 'MEDIUM':
+        return 2;
+      case 'HIGH':
+        return 3;
+      case 'CRITICAL':
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  formatDate(value?: string): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('fr-FR');
+  }
+  loadTruckAlerts(): void {
+  this.alertService.searchAlerts({
+    resolved: false,
+    entityType: 'INCIDENT'
+  }).subscribe({
+    next: (alerts: AlertDto[]) => {
+      this.alerts = alerts || [];
+      console.log('Truck related alerts:', this.alerts);
+    },
+    error: (err: any) => {
+      console.error('Truck alerts error:', err);
+    }
+  });
+}
 }

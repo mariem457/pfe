@@ -223,4 +223,36 @@ public class DriverService {
                 .findFirst()
                 .orElse(null);
     }
+    @Transactional
+    public List<DriverListResponse> getAvailableDrivers() {
+        List<Truck> activeTrucks = truckRepository.findByIsActiveTrue();
+
+        return driverRepo.findAll()
+                .stream()
+                .filter(driver -> Boolean.TRUE.equals(driver.getIsActive()))
+                .filter(driver -> {
+                    boolean alreadyAssigned = activeTrucks.stream()
+                            .anyMatch(truck ->
+                                    truck.getAssignedDriver() != null &&
+                                    truck.getAssignedDriver().getId().equals(driver.getId())
+                            );
+
+                    return !alreadyAssigned;
+                })
+                .map(driver -> {
+                    User user = driver.getUser();
+
+                    return new DriverListResponse(
+                            driver.getId(),
+                            driver.getFullName(),
+                            user != null ? user.getEmail() : null,
+                            driver.getPhone(),
+                            user != null ? user.getUsername() : null,
+                            user != null && user.getAccountStatus() != null
+                                    ? user.getAccountStatus().name()
+                                    : null
+                    );
+                })
+                .toList();
+    }
 }

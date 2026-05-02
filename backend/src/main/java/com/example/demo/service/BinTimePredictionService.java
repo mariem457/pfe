@@ -1,4 +1,3 @@
-// BinTimePredictionService.java
 package com.example.demo.service;
 
 import com.example.demo.entity.BinTimePrediction;
@@ -14,13 +13,16 @@ public class BinTimePredictionService {
 
     private final PythonTimePredictionService pythonTimePredictionService;
     private final BinTimePredictionRepository binTimePredictionRepository;
+    private final UrgentBinService urgentBinService;
 
     public BinTimePredictionService(
             PythonTimePredictionService pythonTimePredictionService,
-            BinTimePredictionRepository binTimePredictionRepository
+            BinTimePredictionRepository binTimePredictionRepository,
+            UrgentBinService urgentBinService
     ) {
         this.pythonTimePredictionService = pythonTimePredictionService;
         this.binTimePredictionRepository = binTimePredictionRepository;
+        this.urgentBinService = urgentBinService;
     }
 
     @Transactional
@@ -35,15 +37,16 @@ public class BinTimePredictionService {
             double rssi,
             boolean collected
     ) {
-        TimeToThresholdPredictionResult result = pythonTimePredictionService.runPrediction(
-                hour,
-                fillLevel,
-                fillRate,
-                batteryLevel,
-                weightKg,
-                rssi,
-                collected
-        );
+
+        TimeToThresholdPredictionResult result =
+                pythonTimePredictionService.runPrediction(
+                        hour, fillLevel, fillRate,
+                        batteryLevel, weightKg, rssi, collected
+                );
+
+        boolean isUrgent =
+                result.getPredictedHours() <= 3 ||
+                result.getPriorityScore() >= 0.9;
 
         BinTimePrediction prediction = new BinTimePrediction();
         prediction.setBinId(binId);
@@ -54,6 +57,23 @@ public class BinTimePredictionService {
         prediction.setShouldCollect(result.isShouldCollect());
         prediction.setCreatedAt(OffsetDateTime.now());
 
-        return binTimePredictionRepository.save(prediction);
+        BinTimePrediction saved = binTimePredictionRepository.save(prediction);
+
+        if (isUrgent) {
+            try {
+                urgentBinService.handleUrgentBin(binId, telemetryId);
+            } catch (Exception e) {
+                System.err.println(
+                        "URGENT REPLAN FAILED but telemetry/prediction will continue => binId="
+                                + binId
+                                + ", telemetryId="
+                                + telemetryId
+                                + ", error="
+                                + e.getMessage()
+                );
+            }
+        }
+
+        return saved;
     }
 }

@@ -2,8 +2,17 @@
   <div class="it-trkHead">
     <div>
       <h1 class="it-trkTitle">Suivi de la flotte</h1>
-      <p class="it-trkSub">Suivi en temps réel des camions et de leurs missions</p>
+      <p class="it-trkSub">Suivi en temps réel des camions, missions et alertes liées à la flotte</p>
     </div>
+
+    <button type="button" class="it-autoBtn" (click)="runAutoDetection()" [disabled]="runningAutoDetection">
+      <span class="material-icons">smart_toy</span>
+      {{ runningAutoDetection ? 'Analyse...' : 'Détection auto' }}
+    </button>
+  </div>
+
+  <div class="it-autoMessage" *ngIf="autoDetectionMessage">
+    {{ autoDetectionMessage }}
   </div>
 
   <div class="it-trkKpi">
@@ -11,7 +20,6 @@
       <div class="it-trkKpiIcon">
         <span class="material-icons it-mi">{{ k.icon }}</span>
       </div>
-
       <div>
         <div class="it-trkKpiLabel">{{ k.label }}</div>
         <div class="it-trkKpiValue">{{ k.value }}</div>
@@ -22,12 +30,10 @@
   <div class="it-trkRow">
     <section class="it-card it-card--map">
       <div class="it-cardHead">
-        <div class="it-cardTitle">Localisation des camions en mission</div>
-
-        <button type="button" class="it-filterBtn">
-          <span class="material-icons it-filterIcon">tune</span>
-          Filtres
-        </button>
+        <div>
+          <div class="it-cardTitle">Localisation des camions en mission</div>
+          <div class="it-cardHint">Les alertes flotte sont affichées dans le panneau de droite.</div>
+        </div>
       </div>
 
       <app-fleet-map
@@ -45,71 +51,202 @@
 
     <section class="it-card it-card--list">
       <div class="it-cardHead it-cardHead--list">
-        <div class="it-cardTitle">Missions en cours</div>
-      </div>
-
-      <div class="it-trkList">
-        <article class="it-trkItem" *ngFor="let t of missionTrucks; let i = index">
-          <div class="it-trkItemTop">
-            <div class="it-dot" [style.background]="missionColors[i % missionColors.length]"></div>
-
-            <div class="it-missionMain">
-              <div class="it-trkId">{{ t.id }}</div>
-              <div class="it-trkDriver">
-                Mission #{{ t.currentMissionId || '—' }} · {{ t.driver }}
-              </div>
-
-              <div class="it-trkLoc">
-                <span class="material-icons it-pin">place</span>
-                <span>{{ t.location }}</span>
-              </div>
-            </div>
-
-            <b class="it-percent">{{ t.progress }}%</b>
-          </div>
-
-          <div class="it-progBar">
-            <div
-              class="it-progIn"
-              [style.width.%]="t.progress"
-              [style.background]="missionColors[i % missionColors.length]">
-            </div>
-          </div>
-        </article>
-
-        <div class="it-emptyState" *ngIf="missionTrucks.length === 0">
-          Aucun camion en mission pour le moment.
+        <div>
+          <div class="it-cardTitle">Alertes flotte</div>
+          <div class="it-cardHint">Alertes liées aux camions et incidents</div>
         </div>
+
+        <button class="it-refreshBtn" type="button" (click)="loadTruckAlerts()">
+          <span class="material-icons">refresh</span>
+        </button>
       </div>
 
-      <button type="button" class="it-viewAllBtn">
-        Voir toutes les missions
-        <span class="material-icons">arrow_forward</span>
-      </button>
-
-      <div class="it-offTitle">Camions hors mission</div>
-
-      <div class="it-trkList it-trkList--off">
-        <article class="it-trkItem it-trkItem--off" *ngFor="let t of offMissionTrucks">
-          <div class="it-offTop">
+      <div class="it-alertPanel">
+        <article
+          class="it-fleetAlert"
+          *ngFor="let a of alerts"
+          [ngClass]="getSeverityClass(a.severity)"
+        >
+          <div class="it-fleetAlertTop">
             <div>
-              <div class="it-trkId">{{ t.id }}</div>
-              <div class="it-trkDriver">{{ t.driver }}</div>
+              <div class="it-fleetAlertCode">
+                {{ a.truckCode || (a.entityType + '-' + a.entityId) || 'Alerte' }}
+              </div>
+              <div class="it-fleetAlertTitle">{{ a.title }}</div>
             </div>
 
-            <span class="it-offBadge">{{ getTruckStatusLabel(t.truckStatus) }}</span>
+            <span class="it-fleetAlertSeverity">
+              {{ getSeverityLabel(a.severity) }}
+            </span>
           </div>
 
-          <div class="it-trkLoc">
-            <span class="material-icons it-pin">place</span>
-            <span>{{ t.location }}</span>
+          <div class="it-fleetAlertMsg">
+            {{ a.message }}
           </div>
         </article>
 
-        <div class="it-emptyState" *ngIf="offMissionTrucks.length === 0">
-          Tous les camions sont en mission.
+        <div class="it-emptyState" *ngIf="!alerts || alerts.length === 0">
+          Aucune alerte flotte ouverte.
         </div>
       </div>
     </section>
   </div>
+
+  <section class="it-card it-sectionFull">
+    <div class="it-cardHead it-cardHead--list">
+      <div>
+        <div class="it-cardTitle">Incidents ouverts</div>
+        <div class="it-cardHint">Incidents actifs détectés ou déclarés sur les camions</div>
+      </div>
+
+      <button class="it-refreshBtn" type="button" (click)="loadOpenIncidents()">
+        <span class="material-icons">refresh</span>
+      </button>
+    </div>
+
+    <div class="it-loading" *ngIf="loadingIncidents">
+      Chargement des incidents...
+    </div>
+
+    <div class="it-incidentList it-incidentList--grid" *ngIf="!loadingIncidents">
+      <article
+        class="it-incidentItem"
+        *ngFor="let incident of openIncidents"
+        [ngClass]="getSeverityClass(incident.severity)"
+      >
+        <div class="it-incidentTop">
+          <div>
+            <div class="it-incidentTruck">{{ incident.truckCode }}</div>
+            <div class="it-incidentType">{{ getIncidentTypeLabel(incident.incidentType) }}</div>
+          </div>
+
+          <span class="it-autoBadge" *ngIf="incident.autoDetected">Auto</span>
+          <span class="it-manualBadge" *ngIf="!incident.autoDetected">Manuel</span>
+        </div>
+
+        <div class="it-incidentDesc">
+          {{ incident.description || 'Aucune description' }}
+        </div>
+
+        <div class="it-incidentMeta">
+          <span>{{ getSeverityLabel(incident.severity) }}</span>
+          <span>•</span>
+          <span>{{ formatDate(incident.reportedAt) }}</span>
+        </div>
+
+        <div class="it-incidentActions">
+          <button
+            type="button"
+            class="it-resolveBtn"
+            (click)="resolveIncident(incident)"
+            [disabled]="resolvedIncidentId === incident.id"
+          >
+            {{ resolvedIncidentId === incident.id ? 'Résolution...' : 'Résoudre' }}
+          </button>
+
+          <button
+            type="button"
+            class="it-replanBtn"
+            *ngIf="incident.missionId"
+            (click)="replanIncident(incident)"
+            [disabled]="replanningIncidentId === incident.id"
+          >
+            {{ replanningIncidentId === incident.id ? 'Replan...' : 'Replanifier' }}
+          </button>
+        </div>
+      </article>
+
+      <div class="it-emptyState" *ngIf="openIncidents.length === 0">
+        Aucun incident ouvert.
+      </div>
+    </div>
+  </section>
+
+  <section class="it-card it-sectionFull">
+    <div class="it-cardHead">
+      <div>
+        <div class="it-cardTitle">Missions en cours</div>
+        <div class="it-cardHint">Camions actuellement affectés à une mission</div>
+      </div>
+    </div>
+
+    <div class="it-trkList it-trkList--grid">
+      <article class="it-trkItem" *ngFor="let t of missionTrucks; let i = index">
+        <div class="it-trkItemTop">
+          <div
+            class="it-dot"
+            [style.background]="getIncidentForTruck(t.id) ? '#ef4444' : missionColors[i % missionColors.length]">
+          </div>
+
+          <div class="it-missionMain">
+            <div class="it-trkId">
+              {{ t.id }}
+              <span class="it-miniIncident" *ngIf="getIncidentForTruck(t.id)">
+                {{ getIncidentTypeLabel(getIncidentForTruck(t.id)!.incidentType) }}
+              </span>
+            </div>
+
+            <div class="it-trkDriver">
+              Mission #{{ t.currentMissionId || '—' }} · {{ t.driver }}
+            </div>
+
+            <div class="it-trkLoc">
+              <span class="material-icons it-pin">place</span>
+              <span>{{ t.location }}</span>
+            </div>
+          </div>
+
+          <b class="it-percent">{{ t.progress }}%</b>
+        </div>
+
+        <div class="it-progBar">
+          <div
+            class="it-progIn"
+            [style.width.%]="t.progress"
+            [style.background]="getIncidentForTruck(t.id) ? '#ef4444' : missionColors[i % missionColors.length]">
+          </div>
+        </div>
+      </article>
+
+      <div class="it-emptyState" *ngIf="missionTrucks.length === 0">
+        Aucun camion en mission pour le moment.
+      </div>
+    </div>
+  </section>
+
+  <section class="it-card it-sectionFull">
+    <div class="it-cardHead">
+      <div>
+        <div class="it-cardTitle">Camions hors mission</div>
+        <div class="it-cardHint">Camions disponibles, inactifs ou non affectés</div>
+      </div>
+    </div>
+
+    <div class="it-trkList it-trkList--grid it-trkList--off">
+      <article class="it-trkItem it-trkItem--off" *ngFor="let t of offMissionTrucks">
+        <div class="it-offTop">
+          <div>
+            <div class="it-trkId">
+              {{ t.id }}
+              <span class="it-miniIncident" *ngIf="getIncidentForTruck(t.id)">
+                {{ getIncidentTypeLabel(getIncidentForTruck(t.id)!.incidentType) }}
+              </span>
+            </div>
+            <div class="it-trkDriver">{{ t.driver }}</div>
+          </div>
+
+          <span class="it-offBadge">{{ getTruckStatusLabel(t.truckStatus) }}</span>
+        </div>
+
+        <div class="it-trkLoc">
+          <span class="material-icons it-pin">place</span>
+          <span>{{ t.location }}</span>
+        </div>
+      </article>
+
+      <div class="it-emptyState" *ngIf="offMissionTrucks.length === 0">
+        Tous les camions sont en mission.
+      </div>
+    </div>
+  </section>
 </section>

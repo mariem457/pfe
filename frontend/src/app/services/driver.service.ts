@@ -22,4 +22,8 @@ export class DriverService {
   getAllDrivers(): Observable<DriverResponse[]> {
     return this.http.get<DriverResponse[]>(this.apiUrl);
   }
+
+  getAvailableDrivers(): Observable<DriverResponse[]> {
+    return this.http.get<DriverResponse[]>(`${this.apiUrl}/available`);
+  }
 }

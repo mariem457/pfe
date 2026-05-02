@@ -11,7 +11,6 @@ import com.example.demo.repository.MissionRepository;
 import com.example.demo.repository.TruckIncidentRepository;
 import com.example.demo.repository.TruckRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.service.TruckIncidentService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,15 +25,18 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     private final TruckRepository truckRepository;
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
+    private final SmartAlertService smartAlertService;
 
     public TruckIncidentServiceImpl(TruckIncidentRepository truckIncidentRepository,
                                     TruckRepository truckRepository,
                                     MissionRepository missionRepository,
-                                    UserRepository userRepository) {
+                                    UserRepository userRepository,
+                                    SmartAlertService smartAlertService) {
         this.truckIncidentRepository = truckIncidentRepository;
         this.truckRepository = truckRepository;
         this.missionRepository = missionRepository;
         this.userRepository = userRepository;
+        this.smartAlertService = smartAlertService;
     }
 
     @Override
@@ -84,6 +86,8 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         TruckIncident saved = truckIncidentRepository.save(incident);
         truckRepository.save(truck);
 
+        smartAlertService.createTruckIncidentAlert(saved);
+
         return mapToResponse(saved);
     }
 
@@ -94,9 +98,9 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         if (request.getStatus() != null) {
             incident.setStatus(request.getStatus());
-
             if (request.getStatus() == TruckIncident.IncidentStatus.RESOLVED) {
                 incident.setResolvedAt(OffsetDateTime.now());
+                smartAlertService.resolveAlertsByIncident(incident.getId());
             }
         }
 
@@ -152,7 +156,6 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
             case FUEL_LOW -> truck.setStatus(Truck.TruckStatus.REFUELING);
             case DRIVER_UNAVAILABLE, OVERLOAD -> truck.setStatus(Truck.TruckStatus.UNAVAILABLE);
             default -> {
-                // نخلي status كما هو
             }
         }
         truck.setLastStatusUpdate(OffsetDateTime.now());

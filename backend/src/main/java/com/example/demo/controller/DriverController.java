@@ -33,6 +33,11 @@ public class DriverController {
         return driverService.getAllDrivers();
     }
 
+    @GetMapping("/available")
+    public List<DriverListResponse> getAvailableDrivers() {
+        return driverService.getAvailableDrivers();
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CreateDriverResponse create(@Valid @RequestBody CreateDriverRequest req) {

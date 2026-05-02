@@ -8,4 +8,6 @@ import java.util.List;
 public interface DynamicReplanningService {
 
     List<MissionResponse> replanMission(Long missionId, ReplanRequestDto request);
+
+    void handleUrgentBin(Long binId, Long telemetryId);
 }

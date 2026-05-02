@@ -432,6 +432,13 @@
         >
           Bacs
         </button>
+        <button
+  class="tab-btn"
+  [class.active]="activeTab() === 'alerts'"
+  (click)="setActiveTab('alerts')"
+>
+  Alertes
+</button>
       </div>
 
       <div *ngIf="activeTab() === 'overview'" class="tab-panel">
@@ -543,6 +550,51 @@
           </div>
         </div>
       </div>
+      <div *ngIf="activeTab() === 'alerts'" class="tab-panel">
+  <div class="section-title">
+    <h3>Alertes de la mission</h3>
+    <span>{{ missionAlerts().length }} alerte(s)</span>
+  </div>
+
+  <div *ngIf="loadingMissionAlerts()" class="empty-state">
+    Chargement des alertes...
+  </div>
+
+  <div *ngIf="!loadingMissionAlerts() && missionAlerts().length === 0" class="empty-state">
+    Aucune alerte ouverte pour cette mission.
+  </div>
+
+  <div class="mission-alerts-list" *ngIf="!loadingMissionAlerts() && missionAlerts().length">
+    <article
+      *ngFor="let a of missionAlerts()"
+      [class]="alertSeverityClass(a.severity)"
+    >
+      <div class="mission-alert-top">
+        <div>
+          <strong>{{ a.title }}</strong>
+          <p>{{ a.message }}</p>
+        </div>
+
+        <span class="mission-alert-severity">
+          {{ getAlertSeverityLabel(a.severity) }}
+        </span>
+      </div>
+
+      <div class="mission-alert-meta">
+        <span>{{ a.alertType }}</span>
+        <span>{{ formatDate(a.createdAt) }}</span>
+      </div>
+
+      <div class="mission-alert-reco" *ngIf="a.recommendation">
+        {{ a.recommendation }}
+      </div>
+
+      <button class="btn btn-small btn-outline" (click)="resolveMissionAlert(a)">
+        Résoudre
+      </button>
+    </article>
+  </div>
+</div>
     </div>
 
     <div class="mission-details card" *ngIf="!selectedMission()">

@@ -1,14 +1,16 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.*;
+import com.example.demo.dto.AlertDetailsResponse;
+import com.example.demo.dto.AlertResponse;
 import com.example.demo.service.AlertService;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.Authentication;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/alerts")
+@CrossOrigin(origins = "*")
 public class AlertController {
 
     private final AlertService alertService;
@@ -17,49 +19,50 @@ public class AlertController {
         this.alertService = alertService;
     }
 
-    @PostMapping
-    public AlertResponse create(@RequestBody AlertCreateRequest req) {
-        return alertService.create(req);
-    }
-
-    // ✅ all open alerts
+    // ✅ GET open alerts
     @GetMapping("/open")
-    public List<AlertResponse> openAlerts() {
+    public List<AlertResponse> getOpenAlerts() {
         return alertService.getOpenAlerts();
     }
 
-    // ✅ alerts by bin
+    // ✅ GET alerts by bin
     @GetMapping("/bins/{binId}")
-    public List<AlertResponse> byBin(
+    public List<AlertResponse> getAlertsByBin(
             @PathVariable Long binId,
             @RequestParam(defaultValue = "false") boolean onlyOpen
     ) {
         return alertService.getAlertsByBin(binId, onlyOpen);
     }
 
-    // ✅ details
-    @GetMapping("/{alertId}")
-    public AlertDetailsResponse details(@PathVariable Long alertId) {
-        return alertService.getAlertDetails(alertId);
-    }
-
-    // ✅ resolve
+    // ✅ PATCH resolve alert (FIXED)
     @PatchMapping("/{id}/resolve")
     public AlertResponse resolve(
             @PathVariable Long id,
-            Authentication authentication
+            Principal principal
     ) {
-        return alertService.resolve(id, authentication.getName());
+        String username = principal != null ? principal.getName() : null;
+        return alertService.resolve(id, username);
+    }
+    @GetMapping("/missions/{missionId}")
+    public List<AlertResponse> getAlertsByMission(@PathVariable Long missionId) {
+        return alertService.getAlertsByMission(missionId);
     }
 
-    // ✅ SEARCH / FILTERS  (هذا اللي يناديه الـ front)
+    // ✅ GET alert details
+    @GetMapping("/{id}")
+    public AlertDetailsResponse getDetails(@PathVariable Long id) {
+        return alertService.getAlertDetails(id);
+    }
+
+    // ✅ SEARCH alerts
     @GetMapping
     public List<AlertResponse> search(
             @RequestParam(required = false) Boolean resolved,
             @RequestParam(required = false) String severity,
             @RequestParam(required = false) String alertType,
+            @RequestParam(required = false) String entityType,
             @RequestParam(required = false) String q
     ) {
-        return alertService.search(resolved, severity, alertType, q);
+        return alertService.search(resolved, severity, alertType, entityType, q);
     }
 }

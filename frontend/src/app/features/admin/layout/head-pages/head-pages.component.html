@@ -6,8 +6,29 @@
       </mat-icon>
     </button>
 
-    <button class="icon-btn" type="button">
-      <mat-icon>notifications</mat-icon>
-    </button>
+    <div class="notif-wrap">
+      <button class="icon-btn notif-btn" type="button" (click)="toggleMenu()">
+        <mat-icon>notifications</mat-icon>
+        <span *ngIf="unreadCount > 0" class="notif-badge">
+          {{ unreadCount > 99 ? '99+' : unreadCount }}
+        </span>
+      </button>
+
+      <div *ngIf="openMenu" class="notif-menu">
+        <div class="notif-title">Alertes en temps réel</div>
+
+        <div *ngIf="latestAlerts.length === 0" class="notif-empty">
+          Aucune alerte ouverte
+        </div>
+
+        <div class="notif-item" *ngFor="let a of latestAlerts">
+          <div class="notif-item-top">
+            <strong>{{ label(a) }}</strong>
+            <span>{{ a.severity }}</span>
+          </div>
+          <div class="notif-item-title">{{ a.title }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </header>

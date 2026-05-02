@@ -1,7 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { NgFor, NgClass, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+
 import { AlertService, AlertDto, AlertDetailsDto } from '../../../../services/alert.service';
+import { RealtimeService } from '../../../../services/realtime.service';
+
 import {
   DashboardService,
   DashboardKpiResponse,
@@ -9,7 +13,9 @@ import {
   ChartPointDto,
   BinDistributionDto
 } from '../../../../services/dashboard.service';
+
 import { FleetMapComponent } from '../trucks/fleet-map/fleet-map.component';
+
 import {
   PublicReportService,
   PublicReportDto
@@ -106,8 +112,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   mapReports: MapReportItem[] = [];
 
   filterResolved: '' | 'false' | 'true' = 'false';
-  filterSeverity: '' | 'LOW' | 'MEDIUM' | 'HIGH' = '';
-  filterType: '' | 'THRESHOLD' | 'ANOMALY' | 'MAINTENANCE' | 'SYSTEM' = '';
+  filterSeverity: '' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = '';
+  filterType = '';
   searchText = '';
 
   resolvingId: number | null = null;
@@ -123,6 +129,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private alertsInterval: any;
   private chartsInterval: any;
   private reportsInterval: any;
+  private realtimeSubs = new Subscription();
 
   private readonly lineChartConfig = {
     width: 520,
@@ -145,11 +152,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private alertService: AlertService,
     private dashboardService: DashboardService,
-    private publicReportService: PublicReportService
+    private publicReportService: PublicReportService,
+    private realtimeService: RealtimeService
   ) {}
 
   ngOnInit(): void {
     this.refreshAll();
+    this.initRealtimeAlerts();
 
     this.kpiInterval = setInterval(() => {
       this.loadKpis();
@@ -160,8 +169,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }, 15000);
 
     this.alertsInterval = setInterval(() => {
-      this.loadAlerts();
-    }, 15000);
+      this.refreshAlertTimes();
+    }, 30000);
 
     this.reportsInterval = setInterval(() => {
       this.loadReportsForMap();
@@ -173,6 +182,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.chartsInterval) clearInterval(this.chartsInterval);
     if (this.alertsInterval) clearInterval(this.alertsInterval);
     if (this.reportsInterval) clearInterval(this.reportsInterval);
+
+    this.realtimeSubs.unsubscribe();
   }
 
   refreshAll(): void {
@@ -342,7 +353,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.alertService.resolveAlert(a.alertId).subscribe({
       next: () => {
         this.resolvingId = null;
-        this.loadAlerts();
+        this.alerts = this.alerts.filter(item => item.alertId !== a.alertId);
         this.loadKpis();
         this.loadCharts();
       },
@@ -450,16 +461,101 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `il y a ${days} j`;
   }
 
+  private initRealtimeAlerts(): void {
+    this.realtimeService.connectAll();
+
+    this.realtimeSubs.add(
+      this.alertService.realtimeAlert$.subscribe(alert => {
+        if (!alert || alert.resolved) return;
+
+        if (!this.shouldDisplayRealtimeAlert(alert)) {
+          return;
+        }
+
+        const item = this.mapAlert(alert);
+        const exists = this.alerts.some(a => a.alertId === item.alertId);
+
+        if (!exists) {
+          this.alerts = [item, ...this.alerts].slice(0, 6);
+        }
+
+        this.updateLastRefresh();
+      })
+    );
+
+    this.realtimeSubs.add(
+      this.alertService.realtimeResolved$.subscribe(alert => {
+        if (!alert) return;
+
+        this.alerts = this.alerts.filter(a => a.alertId !== alert.id);
+        this.updateLastRefresh();
+      })
+    );
+  }
+
+  private shouldDisplayRealtimeAlert(alert: AlertDto): boolean {
+    if (this.filterResolved === 'true') {
+      return false;
+    }
+
+    if (this.filterSeverity && (alert.severity || '').toUpperCase() !== this.filterSeverity) {
+      return false;
+    }
+
+    if (this.filterType && (alert.alertType || '').toUpperCase() !== this.filterType) {
+      return false;
+    }
+
+    const q = this.searchText?.trim().toLowerCase();
+
+    if (q) {
+      const text = [
+        alert.binCode,
+        alert.truckCode,
+        alert.title,
+        alert.message,
+        alert.alertType,
+        alert.entityType
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!text.includes(q)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private refreshAlertTimes(): void {
+    this.alerts = this.alerts.map(a => ({
+      ...a,
+      timeAgo: a.createdAt ? this.timeAgo(a.createdAt) : a.timeAgo
+    }));
+  }
+
   private mapAlert(a: AlertDto): AlertItem {
     const type = (a.alertType || '').toUpperCase();
     const sev = (a.severity || '').toUpperCase();
 
-    const status: 'Plein' | 'Maintenance' =
-      type === 'MAINTENANCE' ? 'Maintenance' : 'Plein';
+    const isMaintenance =
+      type.includes('BATTERY') ||
+      type.includes('SENSOR') ||
+      type.includes('MAINTENANCE') ||
+      type.includes('GPS');
+
+    const status: 'Plein' | 'Maintenance' = isMaintenance ? 'Maintenance' : 'Plein';
+
+    const displayId =
+      a.binCode ||
+      a.truckCode ||
+      (a.entityType ? `${a.entityType}-${a.entityId}` : `ALERT-${a.id}`);
 
     return {
       alertId: a.id,
-      id: a.binCode || `BIN-${a.binId}`,
+      id: displayId,
       timeAgo: a.createdAt ? this.timeAgo(a.createdAt) : '',
       location: a.title || a.message || '(—)',
       status,
@@ -558,4 +654,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
       };
     });
   }
+  alertTypeLabel(type?: string): string {
+  switch ((type || '').toUpperCase()) {
+    case 'BIN_FULL': return 'Bac plein';
+    case 'BIN_ALMOST_FULL': return 'Bac presque plein';
+    case 'BIN_FAST_FILLING': return 'Remplissage rapide';
+    case 'BIN_SUDDEN_FILL': return 'Remplissage soudain';
+    case 'BIN_SENSOR_STUCK': return 'Capteur bloqué';
+    case 'BIN_BATTERY_LOW': return 'Batterie faible';
+    case 'BIN_SENSOR_OR_OVERFLOW': return 'Capteur / débordement';
+    case 'NEED_EXTRA_BIN_NEARBY': return 'Besoin bac supplémentaire';
+
+    case 'TRUCK_BREAKDOWN': return 'Panne camion';
+    case 'TRUCK_GPS_LOST': return 'GPS perdu';
+    case 'TRUCK_FUEL_LOW': return 'Carburant faible';
+    case 'TRUCK_OVERLOAD': return 'Surcharge camion';
+    case 'TRUCK_DELAY': return 'Retard camion';
+    case 'TRUCK_TRAFFIC_BLOCK': return 'Blocage trafic';
+    case 'DRIVER_UNAVAILABLE': return 'Chauffeur indisponible';
+
+    default: return type || 'Alerte';
+  }
+}
+
+severityLabel(severity?: string): string {
+  switch ((severity || '').toUpperCase()) {
+    case 'CRITICAL': return 'Critique';
+    case 'HIGH': return 'Élevée';
+    case 'MEDIUM': return 'Moyenne';
+    case 'LOW': return 'Faible';
+    default: return severity || '—';
+  }
+}
+
+entityLabel(a: AlertItem): string {
+  const type = (a.alertType || '').toUpperCase();
+
+  if (type.startsWith('TRUCK') || type.includes('DRIVER')) {
+    return 'Camion';
+  }
+
+  if (type.includes('BATTERY') || type.includes('SENSOR') || type.includes('GPS')) {
+    return 'Maintenance';
+  }
+
+  return 'Bac';
+}
 }

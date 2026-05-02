@@ -34,4 +34,5 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     List<Mission> findByPlannedDate(LocalDate plannedDate);
 
     List<Mission> findByStatusOrderByPlannedDateAsc(String status);
+    Optional<Mission> findTopByZoneAndStatusInOrderByCreatedAtDesc(Zone zone, List<String> statuses);
 }

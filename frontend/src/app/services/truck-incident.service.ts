@@ -20,20 +20,33 @@ export interface TruckIncident {
   reportedByUsername?: string | null;
 }
 
+export interface AutoIncidentRunResponse {
+  scannedTrucks: number;
+  createdIncidents: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class TruckIncidentService {
-  private apiUrl = 'http://10.221.127.114:8081/api/truck-incidents';
+  private incidentApiUrl = 'http://localhost:8081/api/truck-incidents';
+  private autoIncidentApiUrl = 'http://localhost:8081/api/auto-incidents';
 
   constructor(private http: HttpClient) {}
 
   getOpenIncidents(): Observable<TruckIncident[]> {
-    return this.http.get<TruckIncident[]>(`${this.apiUrl}/open`);
+    return this.http.get<TruckIncident[]>(`${this.incidentApiUrl}/open`);
+  }
+
+  runAutoDetection(): Observable<AutoIncidentRunResponse> {
+    return this.http.post<AutoIncidentRunResponse>(
+      `${this.autoIncidentApiUrl}/run`,
+      {}
+    );
   }
 
   resolveIncident(id: number, description?: string): Observable<TruckIncident> {
-    return this.http.patch<TruckIncident>(`${this.apiUrl}/${id}/status`, {
+    return this.http.patch<TruckIncident>(`${this.incidentApiUrl}/${id}/status`, {
       status: 'RESOLVED',
       description: description ?? '',
     });

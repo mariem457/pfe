@@ -21,7 +21,7 @@ BACKEND_LOGIN_URL  = f"{BACKEND_BASE_URL}/api/auth/login"
 LOGIN_EMAIL    = "admin@test.com"   # ← بدّل
 LOGIN_PASSWORD = "admin123"          # ← بدّل
 
-PUBLISH_EVERY_SEC      = 60    # كل دقيقة — كيف طلبتي
+PUBLISH_EVERY_SEC      = 720    # كل دقيقة — كيف طلبتي
 REFRESH_BINS_EVERY_SEC = 180   # تحديث قائمة الـ bins كل 3 دقائق
 
 MQTT_SOURCE = "MQTT_SIM"

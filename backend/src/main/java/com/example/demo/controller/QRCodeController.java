@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/bins")
+@CrossOrigin("*")
 public class QRCodeController {
 
     private final BinRepository binRepository;
@@ -21,19 +22,30 @@ public class QRCodeController {
     }
 
     @GetMapping("/{id}/qrcode")
-    public ResponseEntity<byte[]> generateQRCode(@PathVariable Long id) {
+    public ResponseEntity<byte[]> getQRCode(@PathVariable Long id) {
         Bin bin = binRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Bin not found with id = " + id));
-
-        if (bin.getBinCode() == null || bin.getBinCode().isBlank()) {
-            throw new RuntimeException("Bin code is missing for bin id = " + id);
-        }
+                .orElseThrow(() -> new RuntimeException("Bin not found: " + id));
 
         byte[] qrImage = qrCodeService.generateQRCodeImage(bin.getBinCode());
 
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"bin-" + bin.getBinCode() + ".png\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"qr-" + bin.getBinCode() + ".png\"")
+                .body(qrImage);
+    }
+
+    @PostMapping("/{id}/qrcode/regenerate")
+    public ResponseEntity<byte[]> regenerateQRCode(@PathVariable Long id) {
+        Bin bin = binRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bin not found: " + id));
+
+        byte[] qrImage = qrCodeService.generateQRCodeImage(bin.getBinCode());
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"qr-" + bin.getBinCode() + ".png\"")
                 .body(qrImage);
     }
 }

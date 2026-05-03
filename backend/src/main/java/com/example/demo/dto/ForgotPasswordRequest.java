@@ -1,11 +1,8 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public class ForgotPasswordRequest {
 
     private String email;
-
     private String usernameOrEmail;
 
     public ForgotPasswordRequest() {

@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -108,159 +108,6 @@ public class BinService {
         }
 
         return updated;
-    }
-
-    private void apply(Bin b, BinRequest req, boolean isCreate) {
-        if (isCreate || req.binCode != null) {
-            b.setBinCode(req.binCode);
-        }
-
-        if (isCreate || req.type != null) {
-            try {
-                b.setType(Bin.BinType.valueOf(req.type.toUpperCase()));
-            } catch (Exception e) {
-                throw new IllegalArgumentException("invalid bin type, expected REAL or SIM");
-            }
-        }
-
-        if (isCreate || req.wasteType != null) {
-            try {
-                b.setWasteType(Bin.WasteType.valueOf(req.wasteType.toUpperCase()));
-            } catch (Exception e) {
-                throw new IllegalArgumentException("invalid waste type, expected GRAY, GREEN, YELLOW or WHITE");
-            }
-        }
-
-        if (isCreate || req.lat != null) {
-            b.setLat(req.lat);
-        }
-
-        if (isCreate || req.lng != null) {
-            b.setLng(req.lng);
-        }
-
-        if (isCreate || req.accessLat != null) {
-            b.setAccessLat(req.accessLat);
-        }
-
-        if (isCreate || req.accessLng != null) {
-            b.setAccessLng(req.accessLng);
-        }
-
-        if (req.installationDate != null) {
-            b.setInstallationDate(req.installationDate);
-        } else if (isCreate) {
-            b.setInstallationDate(LocalDate.now());
-        }
-
-        if (req.isActive != null) {
-            b.setIsActive(req.isActive);
-        } else if (isCreate) {
-            b.setIsActive(true);
-        }
-
-        if (req.notes != null) {
-            b.setNotes(req.notes);
-        }
-
-        if (b.getLat() == null || b.getLng() == null) {
-            throw new IllegalArgumentException("lat and lng are required");
-        }
-
-        if (b.getWasteType() == null) {
-            throw new IllegalArgumentException("wasteType is required");
-        }
-
-        if (b.getAccessLat() == null) {
-            b.setAccessLat(b.getLat());
-        }
-
-        if (b.getAccessLng() == null) {
-            b.setAccessLng(b.getLng());
-        }
-
-        Double zoneLat = b.getAccessLat() != null ? b.getAccessLat() : b.getLat();
-        Double zoneLng = b.getAccessLng() != null ? b.getAccessLng() : b.getLng();
-
-        Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(zoneLat, zoneLng);
-
-        if (zoneOpt.isPresent()) {
-            b.setZone(zoneOpt.get());
-        } else {
-            if (isCreate) {
-                b.setZone(null);
-            }
-        }
-    }
-
-    private String generateNextBinCode() {
-        int max = 0;
-
-        List<Bin> bins = binRepository.findAll();
-        for (Bin b : bins) {
-            String code = b.getBinCode();
-            if (code == null) continue;
-
-            code = code.trim().toUpperCase();
-
-            if (code.startsWith("BIN-")) {
-                String suffix = code.substring(4);
-                try {
-                    int n = Integer.parseInt(suffix);
-                    if (n > max) {
-                        max = n;
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-
-        return String.format("BIN-%03d", max + 1);
-    }
-
-    private Bin getOrThrow(Long id) {
-        return binRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("bin not found"));
-    }
-
-    private BinResponse toResponse(Bin b) {
-        BinResponse r = new BinResponse();
-        r.id = b.getId();
-        r.binCode = b.getBinCode();
-        r.type = b.getType().name();
-        r.wasteType = b.getWasteType() != null ? b.getWasteType().name() : null;
-        r.zoneId = (b.getZone() != null) ? b.getZone().getId() : null;
-        r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
-        r.lat = b.getLat();
-        r.lng = b.getLng();
-        r.accessLat = b.getAccessLat();
-        r.accessLng = b.getAccessLng();
-        r.installationDate = b.getInstallationDate();
-        r.isActive = b.getIsActive();
-        r.notes = b.getNotes();
-        r.createdAt = b.getCreatedAt();
-        r.updatedAt = b.getUpdatedAt();
-        r.clusterId = b.getClusterId();
-
-        Optional<BinTelemetry> latestTelemetryOpt = binTelemetryRepository.findTopByBinOrderByTimestampDesc(b);
-
-        if (latestTelemetryOpt.isPresent()) {
-            BinTelemetry latest = latestTelemetryOpt.get();
-
-            r.fillLevel = (int) latest.getFillLevel();
-            r.batteryLevel = (int) latest.getBatteryLevel();
-            r.status = latest.getStatus();
-            r.lastTelemetryAt = latest.getTimestamp() != null
-                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
-                    : null;
-        } else {
-            r.fillLevel = 0;
-            r.batteryLevel = 0;
-            r.status = "OK";
-            r.lastTelemetryAt = null;
-        }
-
-        return r;
     }
 
     @Transactional
@@ -396,5 +243,157 @@ public class BinService {
             System.err.println("MODEL 2 FAILED for telemetryId=" + saved.getId() + ": " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private void apply(Bin b, BinRequest req, boolean isCreate) {
+        if (isCreate || req.binCode != null) {
+            b.setBinCode(req.binCode);
+        }
+
+        if (isCreate || req.type != null) {
+            try {
+                b.setType(Bin.BinType.valueOf(req.type.toUpperCase()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("invalid bin type, expected REAL or SIM");
+            }
+        }
+
+        if (isCreate || req.wasteType != null) {
+            try {
+                b.setWasteType(Bin.WasteType.valueOf(req.wasteType.toUpperCase()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("invalid waste type, expected GRAY, GREEN, YELLOW or WHITE");
+            }
+        }
+
+        if (isCreate || req.lat != null) {
+            b.setLat(req.lat);
+        }
+
+        if (isCreate || req.lng != null) {
+            b.setLng(req.lng);
+        }
+
+        if (isCreate || req.accessLat != null) {
+            b.setAccessLat(req.accessLat);
+        }
+
+        if (isCreate || req.accessLng != null) {
+            b.setAccessLng(req.accessLng);
+        }
+
+        if (req.installationDate != null) {
+            b.setInstallationDate(req.installationDate);
+        } else if (isCreate) {
+            b.setInstallationDate(LocalDate.now());
+        }
+
+        if (req.isActive != null) {
+            b.setIsActive(req.isActive);
+        } else if (isCreate) {
+            b.setIsActive(true);
+        }
+
+        if (req.notes != null) {
+            b.setNotes(req.notes);
+        }
+
+        if (b.getLat() == null || b.getLng() == null) {
+            throw new IllegalArgumentException("lat and lng are required");
+        }
+
+        if (b.getWasteType() == null) {
+            throw new IllegalArgumentException("wasteType is required");
+        }
+
+        if (b.getAccessLat() == null) {
+            b.setAccessLat(b.getLat());
+        }
+
+        if (b.getAccessLng() == null) {
+            b.setAccessLng(b.getLng());
+        }
+
+        Double zoneLat = b.getAccessLat() != null ? b.getAccessLat() : b.getLat();
+        Double zoneLng = b.getAccessLng() != null ? b.getAccessLng() : b.getLng();
+
+        Optional<Zone> zoneOpt = zoneService.findZoneContainingPoint(zoneLat, zoneLng);
+
+        if (zoneOpt.isPresent()) {
+            b.setZone(zoneOpt.get());
+        } else if (isCreate) {
+            b.setZone(null);
+        }
+    }
+
+    private String generateNextBinCode() {
+        int max = 0;
+
+        List<Bin> bins = binRepository.findAll();
+        for (Bin b : bins) {
+            String code = b.getBinCode();
+            if (code == null) continue;
+
+            code = code.trim().toUpperCase();
+
+            if (code.startsWith("BIN-")) {
+                String suffix = code.substring(4);
+                try {
+                    int n = Integer.parseInt(suffix);
+                    if (n > max) {
+                        max = n;
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        return String.format("BIN-%03d", max + 1);
+    }
+
+    private Bin getOrThrow(Long id) {
+        return binRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("bin not found"));
+    }
+
+    private BinResponse toResponse(Bin b) {
+        BinResponse r = new BinResponse();
+
+        r.id = b.getId();
+        r.binCode = b.getBinCode();
+        r.type = b.getType().name();
+        r.wasteType = b.getWasteType() != null ? b.getWasteType().name() : null;
+        r.zoneId = (b.getZone() != null) ? b.getZone().getId() : null;
+        r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
+        r.lat = b.getLat();
+        r.lng = b.getLng();
+        r.accessLat = b.getAccessLat();
+        r.accessLng = b.getAccessLng();
+        r.installationDate = b.getInstallationDate();
+        r.isActive = b.getIsActive();
+        r.notes = b.getNotes();
+        r.createdAt = b.getCreatedAt();
+        r.updatedAt = b.getUpdatedAt();
+        r.clusterId = b.getClusterId();
+
+        Optional<BinTelemetry> latestTelemetryOpt = binTelemetryRepository.findTopByBinOrderByTimestampDesc(b);
+
+        if (latestTelemetryOpt.isPresent()) {
+            BinTelemetry latest = latestTelemetryOpt.get();
+
+            r.fillLevel = (int) latest.getFillLevel();
+            r.batteryLevel = latest.getBatteryLevel() != null ? (int) latest.getBatteryLevel() : 0;
+            r.status = latest.getStatus();
+            r.lastTelemetryAt = latest.getTimestamp() != null
+                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
+                    : null;
+        } else {
+            r.fillLevel = 0;
+            r.batteryLevel = 0;
+            r.status = "OK";
+            r.lastTelemetryAt = null;
+        }
+
+        return r;
     }
 }

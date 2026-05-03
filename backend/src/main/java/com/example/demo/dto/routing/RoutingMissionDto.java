@@ -14,43 +14,18 @@ public class RoutingMissionDto {
     public RoutingMissionDto() {
     }
 
-    public Long getTruckId() {
-        return truckId;
-    }
+    public Long getTruckId() { return truckId; }
+    public void setTruckId(Long truckId) { this.truckId = truckId; }
 
-    public void setTruckId(Long truckId) {
-        this.truckId = truckId;
-    }
+    public Double getTotalDistanceKm() { return totalDistanceKm; }
+    public void setTotalDistanceKm(Double totalDistanceKm) { this.totalDistanceKm = totalDistanceKm; }
 
-    public Double getTotalDistanceKm() {
-        return totalDistanceKm;
-    }
+    public Double getTotalDurationMinutes() { return totalDurationMinutes; }
+    public void setTotalDurationMinutes(Double totalDurationMinutes) { this.totalDurationMinutes = totalDurationMinutes; }
 
-    public void setTotalDistanceKm(Double totalDistanceKm) {
-        this.totalDistanceKm = totalDistanceKm;
-    }
+    public List<RoutingStopDto> getStops() { return stops; }
+    public void setStops(List<RoutingStopDto> stops) { this.stops = stops; }
 
-    public Double getTotalDurationMinutes() {
-        return totalDurationMinutes;
-    }
-
-    public void setTotalDurationMinutes(Double totalDurationMinutes) {
-        this.totalDurationMinutes = totalDurationMinutes;
-    }
-
-    public List<RoutingStopDto> getStops() {
-        return stops;
-    }
-
-    public void setStops(List<RoutingStopDto> stops) {
-        this.stops = stops;
-    }
-
-    public List<RouteCoordinateDto> getRouteCoordinates() {
-        return routeCoordinates;
-    }
-
-    public void setRouteCoordinates(List<RouteCoordinateDto> routeCoordinates) {
-        this.routeCoordinates = routeCoordinates;
-    }
+    public List<RouteCoordinateDto> getRouteCoordinates() { return routeCoordinates; }
+    public void setRouteCoordinates(List<RouteCoordinateDto> routeCoordinates) { this.routeCoordinates = routeCoordinates; }
 }

@@ -16,59 +16,24 @@ public class RoutingRequestDto {
     public RoutingRequestDto() {
     }
 
-    public RoutingDepotDto getDepot() {
-        return depot;
-    }
+    public RoutingDepotDto getDepot() { return depot; }
+    public void setDepot(RoutingDepotDto depot) { this.depot = depot; }
 
-    public void setDepot(RoutingDepotDto depot) {
-        this.depot = depot;
-    }
+    public String getTrafficMode() { return trafficMode; }
+    public void setTrafficMode(String trafficMode) { this.trafficMode = trafficMode; }
 
-    public String getTrafficMode() {
-        return trafficMode;
-    }
+    public String getCurrentRun() { return currentRun; }
+    public void setCurrentRun(String currentRun) { this.currentRun = currentRun; }
 
-    public void setTrafficMode(String trafficMode) {
-        this.trafficMode = trafficMode;
-    }
+    public List<RoutingBinDto> getBins() { return bins; }
+    public void setBins(List<RoutingBinDto> bins) { this.bins = bins; }
 
-    public String getCurrentRun() {
-        return currentRun;
-    }
+    public List<RoutingTruckDto> getTrucks() { return trucks; }
+    public void setTrucks(List<RoutingTruckDto> trucks) { this.trucks = trucks; }
 
-    public void setCurrentRun(String currentRun) {
-        this.currentRun = currentRun;
-    }
+    public List<RoutingDisposalSiteDto> getDisposalSites() { return disposalSites; }
+    public void setDisposalSites(List<RoutingDisposalSiteDto> disposalSites) { this.disposalSites = disposalSites; }
 
-    public List<RoutingBinDto> getBins() {
-        return bins;
-    }
-
-    public void setBins(List<RoutingBinDto> bins) {
-        this.bins = bins;
-    }
-
-    public List<RoutingTruckDto> getTrucks() {
-        return trucks;
-    }
-
-    public void setTrucks(List<RoutingTruckDto> trucks) {
-        this.trucks = trucks;
-    }
-
-    public List<RoutingDisposalSiteDto> getDisposalSites() {
-        return disposalSites;
-    }
-
-    public void setDisposalSites(List<RoutingDisposalSiteDto> disposalSites) {
-        this.disposalSites = disposalSites;
-    }
-
-    public List<RoutingIncidentDto> getActiveIncidents() {
-        return activeIncidents;
-    }
-
-    public void setActiveIncidents(List<RoutingIncidentDto> activeIncidents) {
-        this.activeIncidents = activeIncidents;
-    }
+    public List<RoutingIncidentDto> getActiveIncidents() { return activeIncidents; }
+    public void setActiveIncidents(List<RoutingIncidentDto> activeIncidents) { this.activeIncidents = activeIncidents; }
 }

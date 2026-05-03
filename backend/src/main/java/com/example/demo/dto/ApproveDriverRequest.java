@@ -1,8 +1,12 @@
 package com.example.demo.dto;
 
+import jakarta.validation.constraints.NotNull;
+
 public class ApproveDriverRequest {
 
     private Long userId;
+
+    @NotNull(message = "L'identifiant de la demande est obligatoire.")
     private Long requestId;
 
     public Long getUserId() {

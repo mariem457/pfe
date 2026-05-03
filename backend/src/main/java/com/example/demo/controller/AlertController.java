@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.AlertCreateRequest;
 import com.example.demo.dto.AlertDetailsResponse;
 import com.example.demo.dto.AlertResponse;
 import com.example.demo.service.AlertService;
@@ -19,13 +20,16 @@ public class AlertController {
         this.alertService = alertService;
     }
 
-    // ✅ GET open alerts
+    @PostMapping
+    public AlertResponse create(@RequestBody AlertCreateRequest req) {
+        return alertService.create(req);
+    }
+
     @GetMapping("/open")
     public List<AlertResponse> getOpenAlerts() {
         return alertService.getOpenAlerts();
     }
 
-    // ✅ GET alerts by bin
     @GetMapping("/bins/{binId}")
     public List<AlertResponse> getAlertsByBin(
             @PathVariable Long binId,
@@ -34,7 +38,6 @@ public class AlertController {
         return alertService.getAlertsByBin(binId, onlyOpen);
     }
 
-    // ✅ PATCH resolve alert (FIXED)
     @PatchMapping("/{id}/resolve")
     public AlertResponse resolve(
             @PathVariable Long id,
@@ -43,18 +46,17 @@ public class AlertController {
         String username = principal != null ? principal.getName() : null;
         return alertService.resolve(id, username);
     }
+
     @GetMapping("/missions/{missionId}")
     public List<AlertResponse> getAlertsByMission(@PathVariable Long missionId) {
         return alertService.getAlertsByMission(missionId);
     }
 
-    // ✅ GET alert details
     @GetMapping("/{id}")
     public AlertDetailsResponse getDetails(@PathVariable Long id) {
         return alertService.getAlertDetails(id);
     }
 
-    // ✅ SEARCH alerts
     @GetMapping
     public List<AlertResponse> search(
             @RequestParam(required = false) Boolean resolved,

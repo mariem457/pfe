@@ -35,147 +35,57 @@ public class MissionRouteResponse {
     public MissionRouteResponse() {
     }
 
-    public Long getMissionId() {
-        return missionId;
-    }
+    public Long getMissionId() { return missionId; }
+    public void setMissionId(Long missionId) { this.missionId = missionId; }
 
-    public void setMissionId(Long missionId) {
-        this.missionId = missionId;
-    }
+    public Long getRoutePlanId() { return routePlanId; }
+    public void setRoutePlanId(Long routePlanId) { this.routePlanId = routePlanId; }
 
-    public Long getRoutePlanId() {
-        return routePlanId;
-    }
+    public Long getTruckId() { return truckId; }
+    public void setTruckId(Long truckId) { this.truckId = truckId; }
 
-    public void setRoutePlanId(Long routePlanId) {
-        this.routePlanId = routePlanId;
-    }
+    public Double getTotalDistanceKm() { return totalDistanceKm; }
+    public void setTotalDistanceKm(Double totalDistanceKm) { this.totalDistanceKm = totalDistanceKm; }
 
-    public Long getTruckId() {
-        return truckId;
-    }
+    public Integer getEstimatedDurationMin() { return estimatedDurationMin; }
+    public void setEstimatedDurationMin(Integer estimatedDurationMin) { this.estimatedDurationMin = estimatedDurationMin; }
 
-    public void setTruckId(Long truckId) {
-        this.truckId = truckId;
-    }
+    public List<RouteCoordinateDto> getRouteCoordinates() { return routeCoordinates; }
+    public void setRouteCoordinates(List<RouteCoordinateDto> routeCoordinates) { this.routeCoordinates = routeCoordinates; }
 
-    public Double getTotalDistanceKm() {
-        return totalDistanceKm;
-    }
+    public List<RouteCoordinateDto> getCollectionRouteCoordinates() { return collectionRouteCoordinates; }
+    public void setCollectionRouteCoordinates(List<RouteCoordinateDto> collectionRouteCoordinates) { this.collectionRouteCoordinates = collectionRouteCoordinates; }
 
-    public void setTotalDistanceKm(Double totalDistanceKm) {
-        this.totalDistanceKm = totalDistanceKm;
-    }
+    public List<RouteCoordinateDto> getTransferRouteCoordinates() { return transferRouteCoordinates; }
+    public void setTransferRouteCoordinates(List<RouteCoordinateDto> transferRouteCoordinates) { this.transferRouteCoordinates = transferRouteCoordinates; }
 
-    public Integer getEstimatedDurationMin() {
-        return estimatedDurationMin;
-    }
+    public List<MissionRouteStopDto> getRouteStops() { return routeStops; }
+    public void setRouteStops(List<MissionRouteStopDto> routeStops) { this.routeStops = routeStops; }
 
-    public void setEstimatedDurationMin(Integer estimatedDurationMin) {
-        this.estimatedDurationMin = estimatedDurationMin;
-    }
+    public List<RouteCoordinateDto> getSnappedWaypoints() { return snappedWaypoints; }
+    public void setSnappedWaypoints(List<RouteCoordinateDto> snappedWaypoints) { this.snappedWaypoints = snappedWaypoints; }
 
-    public List<RouteCoordinateDto> getRouteCoordinates() {
-        return routeCoordinates;
-    }
+    public List<RouteCoordinateDto> getCollectionSnappedWaypoints() { return collectionSnappedWaypoints; }
+    public void setCollectionSnappedWaypoints(List<RouteCoordinateDto> collectionSnappedWaypoints) { this.collectionSnappedWaypoints = collectionSnappedWaypoints; }
 
-    public void setRouteCoordinates(List<RouteCoordinateDto> routeCoordinates) {
-        this.routeCoordinates = routeCoordinates;
-    }
+    public List<RouteCoordinateDto> getTransferSnappedWaypoints() { return transferSnappedWaypoints; }
+    public void setTransferSnappedWaypoints(List<RouteCoordinateDto> transferSnappedWaypoints) { this.transferSnappedWaypoints = transferSnappedWaypoints; }
 
-    public List<RouteCoordinateDto> getCollectionRouteCoordinates() {
-        return collectionRouteCoordinates;
-    }
+    public List<Double> getStopLegDistancesKm() { return stopLegDistancesKm; }
+    public void setStopLegDistancesKm(List<Double> stopLegDistancesKm) { this.stopLegDistancesKm = stopLegDistancesKm; }
 
-    public void setCollectionRouteCoordinates(List<RouteCoordinateDto> collectionRouteCoordinates) {
-        this.collectionRouteCoordinates = collectionRouteCoordinates;
-    }
+    public Double getCollectionDistanceKm() { return collectionDistanceKm; }
+    public void setCollectionDistanceKm(Double collectionDistanceKm) { this.collectionDistanceKm = collectionDistanceKm; }
 
-    public List<RouteCoordinateDto> getTransferRouteCoordinates() {
-        return transferRouteCoordinates;
-    }
+    public Double getTransferDistanceKm() { return transferDistanceKm; }
+    public void setTransferDistanceKm(Double transferDistanceKm) { this.transferDistanceKm = transferDistanceKm; }
 
-    public void setTransferRouteCoordinates(List<RouteCoordinateDto> transferRouteCoordinates) {
-        this.transferRouteCoordinates = transferRouteCoordinates;
-    }
+    public String getMatrixSource() { return matrixSource; }
+    public void setMatrixSource(String matrixSource) { this.matrixSource = matrixSource; }
 
-    public List<MissionRouteStopDto> getRouteStops() {
-        return routeStops;
-    }
+    public String getGeometrySource() { return geometrySource; }
+    public void setGeometrySource(String geometrySource) { this.geometrySource = geometrySource; }
 
-    public void setRouteStops(List<MissionRouteStopDto> routeStops) {
-        this.routeStops = routeStops;
-    }
-
-    public List<RouteCoordinateDto> getSnappedWaypoints() {
-        return snappedWaypoints;
-    }
-
-    public void setSnappedWaypoints(List<RouteCoordinateDto> snappedWaypoints) {
-        this.snappedWaypoints = snappedWaypoints;
-    }
-
-    public List<RouteCoordinateDto> getCollectionSnappedWaypoints() {
-        return collectionSnappedWaypoints;
-    }
-
-    public void setCollectionSnappedWaypoints(List<RouteCoordinateDto> collectionSnappedWaypoints) {
-        this.collectionSnappedWaypoints = collectionSnappedWaypoints;
-    }
-
-    public List<RouteCoordinateDto> getTransferSnappedWaypoints() {
-        return transferSnappedWaypoints;
-    }
-
-    public void setTransferSnappedWaypoints(List<RouteCoordinateDto> transferSnappedWaypoints) {
-        this.transferSnappedWaypoints = transferSnappedWaypoints;
-    }
-
-    public List<Double> getStopLegDistancesKm() {
-        return stopLegDistancesKm;
-    }
-
-    public void setStopLegDistancesKm(List<Double> stopLegDistancesKm) {
-        this.stopLegDistancesKm = stopLegDistancesKm;
-    }
-
-    public Double getCollectionDistanceKm() {
-        return collectionDistanceKm;
-    }
-
-    public void setCollectionDistanceKm(Double collectionDistanceKm) {
-        this.collectionDistanceKm = collectionDistanceKm;
-    }
-
-    public Double getTransferDistanceKm() {
-        return transferDistanceKm;
-    }
-
-    public void setTransferDistanceKm(Double transferDistanceKm) {
-        this.transferDistanceKm = transferDistanceKm;
-    }
-
-    public String getMatrixSource() {
-        return matrixSource;
-    }
-
-    public void setMatrixSource(String matrixSource) {
-        this.matrixSource = matrixSource;
-    }
-
-    public String getGeometrySource() {
-        return geometrySource;
-    }
-
-    public void setGeometrySource(String geometrySource) {
-        this.geometrySource = geometrySource;
-    }
-
-    public List<String> getValidationWarnings() {
-        return validationWarnings;
-    }
-
-    public void setValidationWarnings(List<String> validationWarnings) {
-        this.validationWarnings = validationWarnings;
-    }
+    public List<String> getValidationWarnings() { return validationWarnings; }
+    public void setValidationWarnings(List<String> validationWarnings) { this.validationWarnings = validationWarnings; }
 }

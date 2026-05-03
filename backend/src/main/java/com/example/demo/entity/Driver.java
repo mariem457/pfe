@@ -1,7 +1,7 @@
 package com.example.demo.entity;
 
-import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -12,7 +12,6 @@ public class Driver {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // drivers.user_id UNIQUE references users(id)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
@@ -31,24 +30,17 @@ public class Driver {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
     @JsonIgnore
     @OneToOne(mappedBy = "assignedDriver", fetch = FetchType.LAZY)
     private Truck truck;
 
-    public Truck getTruck() {
-        return truck;
-    }
-
-    public void setTruck(Truck truck) {
-        this.truck = truck;
-    }
     @PrePersist
     public void prePersist() {
         this.createdAt = OffsetDateTime.now();
         if (this.isActive == null) this.isActive = true;
     }
 
-    // getters/setters
     public Long getId() { return id; }
 
     public User getUser() { return user; }
@@ -67,4 +59,7 @@ public class Driver {
     public void setIsActive(Boolean active) { isActive = active; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
+
+    public Truck getTruck() { return truck; }
+    public void setTruck(Truck truck) { this.truck = truck; }
 }

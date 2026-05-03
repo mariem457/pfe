@@ -27,15 +27,16 @@ public interface MissionBinRepository extends JpaRepository<MissionBin, Long> {
     List<MissionBin> findByReassignedToTruck(Truck truck);
 
     List<MissionBin> findByReassignedFromTruck(Truck truck);
+
     boolean existsByMissionIdAndBinId(Long missionId, Long binId);
 
     Optional<MissionBin> findByMissionIdAndBinId(Long missionId, Long binId);
-    
 
     long countByMissionId(Long missionId);
 
     @Query("""
         SELECT new com.example.demo.dto.DriverBinDto(
+            mb.mission.id,
             mb.id,
             b.id,
             b.binCode,
@@ -71,6 +72,7 @@ public interface MissionBinRepository extends JpaRepository<MissionBin, Long> {
             Long driverId,
             String status
     );
+
     long countByMissionIdAndCollectedTrue(Long missionId);
 
     long countByMissionIdAndCollectedFalse(Long missionId);

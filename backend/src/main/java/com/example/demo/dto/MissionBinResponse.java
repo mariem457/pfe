@@ -28,179 +28,69 @@ public class MissionBinResponse {
     private OffsetDateTime actualArrival;
     private String skippedReason;
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Long getMissionId() { return missionId; }
+    public void setMissionId(Long missionId) { this.missionId = missionId; }
 
-    public Long getMissionId() {
-        return missionId;
-    }
+    public Long getBinId() { return binId; }
+    public void setBinId(Long binId) { this.binId = binId; }
 
-    public void setMissionId(Long missionId) {
-        this.missionId = missionId;
-    }
+    public String getBinCode() { return binCode; }
+    public void setBinCode(String binCode) { this.binCode = binCode; }
 
-    public Long getBinId() {
-        return binId;
-    }
+    public Double getLat() { return lat; }
+    public void setLat(Double lat) { this.lat = lat; }
 
-    public void setBinId(Long binId) {
-        this.binId = binId;
-    }
+    public Double getLng() { return lng; }
+    public void setLng(Double lng) { this.lng = lng; }
 
-    public String getBinCode() {
-        return binCode;
-    }
+    public Integer getVisitOrder() { return visitOrder; }
+    public void setVisitOrder(Integer visitOrder) { this.visitOrder = visitOrder; }
 
-    public void setBinCode(String binCode) {
-        this.binCode = binCode;
-    }
+    public Short getTargetFillThreshold() { return targetFillThreshold; }
+    public void setTargetFillThreshold(Short targetFillThreshold) { this.targetFillThreshold = targetFillThreshold; }
 
-    public Double getLat() {
-        return lat;
-    }
+    public String getAssignedReason() { return assignedReason; }
+    public void setAssignedReason(String assignedReason) { this.assignedReason = assignedReason; }
 
-    public void setLat(Double lat) {
-        this.lat = lat;
-    }
+    public Boolean getCollected() { return collected; }
+    public void setCollected(Boolean collected) { this.collected = collected; }
 
-    public Double getLng() {
-        return lng;
-    }
+    public Instant getCollectedAt() { return collectedAt; }
+    public void setCollectedAt(Instant collectedAt) { this.collectedAt = collectedAt; }
 
-    public void setLng(Double lng) {
-        this.lng = lng;
-    }
+    public Long getCollectedByDriverId() { return collectedByDriverId; }
+    public void setCollectedByDriverId(Long collectedByDriverId) { this.collectedByDriverId = collectedByDriverId; }
 
-    public Integer getVisitOrder() {
-        return visitOrder;
-    }
+    public String getCollectedByDriverName() { return collectedByDriverName; }
+    public void setCollectedByDriverName(String collectedByDriverName) { this.collectedByDriverName = collectedByDriverName; }
 
-    public void setVisitOrder(Integer visitOrder) {
-        this.visitOrder = visitOrder;
-    }
+    public String getDriverNote() { return driverNote; }
+    public void setDriverNote(String driverNote) { this.driverNote = driverNote; }
 
-    public Short getTargetFillThreshold() {
-        return targetFillThreshold;
-    }
+    public String getIssueType() { return issueType; }
+    public void setIssueType(String issueType) { this.issueType = issueType; }
 
-    public void setTargetFillThreshold(Short targetFillThreshold) {
-        this.targetFillThreshold = targetFillThreshold;
-    }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 
-    public String getAssignedReason() {
-        return assignedReason;
-    }
+    public String getAssignmentStatus() { return assignmentStatus; }
+    public void setAssignmentStatus(String assignmentStatus) { this.assignmentStatus = assignmentStatus; }
 
-    public void setAssignedReason(String assignedReason) {
-        this.assignedReason = assignedReason;
-    }
+    public Long getReassignedFromTruckId() { return reassignedFromTruckId; }
+    public void setReassignedFromTruckId(Long reassignedFromTruckId) { this.reassignedFromTruckId = reassignedFromTruckId; }
 
-    public Boolean getCollected() {
-        return collected;
-    }
+    public Long getReassignedToTruckId() { return reassignedToTruckId; }
+    public void setReassignedToTruckId(Long reassignedToTruckId) { this.reassignedToTruckId = reassignedToTruckId; }
 
-    public void setCollected(Boolean collected) {
-        this.collected = collected;
-    }
+    public OffsetDateTime getPlannedArrival() { return plannedArrival; }
+    public void setPlannedArrival(OffsetDateTime plannedArrival) { this.plannedArrival = plannedArrival; }
 
-    public Instant getCollectedAt() {
-        return collectedAt;
-    }
+    public OffsetDateTime getActualArrival() { return actualArrival; }
+    public void setActualArrival(OffsetDateTime actualArrival) { this.actualArrival = actualArrival; }
 
-    public void setCollectedAt(Instant collectedAt) {
-        this.collectedAt = collectedAt;
-    }
-
-    public Long getCollectedByDriverId() {
-        return collectedByDriverId;
-    }
-
-    public void setCollectedByDriverId(Long collectedByDriverId) {
-        this.collectedByDriverId = collectedByDriverId;
-    }
-
-    public String getCollectedByDriverName() {
-        return collectedByDriverName;
-    }
-
-    public void setCollectedByDriverName(String collectedByDriverName) {
-        this.collectedByDriverName = collectedByDriverName;
-    }
-
-    public String getDriverNote() {
-        return driverNote;
-    }
-
-    public void setDriverNote(String driverNote) {
-        this.driverNote = driverNote;
-    }
-
-    public String getIssueType() {
-        return issueType;
-    }
-
-    public void setIssueType(String issueType) {
-        this.issueType = issueType;
-    }
-
-    public String getPhotoUrl() {
-        return photoUrl;
-    }
-
-    public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
-    }
-
-    public String getAssignmentStatus() {
-        return assignmentStatus;
-    }
-
-    public void setAssignmentStatus(String assignmentStatus) {
-        this.assignmentStatus = assignmentStatus;
-    }
-
-    public Long getReassignedFromTruckId() {
-        return reassignedFromTruckId;
-    }
-
-    public void setReassignedFromTruckId(Long reassignedFromTruckId) {
-        this.reassignedFromTruckId = reassignedFromTruckId;
-    }
-
-    public Long getReassignedToTruckId() {
-        return reassignedToTruckId;
-    }
-
-    public void setReassignedToTruckId(Long reassignedToTruckId) {
-        this.reassignedToTruckId = reassignedToTruckId;
-    }
-
-    public OffsetDateTime getPlannedArrival() {
-        return plannedArrival;
-    }
-
-    public void setPlannedArrival(OffsetDateTime plannedArrival) {
-        this.plannedArrival = plannedArrival;
-    }
-
-    public OffsetDateTime getActualArrival() {
-        return actualArrival;
-    }
-
-    public void setActualArrival(OffsetDateTime actualArrival) {
-        this.actualArrival = actualArrival;
-    }
-
-    public String getSkippedReason() {
-        return skippedReason;
-    }
-
-    public void setSkippedReason(String skippedReason) {
-        this.skippedReason = skippedReason;
-    }
+    public String getSkippedReason() { return skippedReason; }
+    public void setSkippedReason(String skippedReason) { this.skippedReason = skippedReason; }
 }

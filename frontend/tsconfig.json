@@ -5,7 +5,11 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist/out-tsc",
+<<<<<<< HEAD
     
+=======
+    "types": ["jasmine"],
+>>>>>>> origin/enleve-mqtt
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,

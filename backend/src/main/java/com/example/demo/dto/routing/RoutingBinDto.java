@@ -29,185 +29,76 @@ public class RoutingBinDto {
     private Boolean collectionAllowedNow;
     private String collectionWindowExplanation;
 
+    // time windows (minutes from start of day)
     private Integer windowStartMinutes;
     private Integer windowEndMinutes;
 
     public RoutingBinDto() {
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Double getLat() { return lat; }
+    public void setLat(Double lat) { this.lat = lat; }
 
-    public Double getLat() {
-        return lat;
-    }
+    public Double getLng() { return lng; }
+    public void setLng(Double lng) { this.lng = lng; }
 
-    public void setLat(Double lat) {
-        this.lat = lat;
-    }
+    public Long getZoneId() { return zoneId; }
+    public void setZoneId(Long zoneId) { this.zoneId = zoneId; }
 
-    public Double getLng() {
-        return lng;
-    }
+    public Integer getClusterId() { return clusterId; }
+    public void setClusterId(Integer clusterId) { this.clusterId = clusterId; }
 
-    public void setLng(Double lng) {
-        this.lng = lng;
-    }
+    public Double getFillLevel() { return fillLevel; }
+    public void setFillLevel(Double fillLevel) { this.fillLevel = fillLevel; }
 
-    public Long getZoneId() {
-        return zoneId;
-    }
+    public Double getPredictedPriority() { return predictedPriority; }
+    public void setPredictedPriority(Double predictedPriority) { this.predictedPriority = predictedPriority; }
 
-    public void setZoneId(Long zoneId) {
-        this.zoneId = zoneId;
-    }
+    public Double getEstimatedLoadKg() { return estimatedLoadKg; }
+    public void setEstimatedLoadKg(Double estimatedLoadKg) { this.estimatedLoadKg = estimatedLoadKg; }
 
-    public Integer getClusterId() {
-        return clusterId;
-    }
+    public Double getPredictedHoursToFull() { return predictedHoursToFull; }
+    public void setPredictedHoursToFull(Double predictedHoursToFull) { this.predictedHoursToFull = predictedHoursToFull; }
 
-    public void setClusterId(Integer clusterId) {
-        this.clusterId = clusterId;
-    }
+    public Boolean getMandatory() { return mandatory; }
+    public void setMandatory(Boolean mandatory) { this.mandatory = mandatory; }
 
-    public Double getFillLevel() {
-        return fillLevel;
-    }
+    public String getWasteType() { return wasteType; }
+    public void setWasteType(String wasteType) { this.wasteType = wasteType; }
 
-    public void setFillLevel(Double fillLevel) {
-        this.fillLevel = fillLevel;
-    }
+    public String getDecisionCategory() { return decisionCategory; }
+    public void setDecisionCategory(String decisionCategory) { this.decisionCategory = decisionCategory; }
 
-    public Double getPredictedPriority() {
-        return predictedPriority;
-    }
+    public String getDecisionReason() { return decisionReason; }
+    public void setDecisionReason(String decisionReason) { this.decisionReason = decisionReason; }
 
-    public void setPredictedPriority(Double predictedPriority) {
-        this.predictedPriority = predictedPriority;
-    }
+    public Double getFeedbackScore() { return feedbackScore; }
+    public void setFeedbackScore(Double feedbackScore) { this.feedbackScore = feedbackScore; }
 
-    public Double getEstimatedLoadKg() {
-        return estimatedLoadKg;
-    }
+    public Long getPostponementCount() { return postponementCount; }
+    public void setPostponementCount(Long postponementCount) { this.postponementCount = postponementCount; }
 
-    public void setEstimatedLoadKg(Double estimatedLoadKg) {
-        this.estimatedLoadKg = estimatedLoadKg;
-    }
+    public Boolean getOpportunistic() { return opportunistic; }
+    public void setOpportunistic(Boolean opportunistic) { this.opportunistic = opportunistic; }
 
-    public Double getPredictedHoursToFull() {
-        return predictedHoursToFull;
-    }
+    public Boolean getReportable() { return reportable; }
+    public void setReportable(Boolean reportable) { this.reportable = reportable; }
 
-    public void setPredictedHoursToFull(Double predictedHoursToFull) {
-        this.predictedHoursToFull = predictedHoursToFull;
-    }
+    public Double getOpportunisticScore() { return opportunisticScore; }
+    public void setOpportunisticScore(Double opportunisticScore) { this.opportunisticScore = opportunisticScore; }
 
-    public Boolean getMandatory() {
-        return mandatory;
-    }
+    public Boolean getCollectionAllowedNow() { return collectionAllowedNow; }
+    public void setCollectionAllowedNow(Boolean collectionAllowedNow) { this.collectionAllowedNow = collectionAllowedNow; }
 
-    public void setMandatory(Boolean mandatory) {
-        this.mandatory = mandatory;
-    }
+    public String getCollectionWindowExplanation() { return collectionWindowExplanation; }
+    public void setCollectionWindowExplanation(String collectionWindowExplanation) { this.collectionWindowExplanation = collectionWindowExplanation; }
 
-    public String getWasteType() {
-        return wasteType;
-    }
+    public Integer getWindowStartMinutes() { return windowStartMinutes; }
+    public void setWindowStartMinutes(Integer windowStartMinutes) { this.windowStartMinutes = windowStartMinutes; }
 
-    public void setWasteType(String wasteType) {
-        this.wasteType = wasteType;
-    }
-
-    public String getDecisionCategory() {
-        return decisionCategory;
-    }
-
-    public void setDecisionCategory(String decisionCategory) {
-        this.decisionCategory = decisionCategory;
-    }
-
-    public String getDecisionReason() {
-        return decisionReason;
-    }
-
-    public void setDecisionReason(String decisionReason) {
-        this.decisionReason = decisionReason;
-    }
-
-    public Double getFeedbackScore() {
-        return feedbackScore;
-    }
-
-    public void setFeedbackScore(Double feedbackScore) {
-        this.feedbackScore = feedbackScore;
-    }
-
-    public Long getPostponementCount() {
-        return postponementCount;
-    }
-
-    public void setPostponementCount(Long postponementCount) {
-        this.postponementCount = postponementCount;
-    }
-
-    public Boolean getOpportunistic() {
-        return opportunistic;
-    }
-
-    public void setOpportunistic(Boolean opportunistic) {
-        this.opportunistic = opportunistic;
-    }
-
-    public Boolean getReportable() {
-        return reportable;
-    }
-
-    public void setReportable(Boolean reportable) {
-        this.reportable = reportable;
-    }
-
-    public Double getOpportunisticScore() {
-        return opportunisticScore;
-    }
-
-    public void setOpportunisticScore(Double opportunisticScore) {
-        this.opportunisticScore = opportunisticScore;
-    }
-
-    public Boolean getCollectionAllowedNow() {
-        return collectionAllowedNow;
-    }
-
-    public void setCollectionAllowedNow(Boolean collectionAllowedNow) {
-        this.collectionAllowedNow = collectionAllowedNow;
-    }
-
-    public String getCollectionWindowExplanation() {
-        return collectionWindowExplanation;
-    }
-
-    public void setCollectionWindowExplanation(String collectionWindowExplanation) {
-        this.collectionWindowExplanation = collectionWindowExplanation;
-    }
-
-    public Integer getWindowStartMinutes() {
-        return windowStartMinutes;
-    }
-
-    public void setWindowStartMinutes(Integer windowStartMinutes) {
-        this.windowStartMinutes = windowStartMinutes;
-    }
-
-    public Integer getWindowEndMinutes() {
-        return windowEndMinutes;
-    }
-
-    public void setWindowEndMinutes(Integer windowEndMinutes) {
-        this.windowEndMinutes = windowEndMinutes;
-    }
+    public Integer getWindowEndMinutes() { return windowEndMinutes; }
+    public void setWindowEndMinutes(Integer windowEndMinutes) { this.windowEndMinutes = windowEndMinutes; }
 }

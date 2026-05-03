@@ -104,15 +104,9 @@ public class Truck {
         OffsetDateTime now = OffsetDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        if (this.lastStatusUpdate == null) {
-            this.lastStatusUpdate = now;
-        }
-        if (this.currentLoadKg == null) {
-            this.currentLoadKg = BigDecimal.ZERO;
-        }
-        if (this.isActive == null) {
-            this.isActive = true;
-        }
+        if (this.lastStatusUpdate == null) this.lastStatusUpdate = now;
+        if (this.currentLoadKg == null) this.currentLoadKg = BigDecimal.ZERO;
+        if (this.isActive == null) this.isActive = true;
     }
 
     @PreUpdate
@@ -134,178 +128,73 @@ public class Truck {
         OUT_OF_SERVICE
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
 
-    public String getTruckCode() {
-        return truckCode;
-    }
+    public String getTruckCode() { return truckCode; }
+    public void setTruckCode(String truckCode) { this.truckCode = truckCode; }
 
-    public void setTruckCode(String truckCode) {
-        this.truckCode = truckCode;
-    }
+    public String getPlateNumber() { return plateNumber; }
+    public void setPlateNumber(String plateNumber) { this.plateNumber = plateNumber; }
 
-    public String getPlateNumber() {
-        return plateNumber;
-    }
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
 
-    public void setPlateNumber(String plateNumber) {
-        this.plateNumber = plateNumber;
-    }
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
 
-    public String getModel() {
-        return model;
-    }
+    public FuelType getFuelType() { return fuelType; }
+    public void setFuelType(FuelType fuelType) { this.fuelType = fuelType; }
 
-    public void setModel(String model) {
-        this.model = model;
-    }
+    public BigDecimal getTankCapacityLiters() { return tankCapacityLiters; }
+    public void setTankCapacityLiters(BigDecimal tankCapacityLiters) { this.tankCapacityLiters = tankCapacityLiters; }
 
-    public String getBrand() {
-        return brand;
-    }
+    public BigDecimal getFuelLevelLiters() { return fuelLevelLiters; }
+    public void setFuelLevelLiters(BigDecimal fuelLevelLiters) { this.fuelLevelLiters = fuelLevelLiters; }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
+    public BigDecimal getFuelConsumptionPerKm() { return fuelConsumptionPerKm; }
+    public void setFuelConsumptionPerKm(BigDecimal fuelConsumptionPerKm) { this.fuelConsumptionPerKm = fuelConsumptionPerKm; }
 
-    public FuelType getFuelType() {
-        return fuelType;
-    }
+    public BigDecimal getMaxLoadKg() { return maxLoadKg; }
+    public void setMaxLoadKg(BigDecimal maxLoadKg) { this.maxLoadKg = maxLoadKg; }
 
-    public void setFuelType(FuelType fuelType) {
-        this.fuelType = fuelType;
-    }
+    public Integer getMaxBinCapacity() { return maxBinCapacity; }
+    public void setMaxBinCapacity(Integer maxBinCapacity) { this.maxBinCapacity = maxBinCapacity; }
 
-    public BigDecimal getTankCapacityLiters() {
-        return tankCapacityLiters;
-    }
+    public BigDecimal getCurrentLoadKg() { return currentLoadKg; }
+    public void setCurrentLoadKg(BigDecimal currentLoadKg) { this.currentLoadKg = currentLoadKg; }
 
-    public void setTankCapacityLiters(BigDecimal tankCapacityLiters) {
-        this.tankCapacityLiters = tankCapacityLiters;
-    }
+    public TruckStatus getStatus() { return status; }
+    public void setStatus(TruckStatus status) { this.status = status; }
 
-    public BigDecimal getFuelLevelLiters() {
-        return fuelLevelLiters;
-    }
+    public Driver getAssignedDriver() { return assignedDriver; }
+    public void setAssignedDriver(Driver assignedDriver) { this.assignedDriver = assignedDriver; }
 
-    public void setFuelLevelLiters(BigDecimal fuelLevelLiters) {
-        this.fuelLevelLiters = fuelLevelLiters;
-    }
+    public Double getLastKnownLat() { return lastKnownLat; }
+    public void setLastKnownLat(Double lastKnownLat) { this.lastKnownLat = lastKnownLat; }
 
-    public BigDecimal getFuelConsumptionPerKm() {
-        return fuelConsumptionPerKm;
-    }
+    public Double getLastKnownLng() { return lastKnownLng; }
+    public void setLastKnownLng(Double lastKnownLng) { this.lastKnownLng = lastKnownLng; }
 
-    public void setFuelConsumptionPerKm(BigDecimal fuelConsumptionPerKm) {
-        this.fuelConsumptionPerKm = fuelConsumptionPerKm;
-    }
+    public OffsetDateTime getLastStatusUpdate() { return lastStatusUpdate; }
+    public void setLastStatusUpdate(OffsetDateTime lastStatusUpdate) { this.lastStatusUpdate = lastStatusUpdate; }
 
-    public BigDecimal getMaxLoadKg() {
-        return maxLoadKg;
-    }
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean active) { isActive = active; }
 
-    public void setMaxLoadKg(BigDecimal maxLoadKg) {
-        this.maxLoadKg = maxLoadKg;
-    }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
 
-    public Integer getMaxBinCapacity() {
-        return maxBinCapacity;
-    }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
 
-    public void setMaxBinCapacity(Integer maxBinCapacity) {
-        this.maxBinCapacity = maxBinCapacity;
-    }
+    public List<Mission> getMissions() { return missions; }
 
-    public BigDecimal getCurrentLoadKg() {
-        return currentLoadKg;
-    }
+    public List<TruckIncident> getIncidents() { return incidents; }
 
-    public void setCurrentLoadKg(BigDecimal currentLoadKg) {
-        this.currentLoadKg = currentLoadKg;
-    }
+    public Zone getZone() { return zone; }
+    public void setZone(Zone zone) { this.zone = zone; }
 
-    public TruckStatus getStatus() {
-        return status;
-    }
+    public List<RoutePlan> getRoutePlans() { return routePlans; }
 
-    public void setStatus(TruckStatus status) {
-        this.status = status;
-    }
-
-    public Driver getAssignedDriver() {
-        return assignedDriver;
-    }
-
-    public void setAssignedDriver(Driver assignedDriver) {
-        this.assignedDriver = assignedDriver;
-    }
-
-    public Double getLastKnownLat() {
-        return lastKnownLat;
-    }
-
-    public void setLastKnownLat(Double lastKnownLat) {
-        this.lastKnownLat = lastKnownLat;
-    }
-
-    public Double getLastKnownLng() {
-        return lastKnownLng;
-    }
-
-    public void setLastKnownLng(Double lastKnownLng) {
-        this.lastKnownLng = lastKnownLng;
-    }
-
-    public OffsetDateTime getLastStatusUpdate() {
-        return lastStatusUpdate;
-    }
-
-    public void setLastStatusUpdate(OffsetDateTime lastStatusUpdate) {
-        this.lastStatusUpdate = lastStatusUpdate;
-    }
-
-    public Boolean getIsActive() {
-        return isActive;
-    }
-
-    public void setIsActive(Boolean active) {
-        isActive = active;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public OffsetDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public List<Mission> getMissions() {
-        return missions;
-    }
-
-    public List<TruckIncident> getIncidents() {
-        return incidents;
-    }
-
-    public Zone getZone() {
-        return zone;
-    }
-
-    public void setZone(Zone zone) {
-        this.zone = zone;
-    }
-
-    public List<RoutePlan> getRoutePlans() {
-        return routePlans;
-    }
-
-    public List<Bin.WasteType> getSupportedWasteTypes() {
-        return supportedWasteTypes;
-    }
-
+    public List<Bin.WasteType> getSupportedWasteTypes() { return supportedWasteTypes; }
     public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
         this.supportedWasteTypes = supportedWasteTypes;
     }

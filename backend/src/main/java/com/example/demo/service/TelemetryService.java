@@ -1,16 +1,19 @@
 package com.example.demo.service;
 
+
 import com.example.demo.dto.TelemetryResponse;
 import com.example.demo.entity.Bin;
 import com.example.demo.entity.BinTelemetry;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -21,19 +24,25 @@ public class TelemetryService {
     private final BinTimePredictionService binTimePredictionService;
     private final AnomalyDetectionService anomalyDetectionService;
     private final AlertRuleService alertRuleService;
+    private final BinPredictionService binPredictionService;
+    private final PythonPredictionService pythonPredictionService;
 
     public TelemetryService(
             BinRepository binRepository,
             BinTelemetryRepository telemetryRepository,
             BinTimePredictionService binTimePredictionService,
             AnomalyDetectionService anomalyDetectionService,
-            AlertRuleService alertRuleService
+            AlertRuleService alertRuleService,
+            BinPredictionService binPredictionService,
+            PythonPredictionService pythonPredictionService
     ) {
         this.binRepository = binRepository;
         this.telemetryRepository = telemetryRepository;
         this.binTimePredictionService = binTimePredictionService;
         this.anomalyDetectionService = anomalyDetectionService;
         this.alertRuleService = alertRuleService;
+        this.binPredictionService = binPredictionService;
+        this.pythonPredictionService = pythonPredictionService;
     }
 
     @Transactional
@@ -50,8 +59,7 @@ public class TelemetryService {
         Bin bin = binRepository.findByBinCode(binCode)
                 .orElseThrow(() -> new RuntimeException("Bin not found: " + binCode));
 
-        Optional<BinTelemetry> previousOpt =
-                telemetryRepository.findTopByBinOrderByTimestampDesc(bin);
+        Optional<BinTelemetry> previousOpt = telemetryRepository.findTopByBinOrderByTimestampDesc(bin);
 
         BinTelemetry telemetry = new BinTelemetry();
         telemetry.setBin(bin);
@@ -76,7 +84,6 @@ public class TelemetryService {
 
             double hoursDiff = seconds / 3600.0;
 
-            // ✅ avoid fake huge rates when telemetry comes seconds apart
             if (seconds >= 120 && hoursDiff > 0) {
                 fillRate = (saved.getFillLevel() - previous.getFillLevel()) / hoursDiff;
             }
@@ -99,7 +106,37 @@ public class TelemetryService {
                     Boolean.TRUE.equals(saved.getCollected())
             );
         } catch (Exception e) {
-            System.err.println("Time prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
+            System.err.println("Model2 prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
+        }
+
+        try {
+            List<BinTelemetry> history = telemetryRepository
+                    .findByBinIdOrderByTimestampDesc(bin.getId(), PageRequest.of(0, 3));
+
+            double fillLevelLag1 = history.size() > 1 ? history.get(1).getFillLevel() : fillLevel;
+            double fillLevelLag2 = history.size() > 2 ? history.get(2).getFillLevel() : fillLevel;
+            double fillRateLag1 = fillRate;
+            double weightKgLag1 = saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0;
+            double rssiLag1 = saved.getRssi() != null ? saved.getRssi() : 0;
+
+            PredictionResult result = pythonPredictionService.runPrediction(
+                    hour,
+                    fillLevel,
+                    fillRate,
+                    saved.getBatteryLevel() != null ? saved.getBatteryLevel() : 0,
+                    saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0,
+                    saved.getRssi() != null ? saved.getRssi() : 0,
+                    Boolean.TRUE.equals(saved.getCollected()),
+                    fillLevelLag1,
+                    fillLevelLag2,
+                    fillRateLag1,
+                    weightKgLag1,
+                    rssiLag1
+            );
+
+            binPredictionService.save(bin.getId(), saved, result);
+        } catch (Exception e) {
+            System.err.println("Model1 prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
         }
 
         try {

@@ -12,6 +12,7 @@ public class AlertDetailsResponse extends AlertResponse {
     private Integer fillLevel;
     private Integer batteryLevel;
 
+    // 🔥 مهمّة للـ realtime tracking
     private Double truckLat;
     private Double truckLng;
 

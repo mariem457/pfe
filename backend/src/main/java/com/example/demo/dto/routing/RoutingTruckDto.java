@@ -18,75 +18,30 @@ public class RoutingTruckDto {
     public RoutingTruckDto() {
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Double getLat() { return lat; }
+    public void setLat(Double lat) { this.lat = lat; }
 
-    public Double getLat() {
-        return lat;
-    }
+    public Double getLng() { return lng; }
+    public void setLng(Double lng) { this.lng = lng; }
 
-    public void setLat(Double lat) {
-        this.lat = lat;
-    }
+    public Double getRemainingCapacityKg() { return remainingCapacityKg; }
+    public void setRemainingCapacityKg(Double remainingCapacityKg) { this.remainingCapacityKg = remainingCapacityKg; }
 
-    public Double getLng() {
-        return lng;
-    }
+    public Double getFuelLevelLiters() { return fuelLevelLiters; }
+    public void setFuelLevelLiters(Double fuelLevelLiters) { this.fuelLevelLiters = fuelLevelLiters; }
 
-    public void setLng(Double lng) {
-        this.lng = lng;
-    }
+    public Double getFuelConsumptionPerKm() { return fuelConsumptionPerKm; }
+    public void setFuelConsumptionPerKm(Double fuelConsumptionPerKm) { this.fuelConsumptionPerKm = fuelConsumptionPerKm; }
 
-    public Double getRemainingCapacityKg() {
-        return remainingCapacityKg;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setRemainingCapacityKg(Double remainingCapacityKg) {
-        this.remainingCapacityKg = remainingCapacityKg;
-    }
+    public List<String> getSupportedWasteTypes() { return supportedWasteTypes; }
+    public void setSupportedWasteTypes(List<String> supportedWasteTypes) { this.supportedWasteTypes = supportedWasteTypes; }
 
-    public Double getFuelLevelLiters() {
-        return fuelLevelLiters;
-    }
-
-    public void setFuelLevelLiters(Double fuelLevelLiters) {
-        this.fuelLevelLiters = fuelLevelLiters;
-    }
-
-    public Double getFuelConsumptionPerKm() {
-        return fuelConsumptionPerKm;
-    }
-
-    public void setFuelConsumptionPerKm(Double fuelConsumptionPerKm) {
-        this.fuelConsumptionPerKm = fuelConsumptionPerKm;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public List<String> getSupportedWasteTypes() {
-        return supportedWasteTypes;
-    }
-
-    public void setSupportedWasteTypes(List<String> supportedWasteTypes) {
-        this.supportedWasteTypes = supportedWasteTypes;
-    }
-
-    public Long getZoneId() {
-        return zoneId;
-    }
-
-    public void setZoneId(Long zoneId) {
-        this.zoneId = zoneId;
-    }
+    public Long getZoneId() { return zoneId; }
+    public void setZoneId(Long zoneId) { this.zoneId = zoneId; }
 }

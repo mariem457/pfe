@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface TruckItem {
+<<<<<<< HEAD
   driverId: number | null;
   truckCode: string;
   driverName: string;
@@ -25,6 +26,18 @@ export interface TruckItem {
   truckStatus: string;
 
   currentMissionId?: number | null;
+=======
+  driverId: number;
+  truckCode: string;
+  driverName: string;
+  locationLabel: string;
+  progress: number;
+  collectedBins: number;
+  remainingBins: number;
+  fuelLevel?: number;
+  etaMinutes?: number;
+  active: boolean;
+>>>>>>> origin/enleve-mqtt
 }
 
 export interface TruckDashboardResponse {
@@ -35,6 +48,7 @@ export interface TruckDashboardResponse {
   trucks: TruckItem[];
 }
 
+<<<<<<< HEAD
 export interface RouteCoordinate {
   lat: number;
   lng: number;
@@ -62,10 +76,19 @@ export interface MissionRouteResponse {
 export class TruckDashboardService {
   private dashboardApi = 'http://localhost:8081/api/truck-locations/dashboard';
   private missionsApi = 'http://localhost:8081/api/missions';
+=======
+@Injectable({
+  providedIn: 'root'
+})
+export class TruckDashboardService {
+
+  private api = 'http://localhost:8081/api/truck-locations/dashboard';
+>>>>>>> origin/enleve-mqtt
 
   constructor(private http: HttpClient) {}
 
   getDashboard(): Observable<TruckDashboardResponse> {
+<<<<<<< HEAD
     return this.http.get<TruckDashboardResponse>(this.dashboardApi);
   }
 
@@ -74,4 +97,9 @@ export class TruckDashboardService {
       `${this.missionsApi}/${missionId}/route`
     );
   }
+=======
+    return this.http.get<TruckDashboardResponse>(this.api);
+  }
+
+>>>>>>> origin/enleve-mqtt
 }

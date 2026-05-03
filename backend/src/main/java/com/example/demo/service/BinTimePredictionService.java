@@ -37,7 +37,6 @@ public class BinTimePredictionService {
             double rssi,
             boolean collected
     ) {
-
         TimeToThresholdPredictionResult result =
                 pythonTimePredictionService.runPrediction(
                         hour, fillLevel, fillRate,

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BinService, BinStatusDto } from '../../../../services/bin.service';
 
 type FiltrePoubelle = 'Toutes' | 'Actives' | 'Pleines' | 'Maintenance';
@@ -27,14 +28,37 @@ interface Poubelle {
 export class GestionPoubellesComponent implements OnInit {
   termeRecherche = '';
   filtreSelectionne: FiltrePoubelle = 'Toutes';
-
   filtres: FiltrePoubelle[] = ['Toutes', 'Actives', 'Pleines', 'Maintenance'];
 
   poubelles: Poubelle[] = [];
   loading = false;
   errorMessage = '';
 
-  constructor(private binService: BinService) {}
+  showQrModal = false;
+  qrPreviewUrl = '';
+  selectedBin: Poubelle | null = null;
+  qrLoading = false;
+
+  showAddModal = false;
+  addLoading = false;
+
+  newBin = {
+    binCode: '',
+    type: '',
+    zoneId: null as number | null,
+    lat: null as number | null,
+    lng: null as number | null,
+    installationDate: '',
+    isActive: true,
+    notes: ''
+  };
+
+private readonly API = 'http://localhost:8081/api/bins';
+
+  constructor(
+    private binService: BinService,
+    private http: HttpClient
+  ) {}
 
   ngOnInit(): void {
     this.chargerPoubelles();
@@ -45,33 +69,224 @@ export class GestionPoubellesComponent implements OnInit {
     this.errorMessage = '';
 
     this.binService.getBins().subscribe({
-      next: (data: any[]) => {
-        this.poubelles = (data || []).map((item: any) =>
-          this.mapBinToPoubelle(item as BinStatusDto)
-        );
+      next: (data: BinStatusDto[]) => {
+        this.poubelles = (data || []).map(item => this.mapBinToPoubelle(item));
         this.loading = false;
       },
-      error: (error: any) => {
+      error: (error) => {
         console.error('Erreur chargement poubelles', error);
 
-        if (error?.status === 0) {
-          this.errorMessage = 'Backend inaccessible ou problème CORS.';
-        } else if (error?.status === 401) {
-          this.errorMessage = 'Non authentifié. Token manquant ou expiré.';
-        } else if (error?.status === 403) {
-          this.errorMessage = 'Accès refusé.';
-        } else if (error?.status === 404) {
-          this.errorMessage = 'Endpoint /api/bins introuvable.';
-        } else {
-          this.errorMessage =
-            error?.error?.message ||
-            error?.error?.error ||
-            'Impossible de charger les poubelles depuis le backend';
-        }
+        if (error?.status === 0) this.errorMessage = 'Backend inaccessible ou problème CORS.';
+        else if (error?.status === 401) this.errorMessage = 'Non authentifié. Token manquant ou expiré.';
+        else if (error?.status === 403) this.errorMessage = 'Accès refusé.';
+        else if (error?.status === 404) this.errorMessage = 'Endpoint /api/bins introuvable.';
+        else this.errorMessage = error?.error?.message || 'Impossible de charger les poubelles.';
 
         this.loading = false;
       }
     });
+  }
+
+  openAddModal(): void {
+    this.showAddModal = true;
+    const today = new Date().toISOString().split('T')[0];
+    this.newBin = {
+      binCode: '',
+      type: '',
+      zoneId: null,
+      lat: null,
+      lng: null,
+      installationDate: today,
+      isActive: true,
+      notes: ''
+    };
+  }
+
+  closeAddModal(): void {
+    this.showAddModal = false;
+  }
+
+addBin(): void {
+  if (this.newBin.lat === null || this.newBin.lng === null) {
+    alert('Latitude et longitude sont obligatoires.');
+    return;
+  }
+
+  const wasteType = this.newBin.type?.trim().toUpperCase();
+
+  const payload = {
+    binCode: this.newBin.binCode?.trim() || null,
+
+    type: 'REAL',
+    wasteType: wasteType,
+
+    zoneId: this.newBin.zoneId,
+    lat: Number(this.newBin.lat),
+    lng: Number(this.newBin.lng),
+    accessLat: Number(this.newBin.lat),
+    accessLng: Number(this.newBin.lng),
+    installationDate: this.newBin.installationDate,
+    isActive: this.newBin.isActive,
+    notes: this.newBin.notes
+  };
+
+  this.addLoading = true;
+
+  this.http.post(`${this.API}`, payload).subscribe({
+    next: () => {
+      this.addLoading = false;
+      this.closeAddModal();
+      this.chargerPoubelles();
+      alert('Poubelle ajoutée avec succès.');
+    },
+    error: (error) => {
+      console.error('Erreur ajout poubelle:', error);
+      this.addLoading = false;
+      alert(error?.error?.message || error?.error || 'Erreur lors de l’ajout de la poubelle.');
+    }
+  });
+}
+printQR(poubelle: Poubelle): void {
+  if (!poubelle.id) return;
+
+  this.http.get(`${this.API}/${poubelle.id}/qrcode`, {
+    responseType: 'blob'
+  }).subscribe({
+    next: (blob) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        this.printQrBase64(base64, poubelle.code);
+      };
+
+      reader.readAsDataURL(blob);
+    },
+    error: (error) => {
+      console.error('Erreur récupération QR', error);
+      alert('Erreur lors de la récupération du QR code.');
+    }
+  });
+}
+regenerateQR(poubelle: Poubelle): void {
+  if (!poubelle.id) return;
+
+  this.qrLoading = true;
+  this.selectedBin = poubelle;
+
+  this.http.post(`${this.API}/${poubelle.id}/qrcode/regenerate`, {}, {
+    responseType: 'blob'
+  }).subscribe({
+    next: (blob) => {
+      if (this.qrPreviewUrl) {
+        URL.revokeObjectURL(this.qrPreviewUrl);
+      }
+
+      this.qrPreviewUrl = URL.createObjectURL(blob);
+      this.showQrModal = true;
+      this.qrLoading = false;
+    },
+    error: (error) => {
+      console.error('Erreur régénération QR', error);
+      alert('Erreur lors de la régénération du QR code.');
+      this.qrLoading = false;
+    }
+  });
+}
+  printQrBase64(base64: string, code: string): void {
+    const printWindow = window.open('', '_blank', 'width=600,height=700');
+
+    if (!printWindow) {
+      alert('Veuillez autoriser les pop-ups pour imprimer le QR code.');
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>QR Code - ${code}</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 40px;
+              font-family: Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: white;
+            }
+
+            .qr-card {
+              border: 2px solid #111827;
+              border-radius: 12px;
+              padding: 24px;
+              text-align: center;
+            }
+
+            h2 {
+              margin: 0 0 16px;
+              font-size: 24px;
+              color: #111827;
+            }
+
+            img {
+              width: 300px;
+              height: 300px;
+            }
+
+            .code {
+              margin-top: 16px;
+              font-size: 18px;
+              font-weight: bold;
+              color: #111827;
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="qr-card">
+            <h2>Wise Trash</h2>
+            <img src="${base64}" alt="QR Code ${code}" />
+            <div class="code">${code}</div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  downloadQR(): void {
+    if (!this.qrPreviewUrl || !this.selectedBin) return;
+
+    const a = document.createElement('a');
+    a.href = this.qrPreviewUrl;
+    a.download = `qr-${this.selectedBin.code}.png`;
+    a.click();
+  }
+
+  printFromModal(): void {
+    if (this.selectedBin) this.printQR(this.selectedBin);
+  }
+
+  closeQrModal(): void {
+    this.showQrModal = false;
+
+    if (this.qrPreviewUrl) {
+      URL.revokeObjectURL(this.qrPreviewUrl);
+      this.qrPreviewUrl = '';
+    }
+
+    this.selectedBin = null;
   }
 
   private mapBinToPoubelle(item: BinStatusDto): Poubelle {
@@ -94,9 +309,7 @@ export class GestionPoubellesComponent implements OnInit {
   }
 
   private mapStatut(status?: string, fillLevel?: number, isActive?: boolean): StatutPoubelle {
-    if (isActive === false) {
-      return 'Maintenance';
-    }
+    if (isActive === false) return 'Maintenance';
 
     const s = (status ?? '').toUpperCase();
 
@@ -104,17 +317,14 @@ export class GestionPoubellesComponent implements OnInit {
       return 'Maintenance';
     }
 
-    if ((fillLevel ?? 0) >= 80) {
-      return 'Full';
-    }
+    if ((fillLevel ?? 0) >= 80) return 'Full';
 
     return 'Active';
   }
 
   private formatDate(dateValue: string): string {
     const date = new Date(dateValue);
-    if (isNaN(date.getTime())) return '--';
-    return date.toLocaleDateString('fr-FR');
+    return isNaN(date.getTime()) ? '--' : date.toLocaleDateString('fr-FR');
   }
 
   private calculerProchaineCollecte(lastTelemetryAt?: string): string {
@@ -136,66 +346,43 @@ export class GestionPoubellesComponent implements OnInit {
   }
 
   get nombrePoubellesPleines(): number {
-    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Full').length;
+    return this.poubelles.filter(p => p.statut === 'Full').length;
   }
 
   get nombrePoubellesActives(): number {
-    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Active').length;
+    return this.poubelles.filter(p => p.statut === 'Active').length;
   }
 
   get nombrePoubellesMaintenance(): number {
-    return this.poubelles.filter((poubelle: Poubelle) => poubelle.statut === 'Maintenance').length;
+    return this.poubelles.filter(p => p.statut === 'Maintenance').length;
   }
 
   get poubellesFiltrees(): Poubelle[] {
-    let resultat = [...this.poubelles];
+    let res = [...this.poubelles];
 
     if (this.filtreSelectionne === 'Actives') {
-      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Active');
+      res = res.filter(p => p.statut === 'Active');
     }
 
     if (this.filtreSelectionne === 'Pleines') {
-      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Full');
+      res = res.filter(p => p.statut === 'Full');
     }
 
     if (this.filtreSelectionne === 'Maintenance') {
-      resultat = resultat.filter((poubelle: Poubelle) => poubelle.statut === 'Maintenance');
+      res = res.filter(p => p.statut === 'Maintenance');
     }
 
-    if (this.termeRecherche.trim()) {
-      const terme = this.termeRecherche.toLowerCase();
-      resultat = resultat.filter((poubelle: Poubelle) =>
-        poubelle.nom.toLowerCase().includes(terme) ||
-        poubelle.zone.toLowerCase().includes(terme) ||
-        poubelle.code.toLowerCase().includes(terme)
+    const t = this.termeRecherche.trim().toLowerCase();
+
+    if (t) {
+      res = res.filter(p =>
+        p.nom.toLowerCase().includes(t) ||
+        p.zone.toLowerCase().includes(t) ||
+        p.code.toLowerCase().includes(t)
       );
     }
 
-    return resultat;
-  }
-
-  get poubellesParZone(): { zone: string; bins: Poubelle[] }[] {
-    const grouped = this.poubellesFiltrees.reduce((acc, bin) => {
-      const zone = bin.zone || 'Zone inconnue';
-      if (!acc[zone]) {
-        acc[zone] = [];
-      }
-      acc[zone].push(bin);
-      return acc;
-    }, {} as Record<string, Poubelle[]>);
-
-    return Object.keys(grouped)
-      .sort((a, b) => a.localeCompare(b))
-      .map(zone => ({
-        zone,
-        bins: grouped[zone].sort((a, b) => b.niveauRemplissage - a.niveauRemplissage)
-      }));
-  }
-
-  getMoyenneRemplissage(bins: Poubelle[]): number {
-    if (!bins.length) return 0;
-    const total = bins.reduce((sum, bin) => sum + (bin.niveauRemplissage || 0), 0);
-    return Math.round(total / bins.length);
+    return res;
   }
 
   getClasseStatut(statut: StatutPoubelle): string {

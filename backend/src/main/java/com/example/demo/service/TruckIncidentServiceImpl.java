@@ -27,11 +27,13 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     private final UserRepository userRepository;
     private final SmartAlertService smartAlertService;
 
-    public TruckIncidentServiceImpl(TruckIncidentRepository truckIncidentRepository,
-                                    TruckRepository truckRepository,
-                                    MissionRepository missionRepository,
-                                    UserRepository userRepository,
-                                    SmartAlertService smartAlertService) {
+    public TruckIncidentServiceImpl(
+            TruckIncidentRepository truckIncidentRepository,
+            TruckRepository truckRepository,
+            MissionRepository missionRepository,
+            UserRepository userRepository,
+            SmartAlertService smartAlertService
+    ) {
         this.truckIncidentRepository = truckIncidentRepository;
         this.truckRepository = truckRepository;
         this.missionRepository = missionRepository;
@@ -41,15 +43,9 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
     @Override
     public TruckIncidentResponseDto createIncident(TruckIncidentRequestDto request) {
-        if (request.getTruckId() == null) {
-            throw new RuntimeException("Truck id is required");
-        }
-        if (request.getIncidentType() == null) {
-            throw new RuntimeException("Incident type is required");
-        }
-        if (request.getSeverity() == null) {
-            throw new RuntimeException("Severity is required");
-        }
+        if (request.getTruckId() == null) throw new RuntimeException("Truck id is required");
+        if (request.getIncidentType() == null) throw new RuntimeException("Incident type is required");
+        if (request.getSeverity() == null) throw new RuntimeException("Severity is required");
 
         Truck truck = truckRepository.findById(request.getTruckId())
                 .orElseThrow(() -> new RuntimeException("Truck not found"));
@@ -62,12 +58,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         incident.setLat(request.getLat());
         incident.setLng(request.getLng());
         incident.setAutoDetected(request.getAutoDetected() != null ? request.getAutoDetected() : false);
-
-        if (request.getStatus() != null) {
-            incident.setStatus(request.getStatus());
-        } else {
-            incident.setStatus(TruckIncident.IncidentStatus.OPEN);
-        }
+        incident.setStatus(request.getStatus() != null ? request.getStatus() : TruckIncident.IncidentStatus.OPEN);
 
         if (request.getMissionId() != null) {
             Mission mission = missionRepository.findById(request.getMissionId())
@@ -98,6 +89,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         if (request.getStatus() != null) {
             incident.setStatus(request.getStatus());
+
             if (request.getStatus() == TruckIncident.IncidentStatus.RESOLVED) {
                 incident.setResolvedAt(OffsetDateTime.now());
                 smartAlertService.resolveAlertsByIncident(incident.getId());
@@ -123,10 +115,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     @Override
     @Transactional(readOnly = true)
     public List<TruckIncidentResponseDto> getAllIncidents() {
-        return truckIncidentRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return truckIncidentRepository.findAll().stream().map(this::mapToResponse).toList();
     }
 
     @Override
@@ -135,10 +124,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         Truck truck = truckRepository.findById(truckId)
                 .orElseThrow(() -> new RuntimeException("Truck not found"));
 
-        return truckIncidentRepository.findByTruck(truck)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return truckIncidentRepository.findByTruck(truck).stream().map(this::mapToResponse).toList();
     }
 
     @Override

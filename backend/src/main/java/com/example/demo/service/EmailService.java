@@ -97,6 +97,7 @@ public class EmailService {
             helper.setSubject("Votre compte chauffeur a été approuvé");
 
             String html = """
+<<<<<<< HEAD
 
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;">
                     <div style="text-align: center; margin-bottom: 24px;">
@@ -111,6 +112,22 @@ public class EmailService {
                             Demande acceptée
                         </span>
                     </div>
+=======
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #111827; margin: 0;">WiseTrash</h2>
+                    </div>
+                    <h3 style="color: #111827;">Compte approuvé</h3>
+                    <p style="color: #374151;">Bonjour %s,</p>
+                    <p style="color: #374151;">Votre demande d'inscription en tant que <strong>chauffeur</strong> a été <span style="color: #059669; font-weight: bold;">acceptée</span> par l'administrateur.</p>
+                    <p style="color: #374151;">Vous pouvez maintenant vous connecter à l'application WiseTrash.</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <span style="background: #10b981; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: bold; display: inline-block;">
+                            Compte activé
+                        </span>
+                    </div>
+                    <p style="color: #374151;">Merci de faire partie de notre plateforme.</p>
+>>>>>>> origin/enleve-mqtt
                     <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
                     <p style="color: #6b7280; font-size: 14px;">Cordialement,<br>L'équipe WiseTrash</p>
                 </div>

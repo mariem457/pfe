@@ -223,6 +223,7 @@ public class DriverService {
                 .findFirst()
                 .orElse(null);
     }
+
     @Transactional
     public List<DriverListResponse> getAvailableDrivers() {
         List<Truck> activeTrucks = truckRepository.findByIsActiveTrue();
@@ -234,7 +235,7 @@ public class DriverService {
                     boolean alreadyAssigned = activeTrucks.stream()
                             .anyMatch(truck ->
                                     truck.getAssignedDriver() != null &&
-                                    truck.getAssignedDriver().getId().equals(driver.getId())
+                                            truck.getAssignedDriver().getId().equals(driver.getId())
                             );
 
                     return !alreadyAssigned;

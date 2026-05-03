@@ -15,5 +15,7 @@ public interface FuelManagementService {
     double getRefuelAlertAutonomyThresholdKm();
 
     double getCriticalFuelThresholdLiters();
+
     boolean canSafelyCompleteRoute(Truck truck, double routeDistanceKm);
+
 }

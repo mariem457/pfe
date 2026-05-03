@@ -123,7 +123,6 @@ public class AlertService {
             throw new RuntimeException("Alert not found: " + alertId);
         }
 
-        // already resolved
         if (alert.isResolved()) {
             return toResponse(alert);
         }
@@ -131,15 +130,12 @@ public class AlertService {
         alert.setResolved(true);
         alert.setResolvedAt(Instant.now());
 
-        // ✅ FIX: username optional
         if (username != null && !username.isBlank()) {
-            userRepo.findByUsername(username)
-                    .ifPresent(alert::setResolvedBy);
+            userRepo.findByUsername(username).ifPresent(alert::setResolvedBy);
         }
 
         alertRepo.save(alert);
 
-        // 🔥 realtime (اذا عندك service)
         try {
             alertRealtimeService.publishResolved(toResponse(alert));
         } catch (Exception e) {
@@ -148,6 +144,7 @@ public class AlertService {
 
         return toResponse(alert);
     }
+
     public AlertDetailsResponse getAlertDetails(Long alertId) {
         Alert a = alertRepo.findByIdWithRelations(alertId);
         if (a == null) throw new RuntimeException("Alert not found: " + alertId);
@@ -228,11 +225,11 @@ public class AlertService {
         res.setResolvedAt(a.getResolvedAt());
         res.setResolvedByUserId(a.getResolvedBy() != null ? a.getResolvedBy().getId() : null);
     }
+
     public List<AlertResponse> getAlertsByMission(Long missionId) {
         return alertRepo.findByMissionIdAndResolvedFalseWithRelations(missionId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
-    
 }

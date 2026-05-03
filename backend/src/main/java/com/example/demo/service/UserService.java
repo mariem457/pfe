@@ -18,11 +18,7 @@ public class UserService {
     private final DriverRepository driverRepo;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(
-            UserRepository repo,
-            DriverRepository driverRepo,
-            PasswordEncoder passwordEncoder
-    ) {
+    public UserService(UserRepository repo, DriverRepository driverRepo, PasswordEncoder passwordEncoder) {
         this.repo = repo;
         this.driverRepo = driverRepo;
         this.passwordEncoder = passwordEncoder;
@@ -41,15 +37,9 @@ public class UserService {
 
         UserStatsResponse stats = new UserStatsResponse();
         stats.totalUsers = users.size();
-        stats.activeUsers = users.stream()
-                .filter(u -> Boolean.TRUE.equals(u.getIsEnabled()))
-                .count();
-        stats.inactiveUsers = users.stream()
-                .filter(u -> !Boolean.TRUE.equals(u.getIsEnabled()))
-                .count();
-        stats.drivers = users.stream()
-                .filter(u -> "DRIVER".equalsIgnoreCase(u.getRole()))
-                .count();
+        stats.activeUsers = users.stream().filter(u -> Boolean.TRUE.equals(u.getIsEnabled())).count();
+        stats.inactiveUsers = users.stream().filter(u -> !Boolean.TRUE.equals(u.getIsEnabled())).count();
+        stats.drivers = users.stream().filter(u -> "DRIVER".equalsIgnoreCase(u.getRole())).count();
 
         return stats;
     }
@@ -63,38 +53,27 @@ public class UserService {
         User u = getOrThrow(id);
 
         if (req.getUsername() != null && !req.getUsername().equals(u.getUsername())) {
-            if (repo.existsByUsername(req.getUsername())) {
-                throw new IllegalArgumentException("username already exists");
-            }
+            if (repo.existsByUsername(req.getUsername())) throw new IllegalArgumentException("username already exists");
             u.setUsername(req.getUsername());
         }
 
         if (req.getEmail() != null && !req.getEmail().equals(u.getEmail())) {
-            if (repo.existsByEmail(req.getEmail())) {
-                throw new IllegalArgumentException("email already exists");
-            }
+            if (repo.existsByEmail(req.getEmail())) throw new IllegalArgumentException("email already exists");
             u.setEmail(req.getEmail());
         }
 
         if (req.getPasswordHash() != null && !req.getPasswordHash().isBlank()) {
             u.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
-
-            int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
-            u.setTokenVersion(currentVersion + 1);
-
+            u.setTokenVersion((u.getTokenVersion() == null ? 0 : u.getTokenVersion()) + 1);
             u.setMustChangePassword(false);
         }
 
-        if (req.getRole() != null) {
-            u.setRole(req.getRole());
-        }
+        if (req.getRole() != null) u.setRole(req.getRole());
 
         if (req.getIsEnabled() != null) {
             u.setIsEnabled(req.getIsEnabled());
-
             if (!Boolean.TRUE.equals(req.getIsEnabled())) {
-                int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
-                u.setTokenVersion(currentVersion + 1);
+                u.setTokenVersion((u.getTokenVersion() == null ? 0 : u.getTokenVersion()) + 1);
             }
         }
 
@@ -105,15 +84,12 @@ public class UserService {
     public UserAdminListResponse updateStatus(Long id, Boolean isEnabled) {
         User u = getOrThrow(id);
 
-        if (isEnabled == null) {
-            throw new IllegalArgumentException("isEnabled is required");
-        }
+        if (isEnabled == null) throw new IllegalArgumentException("isEnabled is required");
 
         u.setIsEnabled(isEnabled);
 
         if (!Boolean.TRUE.equals(isEnabled)) {
-            int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
-            u.setTokenVersion(currentVersion + 1);
+            u.setTokenVersion((u.getTokenVersion() == null ? 0 : u.getTokenVersion()) + 1);
         }
 
         return toAdminListResponse(repo.save(u));
@@ -138,9 +114,7 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("user not found"));
 
         if (req.getEmail() != null && !req.getEmail().equals(u.getEmail())) {
-            if (repo.existsByEmail(req.getEmail())) {
-                throw new IllegalArgumentException("email already exists");
-            }
+            if (repo.existsByEmail(req.getEmail())) throw new IllegalArgumentException("email already exists");
             u.setEmail(req.getEmail());
         }
 
@@ -186,9 +160,7 @@ public class UserService {
         }
 
         if (!isStrongPassword(req.getNewPassword())) {
-            throw new IllegalArgumentException(
-                    "new password must contain at least 8 characters, uppercase, lowercase, number and special character"
-            );
+            throw new IllegalArgumentException("new password must contain at least 8 characters, uppercase, lowercase, number and special character");
         }
 
         if (passwordEncoder.matches(req.getNewPassword(), u.getPasswordHash())) {
@@ -197,9 +169,7 @@ public class UserService {
 
         u.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         u.setMustChangePassword(false);
-
-        int currentVersion = u.getTokenVersion() == null ? 0 : u.getTokenVersion();
-        u.setTokenVersion(currentVersion + 1);
+        u.setTokenVersion((u.getTokenVersion() == null ? 0 : u.getTokenVersion()) + 1);
 
         repo.save(u);
     }
@@ -275,13 +245,8 @@ public class UserService {
     private String buildFullName(User u) {
         String firstName = u.getFirstName() != null ? u.getFirstName().trim() : "";
         String lastName = u.getLastName() != null ? u.getLastName().trim() : "";
-
         String fullName = (firstName + " " + lastName).trim();
 
-        if (!fullName.isEmpty()) {
-            return fullName;
-        }
-
-        return u.getUsername();
+        return !fullName.isEmpty() ? fullName : u.getUsername();
     }
 }

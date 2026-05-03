@@ -1,8 +1,9 @@
 package com.example.demo.dto;
 
 public class AlertCreateRequest {
+
     private Long binId;
-    private Long telemetryId;
+    private Long telemetryId; // optional
 
     private Long truckId;
     private Long missionId;
@@ -15,8 +16,11 @@ public class AlertCreateRequest {
     private String severity;
     private String title;
     private String message;
+
     private String recommendation;
     private String actionType;
+
+    // getters / setters
 
     public Long getBinId() { return binId; }
     public void setBinId(Long binId) { this.binId = binId; }

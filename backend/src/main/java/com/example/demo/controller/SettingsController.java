@@ -21,6 +21,7 @@ public class SettingsController {
         this.driverService = driverService;
     }
 
+    // ✅ user profile (admin / user settings)
     @GetMapping("/profile")
     public SettingsProfileResponse getProfile(Authentication authentication) {
         String username = authentication.getName();
@@ -45,6 +46,7 @@ public class SettingsController {
         userService.changePasswordByUsername(username, request);
     }
 
+    // ✅ driver profile (from enleve-mqtt logic)
     @GetMapping("/driver/profile")
     public DriverProfileResponse getDriverProfile(Authentication authentication) {
         if (authentication == null) {

@@ -1,6 +1,7 @@
 package com.example.demo.dto;
 
 public class DriverProfileResponse {
+
     private String fullName;
     private String email;
     private String phone;

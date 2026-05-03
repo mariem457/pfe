@@ -14,6 +14,8 @@ import com.example.demo.repository.MissionBinRepository;
 import com.example.demo.repository.MissionRepository;
 import com.example.demo.repository.TruckLocationRepository;
 import com.example.demo.repository.TruckRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,8 @@ import java.util.List;
 
 @Service
 public class TruckLocationService {
+
+    private static final Logger log = LoggerFactory.getLogger(TruckLocationService.class);
 
     private final TruckLocationRepository truckLocationRepository;
     private final DriverRepository driverRepository;
@@ -55,6 +59,9 @@ public class TruckLocationService {
     @Transactional
     public TruckLocationResponse save(TruckLocationRequest in) {
         validateInput(in);
+
+        log.info("Truck location received: driverId={}, lat={}, lng={}, speed={}, heading={}",
+                in.driverId, in.lat, in.lng, in.speedKmh, in.headingDeg);
 
         Driver driver = driverRepository.findById(in.driverId)
                 .orElseThrow(() -> new RuntimeException("Driver not found: " + in.driverId));
@@ -85,12 +92,8 @@ public class TruckLocationService {
                 saved.getTimestamp()
         );
 
-        System.out.println(
-                "WS BROADCAST => /topic/truck-locations driverId="
-                        + resp.driverId
-                        + ", lat=" + resp.lat
-                        + ", lng=" + resp.lng
-        );
+        log.info("Broadcasting truck location to /topic/truck-locations: driverId={}, lat={}, lng={}",
+                resp.driverId, resp.lat, resp.lng);
 
         messagingTemplate.convertAndSend("/topic/truck-locations", resp);
 

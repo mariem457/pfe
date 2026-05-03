@@ -14,7 +14,6 @@ public class Alert {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ✅ nullable now: truck/incident alerts may not have bin
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bin_id")
     private Bin bin;
@@ -36,7 +35,7 @@ public class Alert {
     private String message;
 
     @Column(name = "entity_type", nullable = false, length = 30)
-    private String entityType = "BIN"; // BIN / TRUCK / MISSION / INCIDENT / SYSTEM
+    private String entityType = "BIN";
 
     @Column(name = "entity_id")
     private Long entityId;
@@ -57,7 +56,7 @@ public class Alert {
     private String recommendation;
 
     @Column(name = "action_type", length = 40)
-    private String actionType; // NONE / REPLAN / INSPECT / REFUEL / CALL_DRIVER
+    private String actionType;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

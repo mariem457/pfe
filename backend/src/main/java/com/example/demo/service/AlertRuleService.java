@@ -118,9 +118,7 @@ public class AlertRuleService {
         long minutes = Duration.between(previous.getTimestamp(), current.getTimestamp()).toMinutes();
         int delta = current.getFillLevel() - previous.getFillLevel();
 
-        if (minutes < 0 || minutes > SUDDEN_FILL_MAX_MINUTES) {
-            return false;
-        }
+        if (minutes < 0 || minutes > SUDDEN_FILL_MAX_MINUTES) return false;
 
         if (delta >= SUDDEN_FILL_DELTA_PERCENT) {
             createIfNotExists(bin, current,
@@ -158,15 +156,8 @@ public class AlertRuleService {
 
         if (recent == null || recent.size() < SENSOR_STUCK_MIN_POINTS) return;
 
-        int min = recent.stream()
-                .mapToInt(BinTelemetry::getFillLevel)
-                .min()
-                .orElse(current.getFillLevel());
-
-        int max = recent.stream()
-                .mapToInt(BinTelemetry::getFillLevel)
-                .max()
-                .orElse(current.getFillLevel());
+        int min = recent.stream().mapToInt(BinTelemetry::getFillLevel).min().orElse(current.getFillLevel());
+        int max = recent.stream().mapToInt(BinTelemetry::getFillLevel).max().orElse(current.getFillLevel());
 
         boolean batteryOk = current.getBatteryLevel() == null || current.getBatteryLevel() > BATTERY_LOW_THRESHOLD;
 
@@ -212,9 +203,7 @@ public class AlertRuleService {
 
         long seconds = current.getTimestamp().getEpochSecond() - previous.getTimestamp().getEpochSecond();
 
-        if (seconds < MIN_SECONDS_FOR_FAST_RATE) {
-            return 0.0;
-        }
+        if (seconds < MIN_SECONDS_FOR_FAST_RATE) return 0.0;
 
         double hours = seconds / 3600.0;
         return (current.getFillLevel() - previous.getFillLevel()) / hours;

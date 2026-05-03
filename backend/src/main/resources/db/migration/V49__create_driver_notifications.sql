@@ -9,4 +9,8 @@ CREATE TABLE IF NOT EXISTS driver_notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_driver_notifications_driver_created
+<<<<<<< HEAD
 ON driver_notifications(driver_id, created_at DESC);
+=======
+ON driver_notifications(driver_id, created_at DESC);
+>>>>>>> origin/enleve-mqtt

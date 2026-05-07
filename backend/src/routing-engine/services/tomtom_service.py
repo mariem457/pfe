@@ -67,7 +67,7 @@ def get_tomtom_async_status(job_id):
     )
 
     print("TomTom async status code:", response.status_code, flush=True)
-    print("TomTom async status response:", response.text, flush=True)
+   # print("TomTom async status response:", response.text, flush=True)
 
     response.raise_for_status()
     return response.json()
@@ -137,4 +137,45 @@ def get_tomtom_matrix(locations):
         distances[origin_index][destination_index] = route_summary.get("lengthInMeters", 0)
         durations[origin_index][destination_index] = route_summary.get("travelTimeInSeconds", 0)
 
-    return distances, durations, "TOMTOM"
+    return distances, durations, "OSRM + TOMTOM_TRAFFIC"
+
+
+def call_tomtom_route(locations):
+    if not TOMTOM_API_KEY or not TOMTOM_API_KEY.strip():
+        raise RuntimeError("TOMTOM_API_KEY is missing")
+
+    coords = ":".join([f"{lat},{lng}" for lat, lng in locations])
+
+    url = f"https://api.tomtom.com/routing/1/calculateRoute/{coords}/json"
+
+    response = requests.get(
+        url,
+        params={
+            "key": TOMTOM_API_KEY,
+            "routeType": "fastest",
+            "traffic": "true",
+            "travelMode": "car",
+            "departAt": "now",
+        },
+        timeout=TOMTOM_TIMEOUT
+    )
+
+    print("TomTom route status code:", response.status_code, flush=True)
+
+    response.raise_for_status()
+    data = response.json()
+
+    routes = data.get("routes", [])
+    if not routes:
+        return []
+
+    points = []
+
+    for leg in routes[0].get("legs", []):
+        for p in leg.get("points", []):
+            points.append({
+                "lat": p["latitude"],
+                "lng": p["longitude"]
+            })
+
+    return points

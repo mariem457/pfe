@@ -1,6 +1,8 @@
 package com.example.demo.repository;
 
 import com.example.demo.dto.DriverBinDto;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import com.example.demo.entity.Mission;
 import com.example.demo.entity.MissionBin;
 import com.example.demo.entity.MissionBin.AssignmentStatus;
@@ -76,4 +78,33 @@ public interface MissionBinRepository extends JpaRepository<MissionBin, Long> {
     long countByMissionIdAndCollectedTrue(Long missionId);
 
     long countByMissionIdAndCollectedFalse(Long missionId);
+    @Query("""
+    	    SELECT CASE WHEN COUNT(mb) > 0 THEN true ELSE false END
+    	    FROM MissionBin mb
+    	    WHERE mb.bin.id = :binId
+    	      AND mb.collected = false
+    	      AND mb.mission.status IN ('CREATED', 'PLANNED', 'IN_PROGRESS')
+    	""")
+    	boolean existsActiveUncollectedBinAssignment(@Param("binId") Long binId);
+    
+    
+    
+    
+    @Query(value = """
+    	    SELECT
+    	        CAST(mb.collected_at AT TIME ZONE 'Europe/Paris' AS date) AS day,
+    	        COUNT(*) AS collected_count
+    	    FROM mission_bins mb
+    	    WHERE mb.collected = true
+    	      AND mb.collected_at IS NOT NULL
+    	      AND mb.collected_at >= :startInstant
+    	      AND mb.collected_at < :endInstant
+    	    GROUP BY day
+    	    ORDER BY day
+    	""", nativeQuery = true)
+    	List<Object[]> countCollectedBinsByDay(
+    	        @Param("startInstant") java.time.Instant startInstant,
+    	        @Param("endInstant") java.time.Instant endInstant
+    	);
+    
 }

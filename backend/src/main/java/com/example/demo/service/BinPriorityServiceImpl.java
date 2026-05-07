@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -56,16 +55,12 @@ public class BinPriorityServiceImpl implements BinPriorityService {
         return bins.stream()
                 .map(bin -> buildRoutingBin(bin, latestTelemetryByBinId.get(bin.getId())))
                 .filter(dto -> dto != null)
-                // ما عادش نقصيو bins حسب predictedPriority فقط
-                // نخليو القرار الحقيقي يصير بعد في RoutingPayloadBuilderServiceImpl
                 .sorted(
                         Comparator
-                                // 1) الأعلى fillLevel أولًا
                                 .comparing(
                                         (RoutingBinDto dto) -> safeDouble(dto.getFillLevel()),
                                         Comparator.reverseOrder()
                                 )
-                                // 2) إذا fill متقارب، prediction تعطي boost فقط
                                 .thenComparing(
                                         dto -> safeDouble(dto.getPredictedPriority()),
                                         Comparator.reverseOrder()
@@ -126,74 +121,30 @@ public class BinPriorityServiceImpl implements BinPriorityService {
             return null;
         }
 
-        BinTelemetry previousTelemetry = binTelemetryRepository
-                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), telemetry.getId())
+        BinPrediction latestPrediction = binPredictionRepository
+                .findTopByBinIdOrderByCreatedAtDesc(bin.getId())
                 .orElse(null);
 
-        BinTelemetry secondPreviousTelemetry = previousTelemetry != null
-                ? binTelemetryRepository
-                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
-                .orElse(null)
-                : null;
+        double predictedPriority = 0.0;
 
-        double hour = telemetry.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getHour();
-
-        double fillLevel = telemetry.getFillLevel();
-
-        double fillRate = previousTelemetry != null
-                ? Math.max(0.0, telemetry.getFillLevel() - previousTelemetry.getFillLevel())
-                : 0.0;
-
-        double batteryLevel = telemetry.getBatteryLevel() != null ? telemetry.getBatteryLevel() : 0.0;
-        double weightKg = telemetry.getWeightKg() != null ? telemetry.getWeightKg().doubleValue() : 0.0;
-        double rssi = telemetry.getRssi() != null ? telemetry.getRssi() : 0.0;
-        boolean collected = Boolean.TRUE.equals(telemetry.getCollected());
-
-        double fillLevelLag1 = previousTelemetry != null ? previousTelemetry.getFillLevel() : fillLevel;
-        double fillLevelLag2 = secondPreviousTelemetry != null ? secondPreviousTelemetry.getFillLevel() : fillLevelLag1;
-
-        double fillRateLag1 = 0.0;
-        if (previousTelemetry != null && secondPreviousTelemetry != null) {
-            fillRateLag1 = Math.max(
-                    0.0,
-                    previousTelemetry.getFillLevel() - secondPreviousTelemetry.getFillLevel()
-            );
+        if (latestPrediction != null && latestPrediction.getPriorityScore() != null) {
+            predictedPriority = latestPrediction.getPriorityScore().doubleValue();
         }
-
-        double weightKgLag1 = previousTelemetry != null && previousTelemetry.getWeightKg() != null
-                ? previousTelemetry.getWeightKg().doubleValue()
-                : weightKg;
-
-        double rssiLag1 = previousTelemetry != null && previousTelemetry.getRssi() != null
-                ? previousTelemetry.getRssi()
-                : rssi;
-
-        PredictionResult predictionResult = pythonPredictionService.runPrediction(
-                hour,
-                fillLevel,
-                fillRate,
-                batteryLevel,
-                weightKg,
-                rssi,
-                collected,
-                fillLevelLag1,
-                fillLevelLag2,
-                fillRateLag1,
-                weightKgLag1,
-                rssiLag1
-        );
 
         Double routingLat = bin.getAccessLat() != null ? bin.getAccessLat() : bin.getLat();
         Double routingLng = bin.getAccessLng() != null ? bin.getAccessLng() : bin.getLng();
+
+        double fillLevel = telemetry.getFillLevel();
+        double weightKg = telemetry.getWeightKg() != null
+                ? telemetry.getWeightKg().doubleValue()
+                : 0.0;
 
         RoutingBinDto dto = new RoutingBinDto();
         dto.setId(bin.getId());
         dto.setLat(routingLat);
         dto.setLng(routingLng);
         dto.setFillLevel(fillLevel);
-        dto.setPredictedPriority(predictionResult != null ? predictionResult.getPriorityScore() : 0.0);
+        dto.setPredictedPriority(predictedPriority);
         dto.setEstimatedLoadKg(weightKg);
         dto.setWasteType(resolveWasteType(bin));
 

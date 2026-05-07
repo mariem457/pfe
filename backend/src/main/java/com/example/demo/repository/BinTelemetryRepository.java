@@ -1,6 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.entity.Bin;
+import org.springframework.data.repository.query.Param;
 import com.example.demo.entity.BinTelemetry;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -96,4 +97,21 @@ public interface BinTelemetryRepository extends JpaRepository<BinTelemetry, Long
         ORDER BY t.timestamp DESC
     """)
     List<BinTelemetry> findAllByBinIdNewestFirst(Long binId, Pageable pageable);
+    Optional<BinTelemetry> findTopByBinIdOrderByTimestampDesc(Long binId);
+    
+    
+  
+    	
+    	
+    	
+    	@Query(value = """
+    		    SELECT
+    		        CAST(bt.timestamp AT TIME ZONE 'Europe/Paris' AS date) AS day,
+    		        COALESCE(AVG(bt.fill_level), 0) AS avg_fill
+    		    FROM bin_telemetry bt
+    		    WHERE bt.timestamp >= :startInstant
+    		    GROUP BY day
+    		    ORDER BY day
+    		""", nativeQuery = true)
+    		List<Object[]> findAverageFillLevelByDay(@Param("startInstant") Instant startInstant);
 }

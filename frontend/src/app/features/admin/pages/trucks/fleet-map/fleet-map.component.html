@@ -106,13 +106,26 @@
 
       <div class="bin-side-meta">
         <div><strong>Type de déchet :</strong> {{ bin.wasteType || '—' }}</div>
-        <div><strong>Cluster :</strong> {{ bin.clusterId ?? '—' }}</div>
+        
         <div><strong>Niveau de remplissage :</strong> {{ bin.fillLevel ?? '—' }}<span *ngIf="bin.fillLevel != null">%</span></div>
-        <div><strong>Niveau de batterie :</strong> {{ bin.batteryLevel ?? '—' }}<span *ngIf="bin.batteryLevel != null">%</span></div>
+               <div><strong>Niveau de batterie :</strong> {{ bin.batteryLevel ?? '—' }}<span *ngIf="bin.batteryLevel != null">%</span></div>
+
+        <div>
+          <strong>Prédiction t+1 :</strong>
+          {{ bin.predictedFillLevelNext ?? '—' }}
+          <span *ngIf="bin.predictedFillLevelNext != null">%</span>
+        </div>
+
+        <div>
+          <strong>Temps avant remplissage :</strong>
+          {{ bin.hoursToFull ?? '—' }}
+          <span *ngIf="bin.hoursToFull != null"> h</span>
+        </div>
+
         <div><strong>Statut :</strong> {{ bin.status || '—' }}</div>
         <div><strong>Zone :</strong> {{ bin.zoneName || '—' }}</div>
-        <div><strong>Ordre de passage :</strong> {{ bin.visitOrder ?? '—' }}</div>
-        <div><strong>Seuil cible :</strong> {{ bin.targetFillThreshold ?? '—' }}<span *ngIf="bin.targetFillThreshold != null">%</span></div>
+        
+        
         <div><strong>Latitude :</strong> {{ bin.lat }}</div>
         <div><strong>Longitude :</strong> {{ bin.lng }}</div>
       </div>

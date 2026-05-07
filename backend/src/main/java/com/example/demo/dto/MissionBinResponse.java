@@ -27,8 +27,15 @@ public class MissionBinResponse {
     private OffsetDateTime plannedArrival;
     private OffsetDateTime actualArrival;
     private String skippedReason;
+    private String wasteType;
 
-    public Long getId() { return id; }
+    public String getWasteType() {
+		return wasteType;
+	}
+	public void setWasteType(String wasteType) {
+		this.wasteType = wasteType;
+	}
+	public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public Long getMissionId() { return missionId; }

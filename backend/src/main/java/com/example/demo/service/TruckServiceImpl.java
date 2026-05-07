@@ -141,6 +141,25 @@ public class TruckServiceImpl implements TruckService {
                 .map(this::mapToResponse)
                 .toList();
     }
+    
+    
+    
+    @Override
+    public TruckResponseDto unloadTruck(Long truckId) {
+        Truck truck = truckRepository.findById(truckId)
+                .orElseThrow(() -> new ResourceNotFoundException("Truck not found"));
+
+        truck.setCurrentLoadKg(BigDecimal.ZERO);
+        truck.setLastStatusUpdate(OffsetDateTime.now());
+
+        Truck updated = truckRepository.save(truck);
+
+        System.out.println(
+                "TRUCK UNLOADED => truckId=" + truckId + " | currentLoad=0kg"
+        );
+
+        return mapToResponse(updated);
+    }
 
     @Override
     public void deactivateTruck(Long truckId) {

@@ -38,6 +38,8 @@ interface AlertItem {
   title?: string;
   message?: string;
   createdAt?: string;
+  entityType?: string | null;
+  actionType?: string | null;
 }
 
 export interface MapReportItem {
@@ -117,6 +119,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   searchText = '';
 
   resolvingId: number | null = null;
+  creatingMissionId: number | null = null;
 
   showDetails = false;
   detailsLoading = false;
@@ -154,7 +157,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private dashboardService: DashboardService,
     private publicReportService: PublicReportService,
     private realtimeService: RealtimeService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.refreshAll();
@@ -270,8 +273,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.filterResolved === ''
         ? null
         : this.filterResolved === 'true'
-        ? true
-        : false;
+          ? true
+          : false;
 
     this.alertService.searchAlerts({
       resolved: resolvedParam,
@@ -280,14 +283,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
       q: this.searchText?.trim() ? this.searchText.trim() : null
     }).subscribe({
       next: (data: AlertDto[]) => {
-        const arr = data || [];
-        this.alerts = arr.slice(0, 6).map(a => this.mapAlert(a));
+        const arr = (data || [])
+          // ✅ dashboard يعرض كان alertes متاع اليوم
+          .filter(a => this.isTodayAlert(a.createdAt));
+
+        const sorted = arr.sort((a, b) => {
+          const aMunicipal =
+            (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION' ||
+            (a.actionType || '').toUpperCase() === 'CREATE_EXCEPTION_MISSION' ||
+            (a.alertType || '').toUpperCase() === 'SCHEDULE_EXCEPTION';
+
+          const bMunicipal =
+            (b.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION' ||
+            (b.actionType || '').toUpperCase() === 'CREATE_EXCEPTION_MISSION' ||
+            (b.alertType || '').toUpperCase() === 'SCHEDULE_EXCEPTION';
+
+          if (aMunicipal && !bMunicipal) return -1;
+          if (!aMunicipal && bMunicipal) return 1;
+
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        this.alerts = sorted.slice(0, 8).map(a => this.mapAlert(a));
         this.loadingAlerts = false;
         this.updateLastRefresh();
       },
       error: (err) => {
         console.error('GET /api/alerts failed', err);
-        this.alertsError = 'Impossible de charger les alertes.';
+        this.alertsError = 'Impossible de charger les alertes du jour.';
         this.loadingAlerts = false;
       }
     });
@@ -310,14 +333,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
               r.status === 'AFFECTE'
                 ? 'Assigned'
                 : r.status === 'VALIDE'
-                ? 'Validated'
-                : 'Pending',
+                  ? 'Validated'
+                  : 'Pending',
             priority:
               r.priority === 'HIGH'
                 ? 'High'
                 : r.priority === 'MEDIUM'
-                ? 'Medium'
-                : 'Low',
+                  ? 'Medium'
+                  : 'Low',
             description: r.description || 'Aucune description',
             location: r.address || 'Adresse non disponible',
             lat: Number(r.latitude),
@@ -367,6 +390,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   openDetails(a: AlertItem): void {
     this.showDetails = true;
+    setTimeout(() => {
+      document.body.style.overflow = 'hidden';
+    }, 0);
     this.detailsLoading = true;
     this.detailsError = '';
     this.selectedDetails = null;
@@ -389,6 +415,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedDetails = null;
     this.detailsError = '';
     this.detailsLoading = false;
+    document.body.style.overflow = '';
   }
 
   get fillTrendLinePath(): string {
@@ -461,23 +488,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `il y a ${days} j`;
   }
 
+
+  private isTodayAlert(createdAt?: string): boolean {
+  if (!createdAt) return false;
+
+  const alertDate = new Date(createdAt);
+  const today = new Date();
+
+  return (
+    alertDate.getFullYear() === today.getFullYear() &&
+    alertDate.getMonth() === today.getMonth() &&
+    alertDate.getDate() === today.getDate()
+  );
+}
+
   private initRealtimeAlerts(): void {
     this.realtimeService.connectAll();
 
     this.realtimeSubs.add(
       this.alertService.realtimeAlert$.subscribe(alert => {
-        if (!alert || alert.resolved) return;
+        if (!alert) return;
 
-        if (!this.shouldDisplayRealtimeAlert(alert)) {
-          return;
-        }
+        console.log('[DASHBOARD LIVE ALERT]', alert);
 
-        const item = this.mapAlert(alert);
-        const exists = this.alerts.some(a => a.alertId === item.alertId);
-
-        if (!exists) {
-          this.alerts = [item, ...this.alerts].slice(0, 6);
-        }
+        // نعاود نجيب آخر alertes من backend باش dashboard يكون صحيح 100%
+        this.loadAlerts();
+        this.loadKpis();
+        this.loadCharts();
 
         this.updateLastRefresh();
       })
@@ -487,7 +524,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.alertService.realtimeResolved$.subscribe(alert => {
         if (!alert) return;
 
+        console.log('[DASHBOARD LIVE RESOLVED]', alert);
+
         this.alerts = this.alerts.filter(a => a.alertId !== alert.id);
+
+        this.loadAlerts();
+        this.loadKpis();
+        this.loadCharts();
+
         this.updateLastRefresh();
       })
     );
@@ -547,23 +591,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
       type.includes('GPS');
 
     const status: 'Plein' | 'Maintenance' = isMaintenance ? 'Maintenance' : 'Plein';
-
     const displayId =
-      a.binCode ||
-      a.truckCode ||
-      (a.entityType ? `${a.entityType}-${a.entityId}` : `ALERT-${a.id}`);
+      (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION'
+        ? `EXCEPTION-${a.id}`
+        : a.binCode ||
+        a.truckCode ||
+        (a.entityType ? `${a.entityType}-${a.entityId}` : `ALERT-${a.id}`);
 
     return {
       alertId: a.id,
       id: displayId,
       timeAgo: a.createdAt ? this.timeAgo(a.createdAt) : '',
-      location: a.title || a.message || '(—)',
+      location:
+        (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION'
+          ? (a.message || a.title || '(—)')
+          : (a.title || a.message || '(—)'),
       status,
       severity: sev,
       alertType: type,
       title: a.title,
       message: a.message,
-      createdAt: a.createdAt
+      createdAt: a.createdAt,
+      entityType: a.entityType,
+      actionType: a.actionType
     };
   }
 
@@ -655,49 +705,94 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
   alertTypeLabel(type?: string): string {
-  switch ((type || '').toUpperCase()) {
-    case 'BIN_FULL': return 'Bac plein';
-    case 'BIN_ALMOST_FULL': return 'Bac presque plein';
-    case 'BIN_FAST_FILLING': return 'Remplissage rapide';
-    case 'BIN_SUDDEN_FILL': return 'Remplissage soudain';
-    case 'BIN_SENSOR_STUCK': return 'Capteur bloqué';
-    case 'BIN_BATTERY_LOW': return 'Batterie faible';
-    case 'BIN_SENSOR_OR_OVERFLOW': return 'Capteur / débordement';
-    case 'NEED_EXTRA_BIN_NEARBY': return 'Besoin bac supplémentaire';
+    switch ((type || '').toUpperCase()) {
+      case 'BIN_FULL': return 'Bac plein';
+      case 'BIN_ALMOST_FULL': return 'Bac presque plein';
+      case 'BIN_FAST_FILLING': return 'Remplissage rapide';
+      case 'BIN_SUDDEN_FILL': return 'Remplissage soudain';
+      case 'BIN_SENSOR_STUCK': return 'Capteur bloqué';
+      case 'BIN_BATTERY_LOW': return 'Batterie faible';
+      case 'BIN_SENSOR_OR_OVERFLOW': return 'Capteur / débordement';
+      case 'NEED_EXTRA_BIN_NEARBY': return 'Besoin bac supplémentaire';
 
-    case 'TRUCK_BREAKDOWN': return 'Panne camion';
-    case 'TRUCK_GPS_LOST': return 'GPS perdu';
-    case 'TRUCK_FUEL_LOW': return 'Carburant faible';
-    case 'TRUCK_OVERLOAD': return 'Surcharge camion';
-    case 'TRUCK_DELAY': return 'Retard camion';
-    case 'TRUCK_TRAFFIC_BLOCK': return 'Blocage trafic';
-    case 'DRIVER_UNAVAILABLE': return 'Chauffeur indisponible';
+      case 'TRUCK_BREAKDOWN': return 'Panne camion';
+      case 'TRUCK_GPS_LOST': return 'GPS perdu';
+      case 'TRUCK_FUEL_LOW': return 'Carburant faible';
+      case 'TRUCK_OVERLOAD': return 'Surcharge camion';
+      case 'TRUCK_DELAY': return 'Retard camion';
+      case 'TRUCK_TRAFFIC_BLOCK': return 'Blocage trafic';
+      case 'DRIVER_UNAVAILABLE': return 'Chauffeur indisponible';
+      case 'SCHEDULE_EXCEPTION': return 'Collecte exceptionnelle';
+      case 'MUNICIPAL_EXCEPTION': return 'Exception municipale';
 
-    default: return type || 'Alerte';
-  }
-}
-
-severityLabel(severity?: string): string {
-  switch ((severity || '').toUpperCase()) {
-    case 'CRITICAL': return 'Critique';
-    case 'HIGH': return 'Élevée';
-    case 'MEDIUM': return 'Moyenne';
-    case 'LOW': return 'Faible';
-    default: return severity || '—';
-  }
-}
-
-entityLabel(a: AlertItem): string {
-  const type = (a.alertType || '').toUpperCase();
-
-  if (type.startsWith('TRUCK') || type.includes('DRIVER')) {
-    return 'Camion';
+      default: return type || 'Alerte';
+    }
   }
 
-  if (type.includes('BATTERY') || type.includes('SENSOR') || type.includes('GPS')) {
-    return 'Maintenance';
+  severityLabel(severity?: string): string {
+    switch ((severity || '').toUpperCase()) {
+      case 'CRITICAL': return 'Critique';
+      case 'HIGH': return 'Élevée';
+      case 'MEDIUM': return 'Moyenne';
+      case 'LOW': return 'Faible';
+      default: return severity || '—';
+    }
   }
 
-  return 'Bac';
-}
+  entityLabel(a: AlertItem): string {
+    const type = (a.alertType || '').toUpperCase();
+    if (
+      (a.alertType || '').toUpperCase() === 'SCHEDULE_EXCEPTION' ||
+      (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION'
+    ) {
+      return 'Municipalité';
+    }
+
+    if (type.startsWith('TRUCK') || type.includes('DRIVER')) {
+      return 'Camion';
+    }
+
+    if (type.includes('BATTERY') || type.includes('SENSOR') || type.includes('GPS')) {
+      return 'Maintenance';
+    }
+
+    return 'Bac';
+  }
+  canCreateExceptionMission(a: AlertItem): boolean {
+    return (
+      (a.alertType || '').toUpperCase() === 'SCHEDULE_EXCEPTION' ||
+      (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION' ||
+      (a.actionType || '').toUpperCase() === 'CREATE_EXCEPTION_MISSION'
+    );
+  }
+
+  createExceptionMission(a: AlertItem): void {
+    if (this.creatingMissionId) return;
+
+    this.creatingMissionId = a.alertId;
+    this.alertsError = '';
+
+    this.alertService.createExceptionMission(a.alertId).subscribe({
+      next: () => {
+        this.creatingMissionId = null;
+        this.alerts = this.alerts.filter(item => item.alertId !== a.alertId);
+        this.loadKpis();
+        this.loadCharts();
+        this.loadAlerts();
+      },
+      error: (err) => {
+        console.error('POST /api/alerts/{id}/create-exception-mission failed', err);
+        this.creatingMissionId = null;
+        this.alertsError = "Impossible de créer la mission exceptionnelle.";
+      }
+    });
+  }
+  isMunicipalException(a: AlertItem): boolean {
+    return (
+      (a.entityType || '').toUpperCase() === 'MUNICIPAL_EXCEPTION' ||
+      (a.actionType || '').toUpperCase() === 'CREATE_EXCEPTION_MISSION' ||
+      (a.message || '').toLowerCase().includes('exception') ||
+      (a.alertType || '').toUpperCase() === 'MISSION_NOT_STARTED'
+    );
+  }
 }

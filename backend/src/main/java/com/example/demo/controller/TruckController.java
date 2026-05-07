@@ -56,6 +56,10 @@ public class TruckController {
     public ResponseEntity<List<TruckResponseDto>> getActiveTrucks() {
         return ResponseEntity.ok(truckService.getActiveTrucks());
     }
+    @PatchMapping("/{truckId}/unload")
+    public ResponseEntity<TruckResponseDto> unloadTruck(@PathVariable Long truckId) {
+        return ResponseEntity.ok(truckService.unloadTruck(truckId));
+    }
 
     @DeleteMapping("/{truckId}")
     public ResponseEntity<Void> deactivateTruck(@PathVariable Long truckId) {

@@ -55,8 +55,8 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
   activeTab = signal<MissionTab>('overview');
 
-  searchTerm = '';
-  selectedStatus = 'ALL';
+  searchTerm = signal('');
+  selectedStatus = signal('ALL');
 
   debugMode = signal(false);
   routeDistances = signal<number[]>([]);
@@ -64,34 +64,43 @@ export class MissionsComponent implements OnInit, OnDestroy {
   loadingMissionAlerts = signal(false);
   private alertSub = new Subscription();
 
+  trafficEnabled = signal(false);
+  trafficSource = signal<string | null>(null);
+  trafficDelayMin = signal<number>(0);
+  trafficLevel = signal<string>('FLUID');
+  roadClosed = signal(false);
+  estimatedBaseDurationMin = signal<number | null>(null);
+  estimatedRealDurationMin = signal<number | null>(null);
+
   constructor(
-  private missionService: MissionService,
-  private alertService: AlertService
-) {}
+    private missionService: MissionService,
+    private alertService: AlertService
+  ) { }
 
- ngOnInit(): void {
-  this.loadMissions();
+  ngOnInit(): void {
+    this.loadMissions();
 
-  this.alertSub.add(
-    this.alertService.realtimeAlert$.subscribe(alert => {
-      const mission = this.selectedMission();
-      if (!mission) return;
+    this.alertSub.add(
+      this.alertService.realtimeAlert$.subscribe(alert => {
+        const mission = this.selectedMission();
+        if (!mission) return;
 
-      if (alert.missionId === mission.id && !alert.resolved) {
-        const exists = this.missionAlerts().some(a => a.id === alert.id);
-        if (!exists) {
-          this.missionAlerts.update(list => [alert, ...list]);
+        if (alert.missionId === mission.id && !alert.resolved) {
+          const exists = this.missionAlerts().some(a => a.id === alert.id);
+          if (!exists) {
+            this.missionAlerts.update(list => [alert, ...list]);
+          }
         }
-      }
-    })
-  );
+      })
+    );
 
-  this.alertSub.add(
-    this.alertService.realtimeResolved$.subscribe(alert => {
-      this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
-    })
-  );
-}
+    this.alertSub.add(
+      this.alertService.realtimeResolved$.subscribe(alert => {
+        this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
+      })
+    );
+  }
+
   ngOnDestroy(): void {
     this.alertSub.unsubscribe();
   }
@@ -116,30 +125,33 @@ export class MissionsComponent implements OnInit, OnDestroy {
     });
   }
 
-  filteredMissions = computed(() => {
-    let data = [...this.missions()];
+filteredMissions = computed(() => {
+  let data = [...this.missions()];
 
-    if (this.showOnlyLatestAi()) {
-      const latestIds = this.latestAiMissionIds();
-      data = data.filter(m => latestIds.includes(m.id));
-    }
+  if (this.showOnlyLatestAi()) {
+    const latestIds = this.latestAiMissionIds();
+    data = data.filter(m => latestIds.includes(m.id));
+  }
 
-    if (this.selectedStatus !== 'ALL') {
-      data = data.filter(m => m.status === this.selectedStatus);
-    }
+  const status = this.selectedStatus();
+  const term = this.searchTerm().trim();
 
-    if (this.searchTerm.trim()) {
-      const q = this.searchTerm.toLowerCase();
-      data = data.filter(m =>
-        (m.missionCode || '').toLowerCase().includes(q) ||
-        (m.driverName || '').toLowerCase().includes(q) ||
-        (m.zoneName || '').toLowerCase().includes(q) ||
-        (m.status || '').toLowerCase().includes(q)
-      );
-    }
+  if (status !== 'ALL') {
+    data = data.filter(m => m.status === status);
+  }
 
-    return this.sortMissionList(data);
-  });
+  if (term) {
+    const q = term.toLowerCase();
+    data = data.filter(m =>
+      (m.missionCode || '').toLowerCase().includes(q) ||
+      (m.driverName || '').toLowerCase().includes(q) ||
+      (m.zoneName || '').toLowerCase().includes(q) ||
+      (m.status || '').toLowerCase().includes(q)
+    );
+  }
+
+  return this.sortMissionList(data);
+});
 
   groupedMissions = computed(() => {
     const data = this.filteredMissions();
@@ -178,13 +190,23 @@ export class MissionsComponent implements OnInit, OnDestroy {
   );
 
   remainingBins = computed(() =>
-    this.missionBins().filter(b => !b.collected).length
+    this.missionBins().filter(b => !b.collected && b.assignmentStatus !== 'REASSIGNED').length
+  );
+  reassignedBins = computed(() =>
+    this.missionBins().filter(b => b.assignmentStatus === 'REASSIGNED').length
   );
 
   progressPercent = computed(() => {
     const total = this.totalBins();
     if (!total) return 0;
     return Math.round((this.collectedBins() / total) * 100);
+  });
+  missionWasteTypes = computed(() => {
+    const types = this.missionBins()
+      .map(bin => (bin.wasteType || '').trim().toUpperCase())
+      .filter(type => !!type);
+
+    return [...new Set(types)];
   });
 
   missionMapBins = computed<FleetMapMissionBinItem[]>(() =>
@@ -221,8 +243,13 @@ export class MissionsComponent implements OnInit, OnDestroy {
         stopOrder: stop.stopOrder,
         stopType: stop.stopType,
         binId: stop.binId,
+
         fuelStationId: stop.fuelStationId ?? null,
         fuelStationName: stop.fuelStationName ?? null,
+
+        disposalSiteId: stop.disposalSiteId ?? null,
+        disposalSiteName: stop.disposalSiteName ?? null,
+
         lat: stop.lat,
         lng: stop.lng
       }))
@@ -294,7 +321,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
     this.missionService.getAllMissions().subscribe({
       next: (data) => {
-        const sorted = this.sortMissionList(data);
+        const sorted = this.sortMissionList(data || []);
         this.missions.set(sorted);
         this.loading.set(false);
 
@@ -339,6 +366,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
     this.selectedMission.set(mission);
     this.activeTab.set('overview');
+
     this.missionBins.set([]);
     this.missionRouteCoordinates.set([]);
     this.collectionRouteCoordinates.set([]);
@@ -350,6 +378,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
     this.routeTotalDistanceKm.set(0);
     this.routeDistances.set([]);
     this.debugMode.set(false);
+
     this.loadMissionBins(mission.id);
     this.loadMissionRoute(mission.id);
     this.loadMissionAlerts(mission.id);
@@ -360,7 +389,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
     this.missionService.getMissionBins(missionId).subscribe({
       next: (data) => {
-        this.missionBins.set(data);
+        this.missionBins.set(data || []);
         this.loadingBins.set(false);
       },
       error: () => {
@@ -385,6 +414,14 @@ export class MissionsComponent implements OnInit, OnDestroy {
         this.routeTotalDistanceKm.set(data?.totalDistanceKm ?? 0);
         this.routeDistances.set(data?.stopLegDistancesKm ?? []);
         this.loadingRoute.set(false);
+
+        this.trafficEnabled.set(!!data?.trafficEnabled);
+        this.trafficSource.set(data?.trafficSource ?? data?.matrixSource ?? null);
+        this.trafficDelayMin.set(Number(data?.trafficDelayMin ?? 0));
+        this.trafficLevel.set(data?.trafficLevel ?? 'FLUID');
+        this.roadClosed.set(!!data?.roadClosed);
+        this.estimatedBaseDurationMin.set(data?.estimatedBaseDurationMin ?? null);
+        this.estimatedRealDurationMin.set(data?.estimatedDurationMin ?? null);
       },
       error: () => {
         this.missionRouteCoordinates.set([]);
@@ -397,6 +434,14 @@ export class MissionsComponent implements OnInit, OnDestroy {
         this.routeTotalDistanceKm.set(0);
         this.routeDistances.set([]);
         this.loadingRoute.set(false);
+
+        this.trafficEnabled.set(false);
+        this.trafficSource.set(null);
+        this.trafficDelayMin.set(0);
+        this.trafficLevel.set('FLUID');
+        this.roadClosed.set(false);
+        this.estimatedBaseDurationMin.set(null);
+        this.estimatedRealDurationMin.set(null);
       }
     });
   }
@@ -466,7 +511,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
   collectBin(bin: MissionBinResponse): void {
     const mission = this.selectedMission();
-    if (!mission || bin.collected) return;
+    if (!mission || bin.collected || bin.assignmentStatus === 'REASSIGNED') return;
 
     this.actionLoading.set(true);
     this.errorMessage.set(null);
@@ -497,30 +542,45 @@ export class MissionsComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
     this.aiMessage.set(null);
     this.generatingAi.set(true);
+    this.showOnlyLatestAi.set(false);
 
-    setTimeout(() => {
-      const current = this.missions();
-      const simulatedNewIds = current
-        .filter(m => m.status === 'CREATED')
-        .slice(0, 3)
-        .map(m => m.id);
+    this.missionService.planAndSaveMissions().subscribe({
+      next: (createdMissions) => {
+        const newMissions = createdMissions || [];
+        const newIds = newMissions.map(m => m.id);
 
-      this.latestAiMissionIds.set(simulatedNewIds);
-      this.latestAiBatchLabel.set(`IA-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`);
-      this.showOnlyLatestAi.set(true);
+        this.latestAiMissionIds.set(newIds);
+        this.latestAiBatchLabel.set(
+          `IA-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}`
+        );
+        this.showOnlyLatestAi.set(newIds.length > 0);
 
-      this.generatingAi.set(false);
-      this.aiMessage.set(
-        `${simulatedNewIds.length} mission(s) marquée(s) comme dernière génération IA.`
-      );
+        this.generatingAi.set(false);
+        this.aiMessage.set(
+          newIds.length
+            ? `${newIds.length} mission(s) générée(s) avec succès par l’optimisation.`
+            : 'Optimisation terminée, mais aucune mission n’a été créée.'
+        );
 
-      if (simulatedNewIds.length) {
-        const firstMission = current.find(m => m.id === simulatedNewIds[0]);
-        if (firstMission) {
-          this.selectMission(firstMission);
+        this.loadMissions();
+
+        if (newMissions.length) {
+          this.selectMission(newMissions[0]);
         }
+      },
+      error: (err) => {
+        this.generatingAi.set(false);
+
+        const backendMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          (typeof err?.error === 'string' ? err.error : null);
+
+        this.errorMessage.set(
+          backendMessage || 'Impossible de générer un nouveau plan de missions.'
+        );
       }
-    }, 700);
+    });
   }
 
   toggleLatestAiFilter(): void {
@@ -545,6 +605,30 @@ export class MissionsComponent implements OnInit, OnDestroy {
     this.aiMessage.set(null);
   }
 
+  getMissionStatusDetail(mission: MissionResponse | null | undefined): string | null {
+    if (!mission) return null;
+
+    const detail =
+      (mission as any).missionStatusDetail ||
+      (mission as any).mission_status_detail ||
+      null;
+
+    if (detail) return detail;
+
+    switch (mission.status) {
+      case 'CREATED':
+        return 'PLANNED';
+      case 'IN_PROGRESS':
+        return 'IN_PROGRESS';
+      case 'COMPLETED':
+        return 'COMPLETED';
+      case 'CANCELLED':
+        return 'CANCELLED';
+      default:
+        return null;
+    }
+  }
+
   getStatusLabel(status: string | null): string {
     switch (status) {
       case 'CREATED':
@@ -557,6 +641,44 @@ export class MissionsComponent implements OnInit, OnDestroy {
         return 'Annulée';
       default:
         return status || '—';
+    }
+  }
+
+  getStatusDetailLabel(detail: string | null | undefined): string {
+    switch (detail) {
+      case 'PLANNED':
+        return 'Planifiée';
+      case 'IN_PROGRESS':
+        return 'En exécution';
+      case 'COMPLETED':
+        return 'Clôturée';
+      case 'REPLANNED':
+        return 'Replanifiée';
+      case 'PARTIALLY_REASSIGNED':
+        return 'Partiellement réaffectée';
+      case 'CANCELLED':
+        return 'Annulée';
+      default:
+        return '—';
+    }
+  }
+
+  statusDetailClass(detail: string | null | undefined): string {
+    switch (detail) {
+      case 'PARTIALLY_REASSIGNED':
+        return 'mission-detail-badge reassign';
+      case 'REPLANNED':
+        return 'mission-detail-badge replanned';
+      case 'COMPLETED':
+        return 'mission-detail-badge completed';
+      case 'IN_PROGRESS':
+        return 'mission-detail-badge running';
+      case 'PLANNED':
+        return 'mission-detail-badge planned';
+      case 'CANCELLED':
+        return 'mission-detail-badge cancelled';
+      default:
+        return 'mission-detail-badge neutral';
     }
   }
 
@@ -594,6 +716,7 @@ export class MissionsComponent implements OnInit, OnDestroy {
   }
 
   binStatusClass(bin: MissionBinResponse): string {
+    if (bin.assignmentStatus === 'REASSIGNED') return 'badge warning';
     if (bin.collected) return 'badge success';
     return 'badge neutral';
   }
@@ -613,50 +736,157 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
     return this.routeDistances().reduce((sum, d) => sum + d, 0);
   }
+
   loadMissionAlerts(missionId: number): void {
-  this.loadingMissionAlerts.set(true);
+    this.loadingMissionAlerts.set(true);
 
-  this.alertService.getAlertsByMission(missionId).subscribe({
-    next: (alerts: AlertDto[]) => {
-      this.missionAlerts.set((alerts || []).filter(a => !a.resolved));
-      this.loadingMissionAlerts.set(false);
-    },
-    error: (err: any) => {
-      console.error('Mission alerts error:', err);
-      this.missionAlerts.set([]);
-      this.loadingMissionAlerts.set(false);
-    }
-  });
-}
-
-resolveMissionAlert(alert: AlertDto): void {
-  this.alertService.resolveAlert(alert.id).subscribe({
-    next: () => {
-      this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
-    },
-    error: (err: any) => {
-      console.error('Resolve mission alert error:', err);
-    }
-  });
-}
-
-getAlertSeverityLabel(severity?: string): string {
-  switch ((severity || '').toUpperCase()) {
-    case 'CRITICAL': return 'Critique';
-    case 'HIGH': return 'Élevée';
-    case 'MEDIUM': return 'Moyenne';
-    case 'LOW': return 'Faible';
-    default: return severity || '—';
+    this.alertService.getAlertsByMission(missionId).subscribe({
+      next: (alerts: AlertDto[]) => {
+        this.missionAlerts.set((alerts || []).filter(a => !a.resolved));
+        this.loadingMissionAlerts.set(false);
+      },
+      error: (err: any) => {
+        console.error('Mission alerts error:', err);
+        this.missionAlerts.set([]);
+        this.loadingMissionAlerts.set(false);
+      }
+    });
   }
-}
 
-alertSeverityClass(severity?: string): string {
-  switch ((severity || '').toUpperCase()) {
-    case 'CRITICAL': return 'mission-alert critical';
-    case 'HIGH': return 'mission-alert high';
-    case 'MEDIUM': return 'mission-alert medium';
-    case 'LOW': return 'mission-alert low';
-    default: return 'mission-alert medium';
+  resolveMissionAlert(alert: AlertDto): void {
+    this.alertService.resolveAlert(alert.id).subscribe({
+      next: () => {
+        this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
+      },
+      error: (err: any) => {
+        console.error('Resolve mission alert error:', err);
+      }
+    });
   }
-}
+
+  getAlertSeverityLabel(severity?: string): string {
+    switch ((severity || '').toUpperCase()) {
+      case 'CRITICAL':
+        return 'Critique';
+      case 'HIGH':
+        return 'Élevée';
+      case 'MEDIUM':
+        return 'Moyenne';
+      case 'LOW':
+        return 'Faible';
+      default:
+        return severity || '—';
+    }
+  }
+
+  alertSeverityClass(severity?: string): string {
+    switch ((severity || '').toUpperCase()) {
+      case 'CRITICAL':
+        return 'mission-alert critical';
+      case 'HIGH':
+        return 'mission-alert high';
+      case 'MEDIUM':
+        return 'mission-alert medium';
+      case 'LOW':
+        return 'mission-alert low';
+      default:
+        return 'mission-alert medium';
+    }
+  }
+
+  trafficBadgeClass(): string {
+    if (this.roadClosed()) return 'traffic-danger';
+    if (this.trafficDelayMin() >= 30) return 'traffic-danger';
+    if (this.trafficDelayMin() >= 15) return 'traffic-warning-strong';
+    if (this.trafficDelayMin() >= 5) return 'traffic-warning';
+    if (this.trafficEnabled()) return 'traffic-success';
+    return 'traffic-neutral';
+  }
+
+  trafficLabel(): string {
+    const delay = this.trafficDelayMin();
+
+    if (this.roadClosed()) return 'Route potentiellement fermée';
+    if (delay >= 30) return `Route congestionnée · +${delay} min trafic`;
+    if (delay >= 15) return `Trafic important · +${delay} min`;
+    if (delay >= 5) return `Trafic modéré · +${delay} min`;
+    if (this.trafficEnabled()) return 'Trafic réel activé';
+
+    return 'OSRM standard';
+  }
+
+
+
+  getWasteTypeLabel(type: string | null | undefined): string {
+    switch ((type || '').toUpperCase()) {
+      case 'GREEN':
+        return 'Déchets verts';
+      case 'YELLOW':
+        return 'Emballages';
+      case 'GRAY':
+      case 'GREY':
+        return 'Ordures ménagères';
+      case 'WHITE':
+        return 'Papier';
+      default:
+        return type || '—';
+    }
+  }
+
+  wasteTypeClass(type: string | null | undefined): string {
+    switch ((type || '').toUpperCase()) {
+      case 'GREEN':
+        return 'waste-pill waste-green';
+      case 'YELLOW':
+        return 'waste-pill waste-yellow';
+      case 'GRAY':
+      case 'GREY':
+        return 'waste-pill waste-gray';
+      case 'WHITE':
+        return 'waste-pill waste-white';
+      default:
+        return 'waste-pill waste-default';
+    }
+  }
+
+
+
+
+
+
+
+  isMissionReplanned(mission: MissionResponse | null | undefined): boolean {
+    const detail = this.getMissionStatusDetail(mission);
+
+    return detail === 'REPLANNED' || detail === 'PARTIALLY_REASSIGNED';
+  }
+
+  getReplanJournalTitle(mission: MissionResponse | null | undefined): string {
+    const detail = this.getMissionStatusDetail(mission);
+
+    if (detail === 'PARTIALLY_REASSIGNED') {
+      return 'Bacs restants réaffectés automatiquement';
+    }
+
+    if (detail === 'REPLANNED') {
+      return 'Itinéraire recalculé automatiquement';
+    }
+
+    return 'Replanification automatique effectuée';
+  }
+
+  getReplanJournalMessage(mission: MissionResponse | null | undefined): string {
+    const detail = this.getMissionStatusDetail(mission);
+
+    if (detail === 'PARTIALLY_REASSIGNED') {
+      return `${this.reassignedBins()} bac(s) ont été réaffecté(s) vers un autre camion disponible suite à un incident chauffeur/camion.`;
+    }
+
+    if (detail === 'REPLANNED') {
+      return 'La tournée a été recalculée automatiquement suite à un événement temps réel, sans relancer toute la planification journalière.';
+    }
+
+    return 'Le système a détecté un changement opérationnel et a mis à jour la mission automatiquement.';
+  }
+
 }

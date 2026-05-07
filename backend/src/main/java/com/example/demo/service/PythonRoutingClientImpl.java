@@ -23,7 +23,7 @@ public class PythonRoutingClientImpl implements PythonRoutingClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(RoutingResponseDto.class)
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofMinutes(6))
                 .block();
     }
 }

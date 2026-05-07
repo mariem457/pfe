@@ -26,4 +26,7 @@ public class BinResponse {
     public Integer batteryLevel;
     public String status;
     public OffsetDateTime lastTelemetryAt;
+ // ===== AI predictions =====
+    public Double predictedFillLevelNext; // modèle 1
+    public Double hoursToFull;            // modèle 2
 }

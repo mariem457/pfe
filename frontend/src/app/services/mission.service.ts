@@ -9,7 +9,13 @@ export interface MissionResponse {
   driverName: string | null;
   zoneId: number | null;
   zoneName: string | null;
+
   status: string;
+
+  // Backend may return camelCase or snake_case depending on DTO mapping
+  missionStatusDetail?: string | null;
+  mission_status_detail?: string | null;
+
   priority: string;
   plannedDate: string;
   createdAt: string;
@@ -28,6 +34,7 @@ export interface MissionBinResponse {
   lng: number | null;
   visitOrder: number;
   targetFillThreshold: number | null;
+  wasteType?: string | null;
   assignedReason: string | null;
   collected: boolean;
   collectedAt: string | null;
@@ -35,6 +42,8 @@ export interface MissionBinResponse {
   driverNote: string | null;
   issueType: string | null;
   photoUrl: string | null;
+
+  // Used for dynamic replanning display
   assignmentStatus: string | null;
   reassignedFromTruckId: number | null;
   reassignedToTruckId: number | null;
@@ -52,8 +61,13 @@ export interface MissionRouteStop {
   stopOrder: number;
   stopType: string | null;
   binId: number | null;
+
   fuelStationId?: number | null;
   fuelStationName?: string | null;
+
+  disposalSiteId?: number | null;
+  disposalSiteName?: string | null;
+
   lat: number;
   lng: number;
 }
@@ -64,16 +78,24 @@ export interface MissionRouteResponse {
   truckId: number | null;
   totalDistanceKm: number | null;
   estimatedDurationMin: number | null;
+
   routeCoordinates: RouteCoordinate[];
   routeStops: MissionRouteStop[];
   snappedWaypoints: RouteCoordinate[];
+
   matrixSource?: string | null;
   geometrySource?: string | null;
   stopLegDistancesKm?: number[];
 
-  // optional if backend enhanced later
   collectionRouteCoordinates?: RouteCoordinate[];
   transferRouteCoordinates?: RouteCoordinate[];
+
+  trafficEnabled?: boolean;
+  trafficSource?: string | null;
+  estimatedBaseDurationMin?: number | null;
+  trafficDelayMin?: number | null;
+  roadClosed?: boolean;
+  trafficLevel?: 'FLUID' | 'LIGHT' | 'MODERATE' | 'HEAVY' | string;
 }
 
 @Injectable({
@@ -107,6 +129,8 @@ export class MissionService {
     return this.http.post<MissionResponse>(`${this.apiUrl}/${id}/complete`, {});
   }
 
+  
+
   collectMissionBin(
     missionId: number,
     missionBinId: number,
@@ -122,4 +146,11 @@ export class MissionService {
       payload
     );
   }
+
+  planAndSaveMissions(): Observable<MissionResponse[]> {
+  return this.http.post<MissionResponse[]>(
+    'http://localhost:8081/api/routing/plan-and-save',
+    {}
+  );
+}
 }

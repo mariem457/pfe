@@ -1,18 +1,17 @@
 <section class="it-bins">
 
+  <!-- ================= HEADER ================= -->
   <div class="it-binsHeader">
-    <div>
-      <h1 class="it-binsTitle">Gestion des bacs</h1>
-      <p class="it-binsSub">
-        Superviser, filtrer et administrer tous les bacs intelligents de la ville
-      </p>
+    <div class="it-binsHeader__left">
+      <div>
+        <h1 class="it-binsTitle">Gestion des bacs</h1>
+        <p class="it-binsSub">
+          Superviser, filtrer et administrer tous les bacs intelligents de la ville
+        </p>
+      </div>
     </div>
 
     <div class="it-headerActions">
-      <div class="it-lastUpdate" aria-live="polite">
-        Dernière mise à jour : {{ lastUpdatedLabel }}
-      </div>
-
       <button class="it-secondaryBtn" type="button" (click)="refreshAll()">
         Actualiser
       </button>
@@ -27,30 +26,46 @@
     </div>
   </div>
 
+  <!-- ================= KPI ================= -->
   <div class="it-binsKpi">
     <div class="it-statCard">
-      <div class="it-statLabel">Nombre total de bacs</div>
-      <div class="it-statValue">{{ stats.total | number }}</div>
+      <div>
+        <span>Nombre total de bacs</span>
+        <strong>{{ stats.total | number }}</strong>
+        <small>Bacs enregistrés</small>
+      </div>
     </div>
 
     <div class="it-statCard">
-      <div class="it-statLabel">Bacs pleins</div>
-      <div class="it-statValue">{{ stats.full }}</div>
+      <div>
+        <span>Bacs pleins</span>
+        <strong>{{ stats.full }}</strong>
+        <small>À collecter en priorité</small>
+      </div>
     </div>
 
     <div class="it-statCard">
-      <div class="it-statLabel">Partiels</div>
-      <div class="it-statValue">{{ stats.partial }}</div>
+      <div>
+        <span>Partiels</span>
+        <strong>{{ stats.partial }}</strong>
+        <small>Remplissage intermédiaire</small>
+      </div>
     </div>
 
     <div class="it-statCard">
-      <div class="it-statLabel">Alertes ouvertes</div>
-      <div class="it-statValue">{{ stats.withAlerts }}</div>
+      <div>
+        <span>Alertes ouvertes</span>
+        <strong>{{ stats.withAlerts }}</strong>
+        <small>Incidents actifs</small>
+      </div>
     </div>
 
     <div class="it-statCard it-statCard--danger">
-      <div class="it-statLabel">Alertes critiques</div>
-      <div class="it-statValue">{{ stats.criticalAlerts }}</div>
+      <div>
+        <span>Alertes critiques</span>
+        <strong>{{ stats.criticalAlerts }}</strong>
+        <small>Intervention urgente</small>
+      </div>
     </div>
   </div>
 

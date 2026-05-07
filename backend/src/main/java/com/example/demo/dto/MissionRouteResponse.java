@@ -31,8 +31,62 @@ public class MissionRouteResponse {
     private String geometrySource;
 
     private List<String> validationWarnings = new ArrayList<>();
+    private Boolean trafficEnabled = false;
+    private String trafficSource;
+    private Integer estimatedBaseDurationMin;
+    private Integer trafficDelayMin;
+    private Boolean roadClosed = false;
+    private String trafficLevel;
 
-    public MissionRouteResponse() {
+    public Boolean getTrafficEnabled() {
+		return trafficEnabled;
+	}
+
+	public void setTrafficEnabled(Boolean trafficEnabled) {
+		this.trafficEnabled = trafficEnabled;
+	}
+
+	public String getTrafficSource() {
+		return trafficSource;
+	}
+
+	public void setTrafficSource(String trafficSource) {
+		this.trafficSource = trafficSource;
+	}
+
+	public Integer getEstimatedBaseDurationMin() {
+		return estimatedBaseDurationMin;
+	}
+
+	public void setEstimatedBaseDurationMin(Integer estimatedBaseDurationMin) {
+		this.estimatedBaseDurationMin = estimatedBaseDurationMin;
+	}
+
+	public Integer getTrafficDelayMin() {
+		return trafficDelayMin;
+	}
+
+	public void setTrafficDelayMin(Integer trafficDelayMin) {
+		this.trafficDelayMin = trafficDelayMin;
+	}
+
+	public Boolean getRoadClosed() {
+		return roadClosed;
+	}
+
+	public void setRoadClosed(Boolean roadClosed) {
+		this.roadClosed = roadClosed;
+	}
+
+	public String getTrafficLevel() {
+		return trafficLevel;
+	}
+
+	public void setTrafficLevel(String trafficLevel) {
+		this.trafficLevel = trafficLevel;
+	}
+
+	public MissionRouteResponse() {
     }
 
     public Long getMissionId() { return missionId; }

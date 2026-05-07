@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import * as Location from "expo-location";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -35,10 +36,17 @@ const panneTypes = [
 export default function DeclareBreakdownScreen() {
   const isDark = useColorScheme() === "dark";
 
+  const { missionBinId, binCode, resumeIndex } = useLocalSearchParams<{
+    missionBinId?: string;
+    binCode?: string;
+    resumeIndex?: string;
+  }>();
+
   const [selectedType, setSelectedType] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   const colors = isDark
     ? {
@@ -61,6 +69,63 @@ export default function DeclareBreakdownScreen() {
         placeholder: "#9CA3AF",
         backText: "#64748B",
       };
+
+
+  function formatAddress(address: Location.LocationGeocodedAddress): string {
+    const parts = [
+      address.name,
+      address.street,
+      address.district,
+      address.city,
+      address.region,
+      address.country,
+    ].filter(Boolean);
+
+    return parts.join(", ");
+  }
+
+  async function loadCurrentLocation() {
+    try {
+      setLoadingLocation(true);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        setLocation("");
+        Alert.alert(
+          "Localisation refusée",
+          "Activez la localisation pour remplir l’adresse automatiquement."
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const reverse = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      const addressText =
+        reverse.length > 0
+          ? formatAddress(reverse[0])
+          : `Lat: ${position.coords.latitude.toFixed(6)}, Lng: ${position.coords.longitude.toFixed(6)}`;
+
+      setLocation(addressText);
+    } catch (error) {
+      console.log("Erreur localisation:", error);
+      setLocation("");
+      Alert.alert("Erreur", "Impossible de récupérer la localisation.");
+    } finally {
+      setLoadingLocation(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCurrentLocation();
+  }, []);
 
   async function handleSubmit() {
     Keyboard.dismiss();
@@ -89,8 +154,10 @@ export default function DeclareBreakdownScreen() {
 
       const payload = {
         driverUserId: userId,
+        missionBinId: missionBinId ? Number(missionBinId) : null,
+        binCode: binCode ?? null,
         type: selectedType,
-        location: location.trim(),
+        location: location.trim() || "Localisation non détectée",
         description: description.trim(),
         createdAt: new Date().toISOString(),
       };
@@ -108,12 +175,28 @@ export default function DeclareBreakdownScreen() {
       });
       */
 
-      Alert.alert("Succès", "Panne déclarée avec succès.", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
+Alert.alert("Succès", "Panne déclarée avec succès.", [
+  {
+    text: "Quitter",
+    style: "cancel",
+    onPress: () => {
+      router.replace("/(tabs)/dashboard");
+    },
+  },
+  {
+    text: "Continuer route",
+    onPress: () => {
+      router.replace({
+        pathname: "/route-map",
+        params: {
+          actionDone: "report",
+          reportedBinId: missionBinId ?? "",
+          resumeIndex: resumeIndex ?? "0",
         },
-      ]);
+      });
+    },
+  },
+]);
     } catch (error) {
       console.log("Erreur déclaration panne:", error);
       Alert.alert("Erreur", "Impossible de déclarer la panne.");
@@ -221,10 +304,26 @@ export default function DeclareBreakdownScreen() {
                     <TextInput
                       value={location}
                       onChangeText={setLocation}
-                      placeholder="Ex: Rue principale, zone 15..."
+                      placeholder={
+                        loadingLocation
+                          ? "Récupération de la localisation..."
+                          : "Localisation automatique..."
+                      }
                       placeholderTextColor={colors.placeholder}
                       style={[styles.input, { color: colors.text }]}
                     />
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={loadCurrentLocation}
+                      disabled={loadingLocation}
+                    >
+                      <Ionicons
+                        name={loadingLocation ? "sync-outline" : "locate-outline"}
+                        size={20}
+                        color={loadingLocation ? colors.placeholder : "#EF4444"}
+                      />
+                    </TouchableOpacity>
                   </View>
 
                   <Text style={[styles.label, { color: colors.subtext }]}>

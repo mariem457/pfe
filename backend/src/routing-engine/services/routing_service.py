@@ -3,7 +3,12 @@ from collections import Counter
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-from config.settings import DEFAULT_MAX_ROUTE_MINUTES
+from config.settings import (
+    DEFAULT_MAX_ROUTE_MINUTES,
+    OPPORTUNISTIC_MAX_DISTANCE_FROM_MANDATORY_METERS,
+    OPPORTUNISTIC_MAX_DISTANCE_FROM_DEPOT_METERS,
+    OPPORTUNISTIC_HIGH_SCORE_BYPASS,
+)
 from models.routing_models import (
     RouteCoordinateDto,
     RoutingMissionDto,
@@ -13,32 +18,40 @@ from models.routing_models import (
 )
 from services.incident_service import filter_eligible_trucks
 from services.matrix_service import create_matrices
-from services.osrm_service import call_osrm_route
+from services.osrm_service import call_osrm_route, call_osrm_route_summary
+from services.tomtom_service import call_tomtom_route
 
 DEFAULT_BIN_DROPOUT_PENALTY = 10000
 MANDATORY_BASE_PENALTY = 100000
 OPPORTUNISTIC_BASE_PENALTY = 30000
 REPORTABLE_BASE_PENALTY = 8000
 
-MORNING_RUN_MAX_MINUTES = 6 * 60
-EVENING_RUN_MAX_MINUTES = 6 * 60
+MORNING_RUN_MAX_MINUTES = 9 * 60
+EVENING_RUN_MAX_MINUTES = 9 * 60
 
 DEFAULT_SERVICE_TIME_MINUTES = 2
 DISPOSAL_SERVICE_TIME_MINUTES = 5
 
-MORNING_START_MINUTE_OF_DAY = 6 * 60
-EVENING_START_MINUTE_OF_DAY = 17 * 60
+MORNING_START_MINUTE_OF_DAY = 14 * 60
+EVENING_START_MINUTE_OF_DAY = 14 * 60
 
 MAX_PASS2_BINS = 90
+DISPOSAL_LOAD_RATIO_THRESHOLD = 0.75
+MIN_BINS_AFTER_DISPOSAL = 2
+URGENT_DISPOSAL_LOAD_RATIO_THRESHOLD = 0.50
 
 def is_bin_urgent(bin_dto) -> bool:
-    predicted_hours = bin_dto.predictedHoursToFull
-    priority = float(bin_dto.predictedPriority or 0.0)
+    predicted_hours = getattr(bin_dto, "predictedHoursToFull", None)
+    priority = float(getattr(bin_dto, "predictedPriority", 0.0) or 0.0)
+    fill_level = float(getattr(bin_dto, "fillLevel", 0.0) or 0.0)
 
     if predicted_hours is not None and predicted_hours <= 3:
         return True
 
     if priority >= 0.9:
+        return True
+
+    if fill_level >= 95:
         return True
 
     return False
@@ -47,6 +60,83 @@ def normalize_text(value) -> str:
     if value is None:
         return ""
     return str(value).strip().upper()
+
+
+
+
+def waste_family(waste_type: str | None) -> str:
+    wt = normalize_text(waste_type)
+
+    if wt in {"GRAY", "GREY", "GREEN"}:
+        return "ORGANIC"
+
+    if wt == "YELLOW":
+        return "YELLOW"
+
+    if wt == "WHITE":
+        return "WHITE"
+
+    return "UNKNOWN"
+
+
+def split_bins_by_waste_family(bins):
+    grouped = {}
+
+    for b in bins or []:
+        family = waste_family(getattr(b, "wasteType", None))
+        grouped.setdefault(family, []).append(b)
+
+    return grouped
+
+
+def build_family_request(original_request: RoutingRequestDto, selected_bins) -> RoutingRequestDto:
+    return RoutingRequestDto(
+        depot=original_request.depot,
+        trafficMode=original_request.trafficMode,
+        currentRun=original_request.currentRun,
+        bins=selected_bins,
+        trucks=original_request.trucks,
+        disposalSites=original_request.disposalSites,
+        activeIncidents=original_request.activeIncidents,
+    )
+
+
+def merge_family_responses(responses, all_input_bin_ids):
+    missions = []
+    excluded_trucks = []
+    warning_trucks = []
+    recommended_fuel_stations = []
+    served_bin_ids = set()
+    matrix_sources = []
+
+    for response in responses:
+        if response is None:
+            continue
+
+        missions.extend(response.missions or [])
+        excluded_trucks.extend(response.excludedTrucks or [])
+        warning_trucks.extend(response.warningTrucks or [])
+        recommended_fuel_stations.extend(response.recommendedFuelStations or [])
+
+        if response.matrixSource:
+            matrix_sources.append(response.matrixSource)
+
+        for mission in response.missions or []:
+            for stop in mission.stops or []:
+                if stop.stopType == "BIN_PICKUP" and stop.binId is not None:
+                    served_bin_ids.add(stop.binId)
+
+    dropped_bin_ids = sorted(set(all_input_bin_ids) - served_bin_ids)
+
+    return RoutingResponseDto(
+        missions=missions,
+        matrixSource="+".join(sorted(set(matrix_sources))) if matrix_sources else "NONE",
+        excludedTrucks=excluded_trucks,
+        warningTrucks=warning_trucks,
+        recommendedFuelStations=recommended_fuel_stations,
+        droppedBinIds=dropped_bin_ids,
+    )
+
 
 
 def haversine_meters(lat1, lng1, lat2, lng2) -> int:
@@ -62,7 +152,23 @@ def haversine_meters(lat1, lng1, lat2, lng2) -> int:
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return int(r * c)
 
+def cluster_soft_penalty(from_bin, to_bin) -> int:
+    if from_bin is None or to_bin is None:
+        return 0
 
+    from_zone = getattr(from_bin, "zoneId", None)
+    to_zone = getattr(to_bin, "zoneId", None)
+
+    from_cluster = getattr(from_bin, "clusterId", None)
+    to_cluster = getattr(to_bin, "clusterId", None)
+
+    if from_zone == to_zone and from_cluster == to_cluster:
+        return 0
+
+    if from_zone == to_zone and from_cluster != to_cluster:
+        return 300
+
+    return 0
 def is_truck_compatible_with_bin(truck, bin_dto) -> bool:
     bin_waste_type = normalize_text(getattr(bin_dto, "wasteType", None))
     if not bin_waste_type:
@@ -85,15 +191,38 @@ def is_truck_spatially_compatible_with_bin(truck, bin_dto) -> bool:
 
     return True
 
+def zone_has_eligible_truck(eligible_trucks, bin_zone) -> bool:
+    if bin_zone is None:
+        return True
+
+    for truck in eligible_trucks:
+        truck_zone = getattr(truck, "zoneId", None)
+        if truck_zone == bin_zone:
+            return True
+
+    return False
+
 
 def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int]:
     compatible_vehicle_indices = []
 
+    bin_zone = getattr(bin_dto, "zoneId", None)
+    has_truck_in_same_zone = zone_has_eligible_truck(eligible_trucks, bin_zone)
+
     for vehicle_index, truck in enumerate(eligible_trucks):
-        if (
-            is_truck_compatible_with_bin(truck, bin_dto)
-            and is_truck_spatially_compatible_with_bin(truck, bin_dto)
-        ):
+        if not is_truck_compatible_with_bin(truck, bin_dto):
+            continue
+
+        truck_zone = getattr(truck, "zoneId", None)
+
+        # الحالة العادية: zone hard
+        if has_truck_in_same_zone:
+            if truck_zone == bin_zone:
+                compatible_vehicle_indices.append(int(vehicle_index))
+
+        # emergency fallback: ما فما حتى camion eligible في نفس zone
+        # نخلي camions من zones أخرى يخدمو bin
+        else:
             compatible_vehicle_indices.append(int(vehicle_index))
 
     return compatible_vehicle_indices
@@ -250,6 +379,72 @@ def sort_opportunistic_bins(opportunistic_bins):
         reverse=True,
     )
 
+def filter_opportunistic_by_distance(request: RoutingRequestDto, mandatory_bins, opportunistic_bins):
+    if not opportunistic_bins:
+        return []
+
+    # إذا ما فماش mandatory، نقيسو opportunistic بالنسبة للـ depot
+    reference_points = []
+
+    if mandatory_bins:
+        reference_points = [(b.lat, b.lng, f"mandatory:{b.id}") for b in mandatory_bins]
+        max_distance = OPPORTUNISTIC_MAX_DISTANCE_FROM_MANDATORY_METERS
+    else:
+        reference_points = [(request.depot.lat, request.depot.lng, "depot")]
+        max_distance = OPPORTUNISTIC_MAX_DISTANCE_FROM_DEPOT_METERS
+
+    filtered = []
+
+    print(
+        f"Opportunistic distance filter => candidates={len(opportunistic_bins)}, "
+        f"references={len(reference_points)}, maxDistance={max_distance}m",
+        flush=True,
+    )
+
+    for b in opportunistic_bins:
+        score = float(getattr(b, "opportunisticScore", 0.0) or 0.0)
+
+        # score عالي برشا: نخليه حتى لو بعيد
+        if score >= OPPORTUNISTIC_HIGH_SCORE_BYPASS:
+            filtered.append(b)
+            print(
+                f"OPPORTUNISTIC KEPT BY SCORE => binId={b.id}, score={score}",
+                flush=True,
+            )
+            continue
+
+        nearest_distance = None
+        nearest_ref = None
+
+        for ref_lat, ref_lng, ref_name in reference_points:
+            d = haversine_meters(b.lat, b.lng, ref_lat, ref_lng)
+
+            if nearest_distance is None or d < nearest_distance:
+                nearest_distance = d
+                nearest_ref = ref_name
+
+        if nearest_distance is not None and nearest_distance <= max_distance:
+            filtered.append(b)
+            print(
+                f"OPPORTUNISTIC KEPT BY DISTANCE => binId={b.id}, "
+                f"nearest={nearest_ref}, distance={nearest_distance}m, score={score}",
+                flush=True,
+            )
+        else:
+            print(
+                f"OPPORTUNISTIC DROPPED BY DISTANCE => binId={b.id}, "
+                f"nearest={nearest_ref}, distance={nearest_distance}m, "
+                f"maxAllowed={max_distance}m, score={score}",
+                flush=True,
+            )
+
+    print(
+        f"Opportunistic distance filter result => kept={len(filtered)}, dropped={len(opportunistic_bins) - len(filtered)}",
+        flush=True,
+    )
+
+    return filtered
+
 
 def build_sub_request(original_request: RoutingRequestDto, selected_bins) -> RoutingRequestDto:
     return RoutingRequestDto(
@@ -327,8 +522,27 @@ def add_disposal_stop_if_needed(
 
     order += 1
 
-    extra_distance = haversine_meters(last_point[0], last_point[1], disposal.lat, disposal.lng)
-    extra_duration = max(1, int((extra_distance / 1000 / 30.0) * 60)) + DISPOSAL_SERVICE_TIME_MINUTES
+    try:
+        extra_distance, travel_duration = call_osrm_route_summary([
+            last_point,
+            (disposal.lat, disposal.lng)
+        ])
+        extra_duration = travel_duration + DISPOSAL_SERVICE_TIME_MINUTES
+    except Exception as e:
+        print(
+            f"OSRM disposal summary failed, fallback to haversine: {e}",
+            flush=True
+        )
+        extra_distance = haversine_meters(
+            last_point[0],
+            last_point[1],
+            disposal.lat,
+            disposal.lng
+        )
+        extra_duration = max(
+            1,
+            int((extra_distance / 1000 / 30.0) * 60)
+        ) + DISPOSAL_SERVICE_TIME_MINUTES
 
     ordered_points.append((disposal.lat, disposal.lng))
 
@@ -341,6 +555,45 @@ def add_disposal_stop_if_needed(
     return order, 0, extra_distance, extra_duration
 
 
+
+
+
+
+def count_remaining_bins_in_route(solution, routing, manager, start_index) -> int:
+    count = 0
+    tmp_index = start_index
+
+    while not routing.IsEnd(tmp_index):
+        node = manager.IndexToNode(tmp_index)
+        if node != 0:
+            count += 1
+        tmp_index = solution.Value(routing.NextVar(tmp_index))
+
+    return count
+
+def should_insert_disposal_smartly(
+    current_load: float,
+    capacity: float,
+    upcoming_bins_count: int,
+    next_bin_is_urgent: bool,
+) -> bool:
+    if capacity <= 0 or current_load <= 0:
+        return False
+
+    load_ratio = current_load / capacity
+
+    # إذا الباك الجاي urgent، نفرغ حتى لو باقي كان باك واحد
+    if next_bin_is_urgent and load_ratio >= URGENT_DISPOSAL_LOAD_RATIO_THRESHOLD:
+        return True
+
+    # إذا مازال كان باك واحد وماهوش urgent، ما نفرغوش
+    if upcoming_bins_count <= 1:
+        return False
+
+    if load_ratio >= DISPOSAL_LOAD_RATIO_THRESHOLD and upcoming_bins_count >= MIN_BINS_AFTER_DISPOSAL:
+        return True
+
+    return False
 def build_response_from_solution(
     request: RoutingRequestDto,
     eligible_trucks,
@@ -394,16 +647,42 @@ def build_response_from_solution(
                     continue
 
                 if capacity > 0 and current_load > 0 and current_load + bin_load > capacity:
-                    order, current_load, extra_dist, extra_time = add_disposal_stop_if_needed(
-                        request=request,
-                        stops=stops,
-                        ordered_points=ordered_points,
-                        order=order,
-                        current_load=current_load,
-                        waste_type=last_waste_type,
+                    upcoming_bins_count = count_remaining_bins_in_route(
+                        solution=solution,
+                        routing=routing,
+                        manager=manager,
+                        start_index=next_index,
                     )
-                    total_dist += extra_dist
-                    total_time += extra_time
+
+                    next_bin_is_urgent = is_bin_urgent(selected_bin)
+
+                    if should_insert_disposal_smartly(
+                        current_load=current_load,
+                        capacity=capacity,
+                        upcoming_bins_count=upcoming_bins_count,
+                        next_bin_is_urgent=next_bin_is_urgent,
+                    ):
+                        order, current_load, extra_dist, extra_time = add_disposal_stop_if_needed(
+                            request=request,
+                            stops=stops,
+                            ordered_points=ordered_points,
+                            order=order,
+                            current_load=current_load,
+                            waste_type=last_waste_type,
+                        )
+                        total_dist += extra_dist
+                        total_time += extra_time
+                    else:
+                        print(
+                            f"[SMART DISPOSAL] skipped binId={selected_bin.id} because disposal is not efficient "
+                            f"| currentLoad={round(current_load, 2)}kg "
+                            f"| capacity={round(capacity, 2)}kg "
+                            f"| binLoad={round(bin_load, 2)}kg "
+                            f"| upcomingBins={upcoming_bins_count}",
+                            flush=True,
+                        )
+                        index = next_index
+                        continue
 
                 served_bin_ids.add(selected_bin.id)
 
@@ -455,6 +734,24 @@ def build_response_from_solution(
                     f"OSRM route geometry failed for truck {eligible_trucks[v].id}: {e}",
                     flush=True,
                 )
+
+            except Exception as e:
+                print(
+                    f"Route geometry failed for truck {eligible_trucks[v].id}: {e}. Falling back to OSRM.",
+                    flush=True,
+                )
+
+                try:
+                    raw_route = call_osrm_route(ordered_points)
+                    route_coordinates = [
+                        RouteCoordinateDto(lat=p["lat"], lng=p["lng"])
+                        for p in raw_route
+                    ]
+                except Exception as osrm_error:
+                    print(
+                        f"OSRM fallback failed for truck {eligible_trucks[v].id}: {osrm_error}",
+                        flush=True,
+                    )
 
             mission = RoutingMissionDto(
                 truckId=eligible_trucks[v].id,
@@ -538,6 +835,7 @@ def solve_single_pass(
         )
 
     distance_matrix, duration_matrix, matrix_source = create_matrices(request)
+    print(f"FINAL MATRIX SOURCE USED BY SOLVER = {matrix_source}", flush=True)
 
     demands = [0] + [max(1, int(round(b.estimatedLoadKg or 0))) for b in request.bins]
     capacities = [int(t.remainingCapacityKg or 0) for t in eligible_trucks]
@@ -568,7 +866,13 @@ def solve_single_pass(
     def distance_callback(from_i, to_i):
         from_node = manager.IndexToNode(from_i)
         to_node = manager.IndexToNode(to_i)
-        return distance_matrix[from_node][to_node]
+
+        base_distance = distance_matrix[from_node][to_node]
+
+        from_bin = request.bins[from_node - 1] if from_node != 0 else None
+        to_bin = request.bins[to_node - 1] if to_node != 0 else None
+
+        return base_distance + cluster_soft_penalty(from_bin, to_bin)
 
     def stop_callback(from_i):
         node = manager.IndexToNode(from_i)
@@ -646,11 +950,8 @@ def solve_single_pass(
         node_index = manager.NodeToIndex(node)
 
         if compatible_vehicle_indices:
-            allowed_set = {int(v) for v in compatible_vehicle_indices}
-
-            for vehicle_index in range(len(eligible_trucks)):
-                if vehicle_index not in allowed_set:
-                    routing.SetAllowedVehiclesForIndex(node_index, list(allowed_set))
+            allowed_vehicles = [int(v) for v in compatible_vehicle_indices]
+            routing.VehicleVar(node_index).SetValues(allowed_vehicles)
         else:
             print(
                 f"No compatible truck for binId={bin_dto.id}, "
@@ -660,28 +961,12 @@ def solve_single_pass(
                 f"Bin will be handled by category rules.",
                 flush=True,
             )
-
-        relative_window = resolve_relative_time_window(
-            bin_dto, request.currentRun, run_max_minutes
+        print(
+            f"TIME WINDOWS DISABLED TEMPORARILY -> binId={bin_dto.id}",
+            flush=True,
         )
 
-        if relative_window is not None:
-            start_rel, end_rel = relative_window
-            time_dimension.CumulVar(node_index).SetRange(start_rel, end_rel)
-            print(
-                f"TimeWindow applied -> binId={bin_dto.id}, "
-                f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
-                f"relative=({start_rel}, {end_rel})",
-                flush=True,
-            )
-        else:
-            print(
-                f"No usable time window for current run -> binId={bin_dto.id}, "
-                f"absolute=({getattr(bin_dto, 'windowStartMinutes', None)}, {getattr(bin_dto, 'windowEndMinutes', None)}), "
-                f"currentRun={request.currentRun}",
-                flush=True,
-            )
-
+       
         if category != "MANDATORY" and not is_bin_urgent(bin_dto):
               routing.AddDisjunction([node_index], penalty)
 
@@ -816,7 +1101,7 @@ def choose_best_response(
     return pass1_response
 
 
-def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
+def optimize_routing_core(request: RoutingRequestDto) -> RoutingResponseDto:
     print(
         f"Optimizing with {len(request.bins)} bins and {len(request.trucks)} trucks",
         flush=True,
@@ -850,6 +1135,11 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
 
     mandatory_bins, opportunistic_bins, reportable_bins = split_bins_by_category(request.bins)
     opportunistic_bins = sort_opportunistic_bins(opportunistic_bins)
+    opportunistic_bins = filter_opportunistic_by_distance(
+        request=request,
+        mandatory_bins=mandatory_bins,
+        opportunistic_bins=opportunistic_bins,
+    )
 
     print(
         f"Split bins => mandatory={len(mandatory_bins)}, "
@@ -931,3 +1221,49 @@ def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
    
 
     return best_response
+
+
+
+
+
+def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
+    grouped_bins = split_bins_by_waste_family(request.bins)
+
+    print(
+        "Waste family split => "
+        + ", ".join([f"{family}={len(bins)}" for family, bins in grouped_bins.items()]),
+        flush=True,
+    )
+
+    if len(grouped_bins) <= 1:
+        return optimize_routing_core(request)
+
+    responses = []
+    all_input_bin_ids = [b.id for b in request.bins or []]
+
+    family_order = ["ORGANIC", "YELLOW", "WHITE", "UNKNOWN"]
+
+    for family in family_order:
+        family_bins = grouped_bins.get(family, [])
+
+        if not family_bins:
+            continue
+
+        print(
+            f"Starting optimization for waste family={family} | bins={len(family_bins)}",
+            flush=True,
+        )
+
+        family_request = build_family_request(request, family_bins)
+        family_response = optimize_routing_core(family_request)
+        responses.append(family_response)
+
+    merged = merge_family_responses(responses, all_input_bin_ids)
+
+    print(
+        f"Waste family merged response => missions={len(merged.missions)}, "
+        f"dropped={len(merged.droppedBinIds)}",
+        flush=True,
+    )
+
+    return merged

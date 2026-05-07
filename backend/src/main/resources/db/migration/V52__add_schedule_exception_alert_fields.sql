@@ -1,0 +1,4 @@
+ALTER TABLE alerts
+ADD COLUMN IF NOT EXISTS exception_zone_id BIGINT,
+ADD COLUMN IF NOT EXISTS exception_waste_type VARCHAR(30),
+ADD COLUMN IF NOT EXISTS exception_bin_ids TEXT;

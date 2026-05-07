@@ -11,6 +11,8 @@ public class MissionRouteStopDto {
 
     private Double lat;
     private Double lng;
+    private Long disposalSiteId;
+    private String disposalSiteName;
 
     public MissionRouteStopDto() {
     }
@@ -71,5 +73,20 @@ public class MissionRouteStopDto {
 
     public void setLng(Double lng) {
         this.lng = lng;
+    }
+    public Long getDisposalSiteId() {
+        return disposalSiteId;
+    }
+
+    public void setDisposalSiteId(Long disposalSiteId) {
+        this.disposalSiteId = disposalSiteId;
+    }
+
+    public String getDisposalSiteName() {
+        return disposalSiteName;
+    }
+
+    public void setDisposalSiteName(String disposalSiteName) {
+        this.disposalSiteName = disposalSiteName;
     }
 }

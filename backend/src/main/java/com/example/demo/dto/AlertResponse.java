@@ -29,6 +29,9 @@ public class AlertResponse {
     private boolean resolved;
     private Instant resolvedAt;
     private Long resolvedByUserId;
+    private Long exceptionZoneId;
+    private String exceptionWasteType;
+    private String exceptionBinIds;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -89,4 +92,13 @@ public class AlertResponse {
 
     public Long getResolvedByUserId() { return resolvedByUserId; }
     public void setResolvedByUserId(Long resolvedByUserId) { this.resolvedByUserId = resolvedByUserId; }
+
+public Long getExceptionZoneId() { return exceptionZoneId; }
+public void setExceptionZoneId(Long exceptionZoneId) { this.exceptionZoneId = exceptionZoneId; }
+
+public String getExceptionWasteType() { return exceptionWasteType; }
+public void setExceptionWasteType(String exceptionWasteType) { this.exceptionWasteType = exceptionWasteType; }
+
+public String getExceptionBinIds() { return exceptionBinIds; }
+public void setExceptionBinIds(String exceptionBinIds) { this.exceptionBinIds = exceptionBinIds; }
 }

@@ -95,6 +95,9 @@ public class AlertService {
         alert.setMessage(req.getMessage());
         alert.setRecommendation(req.getRecommendation());
         alert.setActionType(req.getActionType());
+        alert.setExceptionZoneId(req.getExceptionZoneId());
+        alert.setExceptionWasteType(req.getExceptionWasteType());
+        alert.setExceptionBinIds(req.getExceptionBinIds());
         alert.setResolved(false);
 
         Alert saved = alertRepo.save(alert);
@@ -220,6 +223,9 @@ public class AlertService {
         res.setMessage(a.getMessage());
         res.setRecommendation(a.getRecommendation());
         res.setActionType(a.getActionType());
+        res.setExceptionZoneId(a.getExceptionZoneId());
+        res.setExceptionWasteType(a.getExceptionWasteType());
+        res.setExceptionBinIds(a.getExceptionBinIds());
         res.setCreatedAt(a.getCreatedAt());
         res.setResolved(a.isResolved());
         res.setResolvedAt(a.getResolvedAt());

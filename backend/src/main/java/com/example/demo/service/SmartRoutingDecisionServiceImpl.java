@@ -110,13 +110,13 @@ public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionServ
             );
         }
 
-        long mandatoryNowCount = routingPayloadBuilderService.getMandatoryBinInsights()
-                .stream()
+        var insights = routingPayloadBuilderService.getMandatoryBinInsights();
+
+        long mandatoryNowCount = insights.stream()
                 .filter(dto -> "MANDATORY".equals(dto.getDecisionCategory()))
                 .count();
 
-        long opportunisticNowCount = routingPayloadBuilderService.getMandatoryBinInsights()
-                .stream()
+        long opportunisticNowCount = insights.stream()
                 .filter(dto -> "OPPORTUNISTIC".equals(dto.getDecisionCategory()))
                 .count();
 

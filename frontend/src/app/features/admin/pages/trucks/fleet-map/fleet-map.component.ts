@@ -128,6 +128,9 @@ export interface FleetMapSelectedBinDetails extends FleetMapSelectedBinExplainab
   collected?: boolean | null;
   targetFillThreshold?: number | null;
   visitOrder?: number | null;
+  
+  predictedFillLevelNext?: number | null;
+  hoursToFull?: number | null;
   source?: 'bin' | 'mission' | 'planning' | 'dropped' | 'focus' | 'disposal';
 }
 export interface FleetMapInitialTruck {
@@ -782,6 +785,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           batteryLevel: bin.batteryLevel ?? null,
           status: bin.status ?? null,
           zoneName: bin.zoneName ?? null,
+          predictedFillLevelNext: bin.predictedFillLevelNext ?? null,
+          hoursToFull: bin.hoursToFull ?? null,
           decisionReason: bin.decisionReason ?? null,
           scoreExplanation: bin.scoreExplanation ?? null,
           urgencyExplanation: bin.urgencyExplanation ?? null,
@@ -1601,6 +1606,8 @@ if (stop.stopType === 'DISPOSAL_SITE') {
     const status = this.escapeHtml(bin.status ?? 'OK');
     const zone = this.escapeHtml(bin.zoneName ?? '—');
     const cluster = bin.clusterId ?? '—';
+    const predictedFill = bin.predictedFillLevelNext ?? null;
+    const hoursToFull = bin.hoursToFull ?? null;
 
     let fillLabel = 'Faible';
     if (fill >= 95) fillLabel = 'Critique';
@@ -1616,6 +1623,8 @@ if (stop.stopType === 'DISPOSAL_SITE') {
         <div><b>Type:</b> ${wasteType}</div>
         <div><b>Fill:</b> ${fill}% (${fillLabel})</div>
         <div><b>Battery:</b> ${battery}%</div>
+        <div><b>Prédiction t+1:</b> ${predictedFill != null ? predictedFill + '%' : '—'}</div>
+        <div><b>Temps avant remplissage:</b> ${hoursToFull != null ? hoursToFull + ' h' : '—'}</div>
         <div><b>Status:</b> ${status}</div>
       </div>
     `;

@@ -19,6 +19,9 @@ public class AlertCreateRequest {
 
     private String recommendation;
     private String actionType;
+    private Long exceptionZoneId;
+    private String exceptionWasteType;
+    private String exceptionBinIds;
 
     // getters / setters
 
@@ -60,4 +63,13 @@ public class AlertCreateRequest {
 
     public String getActionType() { return actionType; }
     public void setActionType(String actionType) { this.actionType = actionType; }
+    
+    public Long getExceptionZoneId() { return exceptionZoneId; }
+    public void setExceptionZoneId(Long exceptionZoneId) { this.exceptionZoneId = exceptionZoneId; }
+
+    public String getExceptionWasteType() { return exceptionWasteType; }
+    public void setExceptionWasteType(String exceptionWasteType) { this.exceptionWasteType = exceptionWasteType; }
+
+    public String getExceptionBinIds() { return exceptionBinIds; }
+    public void setExceptionBinIds(String exceptionBinIds) { this.exceptionBinIds = exceptionBinIds; }
 }

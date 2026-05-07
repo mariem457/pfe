@@ -1,5 +1,6 @@
 package com.example.demo.service;
-
+import com.example.demo.entity.TruckLocation;
+import com.example.demo.repository.TruckLocationRepository;
 import com.example.demo.dto.MissionResponse;
 import com.example.demo.dto.routing.ReplanRequestDto;
 import com.example.demo.dto.routing.RoutingDisposalSiteDto;
@@ -47,6 +48,10 @@ import java.util.stream.Collectors;
 public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
     private static final String REPLAN_ALGORITHM_VERSION = "v4.3";
+    private static final double MAX_URGENT_DISTANCE_INCREASE_RATIO = 0.80; // +80%
+    private static final double MAX_URGENT_DURATION_INCREASE_RATIO = 1.20; // +120%
+    private static final double MAX_URGENT_DISTANCE_INCREASE_KM = 6.0;
+    private static final int MAX_URGENT_DURATION_INCREASE_MIN = 35;
 
     private static final Set<String> ALLOWED_INCIDENT_TYPES = Set.of(
             "BREAKDOWN",
@@ -71,6 +76,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     private final RoutingPayloadBuilderService routingPayloadBuilderService;
     private final PythonRoutingClient pythonRoutingClient;
     private final BinRepository binRepository;
+    private final TruckLocationRepository truckLocationRepository;
 
     public DynamicReplanningServiceImpl(MissionRepository missionRepository,
                                         MissionBinRepository missionBinRepository,
@@ -83,7 +89,8 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                         DriverRepository driverRepository,
                                         RoutingPayloadBuilderService routingPayloadBuilderService,
                                         PythonRoutingClient pythonRoutingClient,
-                                        BinRepository binRepository) {
+                                        BinRepository binRepository,
+                                        TruckLocationRepository truckLocationRepository) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
         this.missionReassignmentRepository = missionReassignmentRepository;
@@ -96,6 +103,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         this.routingPayloadBuilderService = routingPayloadBuilderService;
         this.pythonRoutingClient = pythonRoutingClient;
         this.binRepository = binRepository;
+        this.truckLocationRepository = truckLocationRepository;
     }
 
     @Override
@@ -139,7 +147,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         urgentMissionBin.setBin(bin);
         urgentMissionBin.setVisitOrder(9999);
         urgentMissionBin.setCollected(false);
-        urgentMissionBin.setAssignedReason("URGENT_BIN");
+        urgentMissionBin.setAssignedReason("MANUAL");
         urgentMissionBin.setAssignmentStatus(MissionBin.AssignmentStatus.PLANNED);
 
         missionBinRepository.save(urgentMissionBin);
@@ -147,10 +155,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         List<MissionBin> remainingBins =
                 missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(mission.getId());
 
-        RoutingRequestDto routingRequest = routingPayloadBuilderService.buildReplanRequest(
-                List.of(mission.getTruck()),
-                remainingBins
-        );
+        RoutingRequestDto routingRequest = buildUrgentPartialReplanRequest(mission, remainingBins);
 
         RoutingResponseDto routingResponse = pythonRoutingClient.optimizeRoutes(routingRequest);
 
@@ -161,6 +166,19 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         }
 
         RoutingMissionDto routingMission = routingResponse.getMissions().get(0);
+        boolean urgentBinServed = routingMission.getStops() != null
+                && routingMission.getStops()
+                .stream()
+                .anyMatch(stop -> binId.equals(stop.getBinId()));
+
+        if (!urgentBinServed) {
+            missionBinRepository.delete(urgentMissionBin);
+
+            throw new BadRequestException(
+                    "Urgent bin was not accepted by routing engine, rollback applied. binId=" + binId
+            );
+        }
+        validateUrgentReplanCostAcceptable(mission, routingMission, urgentMissionBin, binId);
 
         updateMissionBinVisitOrders(mission, routingMission);
 
@@ -171,7 +189,9 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 routingMission,
                 routingRequest
         );
-
+        mission.setMissionStatusDetail(Mission.MissionStatusDetail.REPLANNED);
+        mission.setReplannedCount((mission.getReplannedCount() != null ? mission.getReplannedCount() : 0) + 1);
+        missionRepository.save(mission);
         System.out.println(
                 "✅ URGENT BIN INSERTED => binId="
                         + binId
@@ -179,6 +199,103 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                         + telemetryId
                         + ", missionId="
                         + mission.getId()
+        );
+    }
+    
+    private RoutingRequestDto buildUrgentPartialReplanRequest(Mission mission, List<MissionBin> remainingBins) {
+        Double startLat = null;
+        Double startLng = null;
+
+        try {
+            if (mission.getDriver() != null && mission.getDriver().getId() != null) {
+                TruckLocation latestLocation = truckLocationRepository
+                        .findLatestByDriverId(mission.getDriver().getId())
+                        .orElse(null);
+
+                if (latestLocation != null) {
+                    startLat = latestLocation.getLat();
+                    startLng = latestLocation.getLng();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Could not load latest truck location for partial replan: " + e.getMessage());
+        }
+
+        return routingPayloadBuilderService.buildReplanRequestFromStart(
+                List.of(mission.getTruck()),
+                remainingBins,
+                startLat,
+                startLng
+        );
+    }
+    
+    
+    
+    
+    private void validateUrgentReplanCostAcceptable(
+            Mission mission,
+            RoutingMissionDto routingMission,
+            MissionBin urgentMissionBin,
+            Long binId
+    ) {
+        if (mission == null || routingMission == null) {
+            return;
+        }
+
+        List<RoutePlan> existingPlans = routePlanRepository.findByMissionOrderByCreatedAtDesc(mission);
+
+        if (existingPlans == null || existingPlans.isEmpty()) {
+            return;
+        }
+
+        RoutePlan currentPlan = existingPlans.get(0);
+
+        if (currentPlan.getTotalDistanceKm() == null
+                || currentPlan.getEstimatedDurationMin() == null
+                || routingMission.getTotalDistanceKm() == null
+                || routingMission.getTotalDurationMinutes() == null) {
+            return;
+        }
+
+        double oldDistanceKm = currentPlan.getTotalDistanceKm().doubleValue();
+        int oldDurationMin = currentPlan.getEstimatedDurationMin();
+
+        double newDistanceKm = routingMission.getTotalDistanceKm();
+        int newDurationMin = (int) Math.round(routingMission.getTotalDurationMinutes());
+
+        double distanceIncreaseKm = newDistanceKm - oldDistanceKm;
+        int durationIncreaseMin = newDurationMin - oldDurationMin;
+
+        boolean distanceTooHigh =
+                distanceIncreaseKm > MAX_URGENT_DISTANCE_INCREASE_KM
+                        && newDistanceKm > oldDistanceKm * (1.0 + MAX_URGENT_DISTANCE_INCREASE_RATIO);
+
+        boolean durationTooHigh =
+                durationIncreaseMin > MAX_URGENT_DURATION_INCREASE_MIN
+                        && newDurationMin > oldDurationMin * (1.0 + MAX_URGENT_DURATION_INCREASE_RATIO);
+
+        if (distanceTooHigh || durationTooHigh) {
+            missionBinRepository.delete(urgentMissionBin);
+
+            System.out.println(
+                    "URGENT BIN REPLAN REJECTED BY COST => binId=" + binId
+                            + ", oldDistanceKm=" + oldDistanceKm
+                            + ", newDistanceKm=" + newDistanceKm
+                            + ", oldDurationMin=" + oldDurationMin
+                            + ", newDurationMin=" + newDurationMin
+            );
+
+            throw new BadRequestException(
+                    "Urgent bin replan rejected because route cost increase is too high. binId=" + binId
+            );
+        }
+
+        System.out.println(
+                "URGENT BIN REPLAN COST ACCEPTED => binId=" + binId
+                        + ", oldDistanceKm=" + oldDistanceKm
+                        + ", newDistanceKm=" + newDistanceKm
+                        + ", oldDurationMin=" + oldDurationMin
+                        + ", newDurationMin=" + newDurationMin
         );
     }
 
@@ -332,8 +449,8 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         depotReturn.setRoutePlan(savedRoutePlan);
         depotReturn.setStopOrder(stopOrder);
         depotReturn.setStopType(RouteStop.StopType.DEPOT_RETURN);
-        depotReturn.setLat(resolveDepotLat(routingRequest, depot));
-        depotReturn.setLng(resolveDepotLng(routingRequest, depot));
+        depotReturn.setLat(depot.getLat());
+        depotReturn.setLng(depot.getLng());
         depotReturn.setStatus(RouteStop.StopStatus.PLANNED);
         depotReturn.setNotes("Retour dépôt après route mise à jour temps réel");
         routeStopRepository.save(depotReturn);
@@ -362,6 +479,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                     "Affected truck does not match the truck assigned to mission " + missionId
             );
         }
+        applyAffectedTruckStatus(originalMission, request);
 
         Set<Long> trucksWithActiveBlockingIncidents = findTrucksWithActiveBlockingIncidents();
 
@@ -419,7 +537,13 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             replannedMissions.add(mapMissionToResponse(savedMission));
         }
 
+        originalMission.setMissionStatusDetail(Mission.MissionStatusDetail.PARTIALLY_REASSIGNED);
+        originalMission.setReplannedCount((originalMission.getReplannedCount() != null ? originalMission.getReplannedCount() : 0) + 1);
+        missionRepository.save(originalMission);
+
         return replannedMissions;
+
+       
     }
 
     private Set<Long> findTrucksWithActiveBlockingIncidents() {
@@ -511,6 +635,35 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         }
 
         throw new BadRequestException("Affected truck id is required for replanning");
+    }
+    
+    private void applyAffectedTruckStatus(Mission originalMission, ReplanRequestDto request) {
+        if (originalMission == null || originalMission.getTruck() == null || request == null) {
+            return;
+        }
+
+        String incidentType = request.getIncidentType() != null
+                ? request.getIncidentType().trim().toUpperCase()
+                : "";
+
+        Truck affectedTruck = originalMission.getTruck();
+
+        switch (incidentType) {
+            case "BREAKDOWN" -> affectedTruck.setStatus(Truck.TruckStatus.BREAKDOWN);
+            case "FUEL_LOW", "REFUEL_REQUIRED" -> affectedTruck.setStatus(Truck.TruckStatus.REFUELING);
+            default -> {
+                return;
+            }
+        }
+
+        affectedTruck.setLastStatusUpdate(OffsetDateTime.now());
+        truckRepository.save(affectedTruck);
+
+        System.out.println(
+                "AFFECTED TRUCK STATUS UPDATED => truckId=" + affectedTruck.getId()
+                        + " | incidentType=" + incidentType
+                        + " | newStatus=" + affectedTruck.getStatus()
+        );
     }
 
     private boolean isRoutingCandidate(Truck truck) {
@@ -805,13 +958,23 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                        Mission originalMission,
                                        Truck targetTruck,
                                        ReplanRequestDto request) {
-        MissionBin originalMissionBin = remainingMissionBinsByBinId.get(stopDto.getBinId());
+    	MissionBin originalMissionBin = remainingMissionBinsByBinId.get(stopDto.getBinId());
 
-        if (originalMissionBin == null || originalMissionBin.getBin() == null) {
-            throw new ResourceNotFoundException("Bin not found for replanned mission: " + stopDto.getBinId());
-        }
+    	if (originalMissionBin == null || originalMissionBin.getBin() == null) {
+    	    throw new ResourceNotFoundException("Bin not found for replanned mission: " + stopDto.getBinId());
+    	}
 
-        MissionBin missionBin = new MissionBin();
+    	/*
+    	 * The original mission keeps the historical bin assignment,
+    	 * but it must no longer appear as an active pickup for the affected truck.
+    	 */
+    	originalMissionBin.setAssignmentStatus(MissionBin.AssignmentStatus.REASSIGNED);
+    	originalMissionBin.setReassignedFromTruck(originalMission.getTruck());
+    	originalMissionBin.setReassignedToTruck(targetTruck);
+    	originalMissionBin.setSkippedReason("REASSIGNED_TO_TRUCK_" + targetTruck.getId());
+    	missionBinRepository.save(originalMissionBin);
+
+    	MissionBin missionBin = new MissionBin();
         missionBin.setMission(mission);
         missionBin.setBin(originalMissionBin.getBin());
         missionBin.setVisitOrder(visitOrder);

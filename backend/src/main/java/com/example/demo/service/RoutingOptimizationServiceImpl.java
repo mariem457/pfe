@@ -40,6 +40,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import com.example.demo.entity.Alert;
+import com.example.demo.repository.AlertRepository;
 
 @Service
 public class RoutingOptimizationServiceImpl implements RoutingOptimizationService {
@@ -58,6 +60,10 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     private final SmartRoutingDecisionService smartRoutingDecisionService;
     private final RoutingExecutionLogRepository routingExecutionLogRepository;
     private final DriverRepository driverRepository;
+    private final AlertRepository alertRepository;
+    private final FuelManagementService fuelManagementService;
+    private final FuelStationService fuelStationService;
+    
 
     public RoutingOptimizationServiceImpl(
             TruckRepository truckRepository,
@@ -73,7 +79,10 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             PostponedBinRepository postponedBinRepository,
             SmartRoutingDecisionService smartRoutingDecisionService,
             RoutingExecutionLogRepository routingExecutionLogRepository,
-            DriverRepository driverRepository
+            DriverRepository driverRepository,
+            AlertRepository alertRepository,
+            FuelManagementService fuelManagementService,
+            FuelStationService fuelStationService
     ) {
         this.truckRepository = truckRepository;
         this.binRepository = binRepository;
@@ -89,6 +98,9 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         this.smartRoutingDecisionService = smartRoutingDecisionService;
         this.routingExecutionLogRepository = routingExecutionLogRepository;
         this.driverRepository = driverRepository;
+        this.alertRepository = alertRepository;
+        this.fuelManagementService = fuelManagementService;
+        this.fuelStationService = fuelStationService;
     }
 
     @Override
@@ -163,6 +175,18 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     @Override
     @Transactional
     public List<MissionResponse> planAndSaveMissions() {
+    	
+    	List<String> blockingStatuses = List.of("CREATED", "IN_PROGRESS", "PLANNED");
+
+    	long existingActiveMissions =
+    	        missionRepository.countByPlannedDateAndStatusIn(LocalDate.now(), blockingStatuses);
+
+    	if (existingActiveMissions > 0) {
+    	    throw new BadRequestException(
+    	            "Des missions sont déjà planifiées ou en cours aujourd'hui. "
+    	                    + "Terminez ou annulez les missions existantes avant de générer un nouveau plan."
+    	    );
+    	}
         List<Truck> activeTrucks = truckRepository.findByIsActiveTrue();
 
         List<Truck> routingCandidateTrucks = activeTrucks.stream()
@@ -273,6 +297,83 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         if (savedMissions.isEmpty()) {
             throw new BadRequestException("No missions saved");
         }
+
+        return savedMissions;
+    }
+    @Override
+    @Transactional
+    public List<MissionResponse> planExceptionMissionFromAlert(Long alertId) {
+        Alert alert = alertRepository.findByIdWithRelations(alertId);
+
+        if (alert == null) {
+            throw new BadRequestException("Alert not found: " + alertId);
+        }
+
+        if (alert.isResolved()) {
+            throw new BadRequestException("Alert already resolved: " + alertId);
+        }
+
+        List<Truck> activeTrucks = truckRepository.findByIsActiveTrue();
+
+        List<Truck> routingCandidateTrucks = activeTrucks.stream()
+                .filter(this::isRoutingCandidate)
+                .toList();
+
+        if (routingCandidateTrucks.isEmpty()) {
+            throw new BadRequestException("No available trucks for exceptional mission");
+        }
+
+        RoutingDecision decision = RoutingDecision.fullOptimization(
+                "Exceptional mission triggered by municipal alert " + alertId
+        );
+
+        RoutingRequestDto routingRequest =
+                routingPayloadBuilderService.buildExceptionRoutingRequestFromAlert(alert, routingCandidateTrucks);
+
+        if (routingRequest.getBins() == null || routingRequest.getBins().isEmpty()) {
+            throw new BadRequestException("No urgent bins available for exceptional mission");
+        }
+
+        RoutingResponseDto routingResponse =
+                pythonRoutingClient.optimizeRoutes(routingRequest);
+
+        if (routingResponse == null || routingResponse.getMissions() == null || routingResponse.getMissions().isEmpty()) {
+            throw new BadRequestException("Routing engine returned no mission for exceptional alert");
+        }
+
+        routingResponse.setRecommendedFuelStations(
+                routingPayloadBuilderService.getLastRecommendedFuelStations()
+        );
+
+        List<MissionResponse> savedMissions = new ArrayList<>();
+
+        for (RoutingMissionDto routingMissionDto : routingResponse.getMissions()) {
+            Mission savedMission = saveMissionFromRouting(
+                    routingMissionDto,
+                    routingCandidateTrucks,
+                    routingRequest,
+                    routingResponse
+            );
+
+            savedMission.setPriority("HIGH");
+            savedMission.setNotes("Mission exceptionnelle déclenchée par la municipalité depuis l'alerte #" + alertId);
+            missionRepository.save(savedMission);
+
+            savedMissions.add(mapMissionToResponse(savedMission));
+        }
+
+        saveDroppedBins(routingRequest, routingResponse);
+
+        alert.setResolved(true);
+        alert.setResolvedAt(Instant.now());
+        alertRepository.save(alert);
+
+        saveExecutionLog(
+                decision,
+                routingRequest,
+                routingResponse,
+                savedMissions.size()
+        );
 
         return savedMissions;
     }
@@ -582,6 +683,26 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         RecommendedFuelStationDto stationDto =
                 findRecommendedFuelStationForTruck(routingResponse, truck.getId());
 
+        double routeDistanceKm = routingMissionDto.getTotalDistanceKm() != null
+                ? routingMissionDto.getTotalDistanceKm()
+                : 0.0;
+
+        boolean cannotSafelyCompleteRoute =
+                routeDistanceKm > 0 && !fuelManagementService.canSafelyCompleteRoute(truck, routeDistanceKm);
+
+        if (stationDto == null && cannotSafelyCompleteRoute) {
+            FuelStation nearestStation = fuelStationService.findNearestCompatibleStation(truck);
+
+            if (nearestStation != null) {
+                stationDto = new RecommendedFuelStationDto();
+                stationDto.setTruckId(truck.getId());
+                stationDto.setStationId(nearestStation.getId());
+                stationDto.setStationName(nearestStation.getName());
+                stationDto.setLat(nearestStation.getLat());
+                stationDto.setLng(nearestStation.getLng());
+            }
+        }
+
         if (stationDto != null) {
             FuelStation fs = fuelStationRepository.findById(stationDto.getStationId()).orElseThrow();
 
@@ -593,7 +714,12 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             fuelStop.setLat(fs.getLat());
             fuelStop.setLng(fs.getLng());
             fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-            fuelStop.setNotes("Recommended fuel stop");
+            fuelStop.setNotes(
+                    "Recommended fuel stop | safeAutonomyKm="
+                            + fuelManagementService.calculateEstimatedAutonomyKm(truck)
+                            + " | routeDistanceKm="
+                            + routeDistanceKm
+            );
             routeStopRepository.save(fuelStop);
         }
 

@@ -71,6 +71,15 @@ public class Alert {
     @JoinColumn(name = "resolved_by")
     private User resolvedBy;
 
+    
+    @Column(name = "exception_zone_id")
+    private Long exceptionZoneId;
+
+    @Column(name = "exception_waste_type", length = 30)
+    private String exceptionWasteType;
+
+    @Column(name = "exception_bin_ids", columnDefinition = "TEXT")
+    private String exceptionBinIds;
     @PrePersist
     void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
@@ -129,4 +138,12 @@ public class Alert {
 
     public User getResolvedBy() { return resolvedBy; }
     public void setResolvedBy(User resolvedBy) { this.resolvedBy = resolvedBy; }
+    public Long getExceptionZoneId() { return exceptionZoneId; }
+    public void setExceptionZoneId(Long exceptionZoneId) { this.exceptionZoneId = exceptionZoneId; }
+
+    public String getExceptionWasteType() { return exceptionWasteType; }
+    public void setExceptionWasteType(String exceptionWasteType) { this.exceptionWasteType = exceptionWasteType; }
+
+    public String getExceptionBinIds() { return exceptionBinIds; }
+    public void setExceptionBinIds(String exceptionBinIds) { this.exceptionBinIds = exceptionBinIds; }
 }

@@ -25,7 +25,7 @@ public class BinController {
 
     @GetMapping
     public ResponseEntity<List<BinResponse>> list() {
-        List<BinResponse> bins = service.findAll();
+        List<BinResponse> bins = service.findAllFast();
         return ResponseEntity.ok(bins);
     }
 

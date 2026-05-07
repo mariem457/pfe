@@ -1,4 +1,5 @@
 from services.matrix_provider_service import get_matrix_from_provider
+from services.traffic_service import get_traffic_delay_minutes
 from config.settings import (
     DEFAULT_TRAFFIC_MODE,
     HEAVY_TRAFFIC_FACTOR,
@@ -40,6 +41,33 @@ def apply_traffic_factor(duration_matrix, traffic_mode):
     return adjusted
 
 
+def apply_real_traffic_delay(duration_matrix, locations, traffic_mode):
+    mode = (traffic_mode or DEFAULT_TRAFFIC_MODE).upper()
+
+    if mode != "REAL":
+        return duration_matrix
+
+    adjusted = []
+
+    for i, row in enumerate(duration_matrix):
+        adjusted_row = []
+
+        for j, val in enumerate(row):
+            if val == 0:
+                adjusted_row.append(0)
+                continue
+
+            # ناخذو traffic متاع destination point
+            lat, lng = locations[j]
+            delay_min = get_traffic_delay_minutes(lat, lng)
+
+            adjusted_row.append(max(1, int(val + delay_min)))
+
+        adjusted.append(adjusted_row)
+
+    return adjusted
+
+
 def create_matrices(request):
     locations = build_locations(request)
 
@@ -74,19 +102,35 @@ def create_matrices(request):
             distance_matrix.append(d_row)
             duration_matrix.append(t_row)
 
+        # ✅ Apply traffic logic
         if provider_source == "OSRM":
-            duration_matrix = apply_traffic_factor(
-                duration_matrix,
-                request.trafficMode
-            )
+            if (request.trafficMode or "").upper() == "REAL":
+                duration_matrix = apply_real_traffic_delay(
+                    duration_matrix,
+                    locations,
+                    request.trafficMode
+                )
+            else:
+                duration_matrix = apply_traffic_factor(
+                    duration_matrix,
+                    request.trafficMode
+                )
 
+        # ✅ Logs + source
+        traffic_enabled = (request.trafficMode or "").upper() == "REAL"
+
+        print("Traffic enrichment enabled:", traffic_enabled, flush=True)
         print(f"Matrix source: {provider_source}", flush=True)
 
         if distance_matrix:
             print("Sample distance row:", distance_matrix[0][:5], flush=True)
             print("Sample duration row:", duration_matrix[0][:5], flush=True)
 
-        return distance_matrix, duration_matrix, provider_source
+        final_source = provider_source
+        if traffic_enabled:
+            final_source = provider_source + " + TOMTOM_TRAFFIC"
+
+        return distance_matrix, duration_matrix, final_source
 
     except Exception as e:
         print("Matrix provider failed:", e, flush=True)

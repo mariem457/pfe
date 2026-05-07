@@ -1,6 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AssignPublicReportRequest;
+import com.example.demo.entity.Alert;
+import com.example.demo.entity.Bin;
+import com.example.demo.repository.AlertRepository;
+import com.example.demo.repository.BinRepository;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
 import com.example.demo.dto.CreatePublicReportRequest;
 import com.example.demo.dto.PublicReportDecisionResponse;
 import com.example.demo.dto.PublicReportResponse;
@@ -25,17 +31,25 @@ public class PublicReportService {
     private final DriverRepository driverRepository;
     private final FileStorageService fileStorageService;
     private final PublicReportDecisionRepository publicReportDecisionRepository;
+    private final AlertRepository alertRepository;
+    private final BinRepository binRepository;
+    private final RoutingOptimizationService routingOptimizationService;
 
     public PublicReportService(PublicReportRepository publicReportRepository,
-                               DriverRepository driverRepository,
-                               FileStorageService fileStorageService,
-                               PublicReportDecisionRepository publicReportDecisionRepository) {
-        this.publicReportRepository = publicReportRepository;
-        this.driverRepository = driverRepository;
-        this.fileStorageService = fileStorageService;
-        this.publicReportDecisionRepository = publicReportDecisionRepository;
-    }
-
+            DriverRepository driverRepository,
+            FileStorageService fileStorageService,
+            PublicReportDecisionRepository publicReportDecisionRepository,
+            AlertRepository alertRepository,
+            BinRepository binRepository,
+            RoutingOptimizationService routingOptimizationService) {
+					this.publicReportRepository = publicReportRepository;
+					this.driverRepository = driverRepository;
+					this.fileStorageService = fileStorageService;
+					this.publicReportDecisionRepository = publicReportDecisionRepository;
+					this.alertRepository = alertRepository;
+					this.binRepository = binRepository;
+					this.routingOptimizationService = routingOptimizationService;
+}
     public PublicReportResponse create(CreatePublicReportRequest request, MultipartFile photo) {
         PublicReport report = new PublicReport();
 
@@ -81,25 +95,57 @@ public class PublicReportService {
     }
 
     public List<PublicReportResponse> getValidatedForOptimization() {
-        return publicReportRepository.findByStatusOrderByCreatedAtDesc("VALIDE")
+    	return publicReportRepository.findByStatusOrderByCreatedAtDesc("AFFECTE")
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
+    @Transactional
     public PublicReportResponse validate(Long reportId) {
         PublicReport report = publicReportRepository.findById(reportId)
                 .orElseThrow(() -> new RuntimeException("Signalement introuvable"));
 
-        report.setStatus("VALIDE");
+        report.setStatus("AFFECTE");
         report.setDecisionReason("Signalement validé par la municipalité");
 
         PublicReport saved = publicReportRepository.save(report);
         saveDecision(saved.getId(), "VALIDATED", "Signalement validé");
 
+        Bin nearestBin = findNearestBin(saved.getLatitude(), saved.getLongitude());
+
+        if (nearestBin == null) {
+            saveDecision(saved.getId(), "OPTIMIZATION_SKIPPED", "Aucun bac proche trouvé");
+            return mapToResponse(saved);
+        }
+
+        Alert alert = new Alert();
+        alert.setBin(nearestBin);
+        alert.setAlertType("MUNICIPAL_EXCEPTION");
+        alert.setSeverity("HIGH");
+        alert.setTitle("Signalement citoyen validé");
+        alert.setMessage(
+                "Signalement public validé #" + saved.getReportCode()
+                        + " - type: " + saved.getReportType()
+                        + " - adresse: " + saved.getAddress()
+        );
+        alert.setEntityType("MUNICIPAL_EXCEPTION");
+        alert.setEntityId(saved.getId());
+        alert.setRecommendation("Créer une mission exceptionnelle pour collecter le bac le plus proche.");
+        alert.setActionType("CREATE_EXCEPTION_MISSION");
+        alert.setExceptionZoneId(nearestBin.getZone() != null ? nearestBin.getZone().getId() : null);
+        alert.setExceptionWasteType(nearestBin.getWasteType() != null ? nearestBin.getWasteType().name() : null);
+        alert.setExceptionBinIds(String.valueOf(nearestBin.getId()));
+        alert.setResolved(false);
+
+        Alert savedAlert = alertRepository.save(alert);
+
+        saveDecision(saved.getId(), "OPTIMIZATION_QUEUED",
+                "Signalement validé et bac #" + nearestBin.getId()
+                        + " marqué urgent pour la prochaine optimisation.");
+
         return mapToResponse(saved);
     }
-
     public PublicReportResponse reject(Long reportId, String reason) {
         PublicReport report = publicReportRepository.findById(reportId)
                 .orElseThrow(() -> new RuntimeException("Signalement introuvable"));
@@ -281,5 +327,20 @@ public class PublicReportService {
         response.setReason(decision.getReason());
         response.setCreatedAt(decision.getCreatedAt());
         return response;
+    }
+    private Bin findNearestBin(Double lat, Double lng) {
+        if (lat == null || lng == null) {
+            return null;
+        }
+
+        return binRepository.findAll()
+                .stream()
+                .filter(bin -> Boolean.TRUE.equals(bin.getIsActive()))
+                .filter(bin -> bin.getLat() != null && bin.getLng() != null)
+                .min((b1, b2) -> Double.compare(
+                        distanceMeters(lat, lng, b1.getLat(), b1.getLng()),
+                        distanceMeters(lat, lng, b2.getLat(), b2.getLng())
+                ))
+                .orElse(null);
     }
 }

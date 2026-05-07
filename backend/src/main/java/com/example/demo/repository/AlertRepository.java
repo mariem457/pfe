@@ -135,4 +135,26 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
         WHERE a.id = :id
     """)
     Alert findCreatedAlertWithRelations(@Param("id") Long id);
+    
+    
+    boolean existsByEntityTypeAndEntityIdAndAlertTypeAndExceptionWasteTypeAndResolvedFalse(
+            String entityType,
+            Long entityId,
+            String alertType,
+            String exceptionWasteType
+    );
+    @Query("""
+    	    SELECT a FROM Alert a
+    	    WHERE a.entityType = :entityType
+    	      AND a.entityId = :entityId
+    	      AND a.alertType = :alertType
+    	      AND a.exceptionWasteType = :exceptionWasteType
+    	      AND a.resolved = false
+    	""")
+    	Alert findOpenMunicipalException(
+    	        @Param("entityType") String entityType,
+    	        @Param("entityId") Long entityId,
+    	        @Param("alertType") String alertType,
+    	        @Param("exceptionWasteType") String exceptionWasteType
+    	);
 }

@@ -10,4 +10,5 @@ public interface RoutingOptimizationService {
     RoutingResponseDto prepareInitialRouting();
 
     List<MissionResponse> planAndSaveMissions();
+    List<MissionResponse> planExceptionMissionFromAlert(Long alertId);
 }

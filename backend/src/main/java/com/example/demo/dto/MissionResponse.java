@@ -23,11 +23,18 @@ public class MissionResponse {
 
     private Long createdByUserId;
     private String notes;
+    private String missionStatusDetail;
 	public Long getId() {
 		return id;
 	}
 	public void setId(Long id) {
 		this.id = id;
+	}
+	public String getMissionStatusDetail() {
+		return missionStatusDetail;
+	}
+	public void setMissionStatusDetail(String missionStatusDetail) {
+		this.missionStatusDetail = missionStatusDetail;
 	}
 	public String getMissionCode() {
 		return missionCode;

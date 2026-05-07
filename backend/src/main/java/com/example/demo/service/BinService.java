@@ -1,16 +1,23 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.BinRequest;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import com.example.demo.dto.BinResponse;
 import com.example.demo.dto.BinTelemetryDTO;
 import com.example.demo.entity.Bin;
 import com.example.demo.entity.BinTelemetry;
 import com.example.demo.entity.Zone;
+import com.example.demo.repository.BinPredictionRepository;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
+import com.example.demo.repository.BinTimePredictionRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.example.demo.entity.BinPrediction;
+import com.example.demo.entity.BinTimePrediction;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,24 +34,73 @@ public class BinService {
     private final ZoneService zoneService;
     private final BinPriorityService binPriorityService;
     private final BinTimePredictionService binTimePredictionService;
+    private final BinPredictionRepository binPredictionRepository;
+    private final BinTimePredictionRepository binTimePredictionRepository;
 
     public BinService(
             BinRepository binRepository,
             BinTelemetryRepository binTelemetryRepository,
             ZoneService zoneService,
             BinPriorityService binPriorityService,
-            BinTimePredictionService binTimePredictionService
+            BinTimePredictionService binTimePredictionService,
+            BinPredictionRepository binPredictionRepository,
+            BinTimePredictionRepository binTimePredictionRepository
     ) {
         this.binRepository = binRepository;
         this.binTelemetryRepository = binTelemetryRepository;
         this.zoneService = zoneService;
         this.binPriorityService = binPriorityService;
         this.binTimePredictionService = binTimePredictionService;
+        this.binPredictionRepository = binPredictionRepository;
+        this.binTimePredictionRepository = binTimePredictionRepository;
     }
 
     @Transactional(readOnly = true)
     public List<BinResponse> findAll() {
         return binRepository.findAll().stream().map(this::toResponse).toList();
+    }
+    @Transactional(readOnly = true)
+    public List<BinResponse> findAllFast() {
+        List<Bin> bins = binRepository.findAll();
+
+        Map<Long, BinTelemetry> latestTelemetryByBinId =
+                binTelemetryRepository.findLatestForAllBins()
+                        .stream()
+                        .filter(t -> t.getBin() != null && t.getBin().getId() != null)
+                        .collect(Collectors.toMap(
+                                t -> t.getBin().getId(),
+                                Function.identity(),
+                                (a, b) -> a
+                        ));
+
+        Map<Long, BinPrediction> latestPredictionByBinId =
+                binPredictionRepository.findLatestForAllBins()
+                        .stream()
+                        .filter(p -> p.getBinId() != null)
+                        .collect(Collectors.toMap(
+                                BinPrediction::getBinId,
+                                Function.identity(),
+                                (a, b) -> a
+                        ));
+
+        Map<Long, BinTimePrediction> latestTimePredictionByBinId =
+                binTimePredictionRepository.findLatestForAllBins()
+                        .stream()
+                        .filter(p -> p.getBinId() != null)
+                        .collect(Collectors.toMap(
+                                BinTimePrediction::getBinId,
+                                Function.identity(),
+                                (a, b) -> a
+                        ));
+
+        return bins.stream()
+                .map(bin -> toFastResponse(
+                        bin,
+                        latestTelemetryByBinId.get(bin.getId()),
+                        latestPredictionByBinId.get(bin.getId()),
+                        latestTimePredictionByBinId.get(bin.getId())
+                ))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -355,7 +411,68 @@ public class BinService {
         return binRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("bin not found"));
     }
+    
+   
 
+    
+    private BinResponse toFastResponse(
+            Bin b,
+            BinTelemetry latest,
+            BinPrediction latestPrediction,
+            BinTimePrediction latestTimePrediction
+    ) {
+        BinResponse r = new BinResponse();
+
+        r.id = b.getId();
+        r.binCode = b.getBinCode();
+        r.type = b.getType() != null ? b.getType().name() : null;
+        r.wasteType = b.getWasteType() != null ? b.getWasteType().name() : null;
+
+        r.zoneId = b.getZone() != null ? b.getZone().getId() : null;
+        r.zoneName = b.getZone() != null ? b.getZone().getShapeName() : null;
+
+        r.lat = b.getLat();
+        r.lng = b.getLng();
+        r.accessLat = b.getAccessLat();
+        r.accessLng = b.getAccessLng();
+
+        r.installationDate = b.getInstallationDate();
+        r.isActive = b.getIsActive();
+        r.notes = b.getNotes();
+        r.createdAt = b.getCreatedAt();
+        r.updatedAt = b.getUpdatedAt();
+        r.clusterId = b.getClusterId();
+
+        if (latest != null) {
+            r.fillLevel = (int) latest.getFillLevel();
+            r.batteryLevel = latest.getBatteryLevel() != null ? (int) latest.getBatteryLevel() : 0;
+            r.status = latest.getStatus() != null ? latest.getStatus() : "OK";
+            r.lastTelemetryAt = latest.getTimestamp() != null
+                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
+                    : null;
+        } else {
+            r.fillLevel = 0;
+            r.batteryLevel = 0;
+            r.status = "OK";
+            r.lastTelemetryAt = null;
+        }
+
+        if (latestPrediction != null && latestPrediction.getPredictedFillNext() != null) {
+            r.predictedFillLevelNext = latestPrediction.getPredictedFillNext().doubleValue();
+        } else {
+            r.predictedFillLevelNext = null;
+        }
+
+        if (latestTimePrediction != null && latestTimePrediction.getPredictedHours() != null) {
+            r.hoursToFull = latestTimePrediction.getPredictedHours().doubleValue();
+        } else {
+            r.hoursToFull = null;
+        }
+
+        return r;
+    }
+
+ 
     private BinResponse toResponse(Bin b) {
         BinResponse r = new BinResponse();
 
@@ -393,7 +510,41 @@ public class BinService {
             r.status = "OK";
             r.lastTelemetryAt = null;
         }
+        if (latestTelemetryOpt.isPresent()) {
+            BinTelemetry latest = latestTelemetryOpt.get();
+
+            r.fillLevel = (int) latest.getFillLevel();
+            r.batteryLevel = latest.getBatteryLevel() != null ? (int) latest.getBatteryLevel() : 0;
+            r.status = latest.getStatus();
+            r.lastTelemetryAt = latest.getTimestamp() != null
+                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
+                    : null;
+        } else {
+            r.fillLevel = 0;
+            r.batteryLevel = 0;
+            r.status = "OK";
+            r.lastTelemetryAt = null;
+        }
+
+        // ===== AI PREDICTIONS =====
+
+        binPredictionRepository.findTopByBinIdOrderByCreatedAtDesc(b.getId())
+                .ifPresent(p -> {
+                    if (p.getPredictedFillNext() != null) {
+                        r.predictedFillLevelNext = p.getPredictedFillNext().doubleValue();
+                    }
+                });
+
+        binTimePredictionRepository.findTopByBinIdOrderByCreatedAtDesc(b.getId())
+                .ifPresent(t -> {
+                    if (t.getPredictedHours() != null) {
+                        r.hoursToFull = t.getPredictedHours().doubleValue();
+                    }
+                });
 
         return r;
     }
+
+     
+   
 }

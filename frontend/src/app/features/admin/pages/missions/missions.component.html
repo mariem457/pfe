@@ -1,27 +1,40 @@
-<div class="missions-page">
-  <div class="page-header">
-    <div>
-      <h1>Missions</h1>
-      <p>Suivi et gestion des tournées de collecte</p>
+<div class="missions-page mission-smart-page">
+  <!-- ================= HEADER ================= -->
+  <div class="smart-header">
+    <div class="smart-header__left">
+      <div>
+        <h1>Missions intelligentes</h1>
+        <p>Planification, suivi et replanification dynamique des tournées de collecte</p>
+      </div>
+
+      <div class="smart-status-pills">
+        <span class="smart-pill smart-pill--success">
+          ● Optimisation IA active
+        </span>
+        <span class="smart-pill smart-pill--blue">
+          OSRM + trafic réel
+        </span>
+      </div>
     </div>
 
-    <div class="header-actions">
-      <button
-        class="btn btn-primary"
-        (click)="generateAiMissions()"
-        [disabled]="generatingAi()"
-      >
-        {{ generatingAi() ? 'Génération...' : 'Générer missions IA' }}
-      </button>
-
+    <div class="smart-header__actions">
       <button class="btn btn-outline" (click)="loadMissions()">
         Actualiser
+      </button>
+
+      <button class="btn btn-primary" (click)="generateAiMissions()" [disabled]="generatingAi()">
+        {{ generatingAi() ? 'Génération...' : '✨ Générer missions optimisées' }}
       </button>
     </div>
   </div>
 
+  <!-- ================= MESSAGES ================= -->
   <div *ngIf="aiMessage()" class="info-banner" (click)="clearAiMessage()">
     {{ aiMessage() }}
+  </div>
+
+  <div *ngIf="errorMessage()" class="error-box">
+    {{ errorMessage() }}
   </div>
 
   <div *ngIf="latestAiBatchLabel()" class="ai-batch-banner">
@@ -42,565 +55,693 @@
     </div>
   </div>
 
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-icon green">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 6h13"></path>
-            <path d="M8 12h13"></path>
-            <path d="M8 18h13"></path>
-            <path d="M3 6h.01"></path>
-            <path d="M3 12h.01"></path>
-            <path d="M3 18h.01"></path>
-          </svg>
-        </div>
-        <span class="kpi-label">Total missions</span>
+  <!-- ================= KPI ================= -->
+  <div class="smart-kpi-grid">
+    <div class="smart-kpi-card">
+      <div>
+        <span>Missions actives</span>
+        <strong>{{ inProgressMissions() }}</strong>
+        <small>En cours de collecte</small>
       </div>
-      <strong>{{ totalMissions() }}</strong>
     </div>
 
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-icon amber">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 6v6l4 2"></path>
-          </svg>
-        </div>
-        <span class="kpi-label">Créées</span>
+    <div class="smart-kpi-card">
+      <div>
+        <span>Planifiées</span>
+        <strong>{{ createdMissions() }}</strong>
+        <small>Prêtes à démarrer</small>
       </div>
-      <strong>{{ createdMissions() }}</strong>
     </div>
 
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-icon blue">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12h4l3 8 4-16 3 8h4"></path>
-          </svg>
-        </div>
-        <span class="kpi-label">En cours</span>
+    <div class="smart-kpi-card">
+      <div>
+        <span>Terminées</span>
+        <strong>{{ completedMissions() }}</strong>
+        <small>Collectes clôturées</small>
       </div>
-      <strong>{{ inProgressMissions() }}</strong>
     </div>
 
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-icon teal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 6L9 17l-5-5"></path>
-          </svg>
-        </div>
-        <span class="kpi-label">Terminées</span>
+    <div class="smart-kpi-card">
+      <div>
+        <span>Total missions</span>
+        <strong>{{ totalMissions() }}</strong>
+        <small>OR-Tools OSRM v4.3</small>
       </div>
-      <strong>{{ completedMissions() }}</strong>
     </div>
   </div>
 
-  <div class="toolbar">
-    <div class="search-box search-box--withIcon">
-      <span class="material-icons search-icon">search</span>
-      <input
-         type="text"
-          placeholder="Rechercher par code, chauffeur, zone..."
-          [(ngModel)]="searchTerm"
-        />
-    </div>
-
-    <div class="filter-box">
-      <select [(ngModel)]="selectedStatus">
-        <option value="ALL">Tous les statuts</option>
-        <option value="CREATED">Créée</option>
-        <option value="IN_PROGRESS">En cours</option>
-        <option value="COMPLETED">Terminée</option>
-        <option value="CANCELLED">Annulée</option>
-      </select>
-    </div>
-  </div>
-
-  <div *ngIf="errorMessage()" class="error-box">
-    {{ errorMessage() }}
-  </div>
-
-  <div class="content-grid">
-    <div class="missions-list card">
-      <div class="card-header">
-        <div>
-          <h2>Liste des missions</h2>
-          <p>Navigation rapide par statut</p>
-        </div>
-        <span>{{ filteredMissions().length }} résultat(s)</span>
-      </div>
-
-      <div *ngIf="loading()" class="empty-state">Chargement des missions...</div>
-
-      <div *ngIf="!loading() && !filteredMissions().length" class="empty-state">
-        Aucune mission trouvée.
-      </div>
-
-      <div class="mission-groups" *ngIf="!loading() && filteredMissions().length">
-        <div class="mission-group" *ngIf="groupedMissions().inProgress.length">
-          <div class="group-title">
-            <h3>En cours</h3>
-            <span>{{ groupedMissions().inProgress.length }}</span>
+  <!-- ================= MAIN LAYOUT ================= -->
+  <div class="smart-layout">
+    <!-- ================= LEFT: FILE DES MISSIONS ================= -->
+    <aside class="smart-sidebar">
+      <div class="smart-panel smart-panel--sidebar">
+        <div class="smart-sidebar-head">
+          <div>
+            <h2>File des missions</h2>
+            <p>Navigation rapide</p>
           </div>
+          <span>{{ filteredMissions().length }}</span>
+        </div>
 
-          <div class="mission-items">
+        <div class="smart-search">
+          <span class="material-icons">search</span>
+          <input
+            type="text"
+            placeholder="Rechercher par mission, chauffeur, zone..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+        </div>
+
+        <div class="smart-filter-row">
+          <button
+            class="smart-filter-chip"
+            [class.active]="selectedStatus() === 'ALL'"
+            (click)="selectedStatus.set('ALL')">
+            Toutes
+          </button>
+
+          <button
+            class="smart-filter-chip"
+            [class.active]="selectedStatus() === 'IN_PROGRESS'"
+            (click)="selectedStatus.set('IN_PROGRESS')">
+            En cours
+          </button>
+
+          <button
+            class="smart-filter-chip"
+            [class.active]="selectedStatus() === 'CREATED'"
+            (click)="selectedStatus.set('CREATED')">
+            Planifiées
+          </button>
+
+          <button
+            class="smart-filter-chip"
+            [class.active]="selectedStatus() === 'COMPLETED'"
+            (click)="selectedStatus.set('COMPLETED')">
+            Terminées
+          </button>
+        </div>
+
+        <div *ngIf="loading()" class="empty-state">
+          Chargement des missions...
+        </div>
+
+        <div *ngIf="!loading() && !filteredMissions().length" class="empty-state">
+          Aucune mission trouvée.
+        </div>
+
+        <div class="smart-mission-list" *ngIf="!loading() && filteredMissions().length">
+          <!-- EN COURS -->
+          <ng-container *ngIf="groupedMissions().inProgress.length">
+            <div class="smart-group-title">
+              <span>En cours</span>
+              <strong>{{ groupedMissions().inProgress.length }}</strong>
+            </div>
+
             <button
-              class="mission-item"
+              class="smart-mission-card"
               *ngFor="let mission of groupedMissions().inProgress"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
-              <div class="mission-top">
-                <div class="mission-titleWrap">
-                  <strong>{{ mission.missionCode }}</strong>
-
-                  <span class="mission-ai-badge newest" *ngIf="isNewestMission(mission.id)">
-                    Nouvelle
-                  </span>
-
-                  <span class="mission-ai-badge" *ngIf="isInLatestAiBatch(mission.id)">
-                    IA
-                  </span>
-                </div>
-
+              (click)="selectMission(mission)">
+              <div class="smart-mission-card__top">
+                <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
                   {{ getStatusLabel(mission.status) }}
                 </span>
               </div>
 
-              <div class="mission-meta">
-                <span>Chauffeur: {{ mission.driverName || '—' }}</span>
+              <div class="smart-mission-tags">
+                <span *ngIf="isNewestMission(mission.id)">Nouvelle</span>
+                <span *ngIf="isInLatestAiBatch(mission.id)">IA</span>
+                <span *ngIf="getMissionStatusDetail(mission) === 'REPLANNED'">Replanifiée</span>
+                <span *ngIf="getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED'">Réaffectée</span>
+              </div>
+
+              <div class="smart-mission-meta">
+                <span>👤 {{ mission.driverName || '—' }}</span>
+                <span>📍 {{ mission.zoneName || 'Zone non définie' }}</span>
                 <span>Priorité: {{ getPriorityLabel(mission.priority) }}</span>
               </div>
 
-              <div class="mission-date">
-                Prévue: {{ mission.plannedDate || '—' }}
+              <div class="smart-mini-progress">
+                <div class="smart-mini-progress__bar">
+                  <div class="smart-mini-progress__value" style="width: 0%"></div>
+                </div>
+                <small>Prévue: {{ mission.plannedDate || '—' }}</small>
               </div>
             </button>
-          </div>
-        </div>
+          </ng-container>
 
-        <div class="mission-group" *ngIf="groupedMissions().created.length">
-          <div class="group-title">
-            <h3>Créées</h3>
-            <span>{{ groupedMissions().created.length }}</span>
-          </div>
+          <!-- CRÉÉES -->
+          <ng-container *ngIf="groupedMissions().created.length">
+            <div class="smart-group-title">
+              <span>Planifiées</span>
+              <strong>{{ groupedMissions().created.length }}</strong>
+            </div>
 
-          <div class="mission-items">
             <button
-              class="mission-item"
+              class="smart-mission-card"
               *ngFor="let mission of groupedMissions().created"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
-              <div class="mission-top">
-                <div class="mission-titleWrap">
-                  <strong>{{ mission.missionCode }}</strong>
-
-                  <span class="mission-ai-badge newest" *ngIf="isNewestMission(mission.id)">
-                    Nouvelle
-                  </span>
-
-                  <span class="mission-ai-badge" *ngIf="isInLatestAiBatch(mission.id)">
-                    IA
-                  </span>
-                </div>
-
+              (click)="selectMission(mission)">
+              <div class="smart-mission-card__top">
+                <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
                   {{ getStatusLabel(mission.status) }}
                 </span>
               </div>
 
-              <div class="mission-meta">
-                <span>Chauffeur: {{ mission.driverName || '—' }}</span>
+              <div class="smart-mission-tags">
+                <span *ngIf="isNewestMission(mission.id)">Nouvelle</span>
+                <span *ngIf="isInLatestAiBatch(mission.id)">IA</span>
+                <span *ngIf="getMissionStatusDetail(mission) === 'REPLANNED'">Replanifiée</span>
+                <span *ngIf="getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED'">Réaffectée</span>
+              </div>
+
+              <div class="smart-mission-meta">
+                <span>👤 {{ mission.driverName || '—' }}</span>
+                <span>📍 {{ mission.zoneName || 'Zone non définie' }}</span>
                 <span>Priorité: {{ getPriorityLabel(mission.priority) }}</span>
               </div>
 
-              <div class="mission-date">
-                Prévue: {{ mission.plannedDate || '—' }}
+              <div class="smart-mini-progress">
+                <div class="smart-mini-progress__bar">
+                  <div class="smart-mini-progress__value" style="width: 0%"></div>
+                </div>
+                <small>Prévue: {{ mission.plannedDate || '—' }}</small>
               </div>
             </button>
-          </div>
-        </div>
+          </ng-container>
 
-        <div class="mission-group" *ngIf="groupedMissions().completed.length">
-          <div class="group-title">
-            <h3>Terminées</h3>
-            <span>{{ groupedMissions().completed.length }}</span>
-          </div>
+          <!-- TERMINÉES -->
+          <ng-container *ngIf="groupedMissions().completed.length">
+            <div class="smart-group-title">
+              <span>Terminées</span>
+              <strong>{{ groupedMissions().completed.length }}</strong>
+            </div>
 
-          <div class="mission-items">
             <button
-              class="mission-item"
+              class="smart-mission-card"
               *ngFor="let mission of groupedMissions().completed"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
-              <div class="mission-top">
-                <div class="mission-titleWrap">
-                  <strong>{{ mission.missionCode }}</strong>
-
-                  <span class="mission-ai-badge newest" *ngIf="isNewestMission(mission.id)">
-                    Nouvelle
-                  </span>
-
-                  <span class="mission-ai-badge" *ngIf="isInLatestAiBatch(mission.id)">
-                    IA
-                  </span>
-                </div>
-
+              (click)="selectMission(mission)">
+              <div class="smart-mission-card__top">
+                <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
                   {{ getStatusLabel(mission.status) }}
                 </span>
               </div>
 
-              <div class="mission-meta">
-                <span>Chauffeur: {{ mission.driverName || '—' }}</span>
+              <div class="smart-mission-meta">
+                <span>👤 {{ mission.driverName || '—' }}</span>
+                <span>📍 {{ mission.zoneName || 'Zone non définie' }}</span>
                 <span>Priorité: {{ getPriorityLabel(mission.priority) }}</span>
               </div>
 
-              <div class="mission-date">
-                Prévue: {{ mission.plannedDate || '—' }}
+              <div class="smart-mini-progress">
+                <div class="smart-mini-progress__bar">
+                  <div class="smart-mini-progress__value" style="width: 100%"></div>
+                </div>
+                <small>Terminée: {{ formatDate(mission.completedAt) }}</small>
               </div>
             </button>
-          </div>
-        </div>
+          </ng-container>
 
-        <div class="mission-group" *ngIf="groupedMissions().cancelled.length">
-          <div class="group-title">
-            <h3>Annulées</h3>
-            <span>{{ groupedMissions().cancelled.length }}</span>
-          </div>
+          <!-- ANNULÉES -->
+          <ng-container *ngIf="groupedMissions().cancelled.length">
+            <div class="smart-group-title">
+              <span>Annulées</span>
+              <strong>{{ groupedMissions().cancelled.length }}</strong>
+            </div>
 
-          <div class="mission-items">
             <button
-              class="mission-item"
+              class="smart-mission-card muted"
               *ngFor="let mission of groupedMissions().cancelled"
               [class.active]="selectedMission()?.id === mission.id"
-              [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
-              <div class="mission-top">
-                <div class="mission-titleWrap">
-                  <strong>{{ mission.missionCode }}</strong>
-
-                  <span class="mission-ai-badge newest" *ngIf="isNewestMission(mission.id)">
-                    Nouvelle
-                  </span>
-
-                  <span class="mission-ai-badge" *ngIf="isInLatestAiBatch(mission.id)">
-                    IA
-                  </span>
-                </div>
-
+              (click)="selectMission(mission)">
+              <div class="smart-mission-card__top">
+                <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
                   {{ getStatusLabel(mission.status) }}
                 </span>
               </div>
 
-              <div class="mission-meta">
-                <span>Chauffeur: {{ mission.driverName || '—' }}</span>
-                <span>Priorité: {{ getPriorityLabel(mission.priority) }}</span>
+              <div class="smart-mission-meta">
+                <span>👤 {{ mission.driverName || '—' }}</span>
+                <span>📍 {{ mission.zoneName || 'Zone non définie' }}</span>
+                <span>Prévue: {{ mission.plannedDate || '—' }}</span>
               </div>
+            </button>
+          </ng-container>
+        </div>
+      </div>
+    </aside>
 
-              <div class="mission-date">
-                Prévue: {{ mission.plannedDate || '—' }}
-              </div>
+    <!-- ================= RIGHT: DETAILS ================= -->
+    <main class="smart-details">
+      <section class="smart-panel smart-details-panel" *ngIf="selectedMission() as mission">
+        <!-- HEADER DETAILS -->
+        <div class="smart-detail-head">
+          <div>
+            <p class="smart-mission-code">{{ mission.missionCode }}</p>
+            <h2>
+              Mission {{ mission.zoneName || 'collecte' }}
+              <span *ngIf="getMissionStatusDetail(mission) === 'REPLANNED'">(Replanifiée)</span>
+            </h2>
+
+            <div class="smart-detail-badges">
+              <span [class]="statusClass(mission.status)">
+                {{ getStatusLabel(mission.status) }}
+              </span>
+
+              <span [class]="statusDetailClass(getMissionStatusDetail(mission))">
+                {{ getStatusDetailLabel(getMissionStatusDetail(mission)) }}
+              </span>
+
+              <span class="mission-detail-badge planned" *ngIf="mission.priority === 'HIGH'">
+                Priorité haute
+              </span>
+            </div>
+          </div>
+
+          <div class="smart-detail-actions smart-state-box">
+            <div class="mission-state-display">
+              <span>État de la mission</span>
+
+              <strong [class]="statusClass(mission.status)">
+                {{
+                  mission.status === 'CREATED'
+                    ? 'Pas encore démarrée'
+                    : getStatusLabel(mission.status)
+                }}
+              </strong>
+
+              <small *ngIf="mission.status === 'CREATED'">
+                En attente de démarrage par le chauffeur
+              </small>
+
+              <small *ngIf="mission.status === 'IN_PROGRESS'">
+                Mission actuellement en cours de collecte
+              </small>
+
+              <small *ngIf="mission.status === 'COMPLETED'">
+                Mission clôturée par le chauffeur
+              </small>
+            </div>
+
+            <button class="btn btn-outline" (click)="refreshSelectedMission()" [disabled]="actionLoading()">
+              Rafraîchir
             </button>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="mission-details card" *ngIf="selectedMission() as mission">
-      <div class="card-header card-header--detail">
-        <div>
-          <h2>Détails de la mission</h2>
-          <p>{{ mission.missionCode }}</p>
-        </div>
+        <div class="auto-replan-banner" *ngIf="isMissionReplanned(mission)">
+          <div class="auto-replan-icon">⚡</div>
 
-        <div class="detail-actions">
-          <button class="btn btn-outline" (click)="refreshSelectedMission()" [disabled]="actionLoading()">
-            Refresh
-          </button>
-
-          <button
-            class="btn btn-primary"
-            (click)="startMission()"
-            [disabled]="actionLoading() || mission.status !== 'CREATED'"
-          >
-            Démarrer
-          </button>
-
-          <button
-            class="btn btn-success"
-            (click)="completeMission()"
-            [disabled]="actionLoading() || mission.status === 'COMPLETED'"
-          >
-            Terminer
-          </button>
-        </div>
-      </div>
-
-      <div class="detail-grid">
-        <div class="detail-card">
-          <span>Statut</span>
-          <strong [class]="statusClass(mission.status)">
-            {{ getStatusLabel(mission.status) }}
-          </strong>
-        </div>
-
-        <div class="detail-card">
-          <span>Chauffeur</span>
-          <strong>{{ mission.driverName || '—' }}</strong>
-        </div>
-
-        <div class="detail-card">
-          <span>Priorité</span>
-          <strong>{{ getPriorityLabel(mission.priority) }}</strong>
-        </div>
-
-        <div class="detail-card">
-          <span>Date prévue</span>
-          <strong>{{ mission.plannedDate || '—' }}</strong>
-        </div>
-      </div>
-
-      <div class="details-inline-meta">
-        <div style="margin-top:10px;">
-          <button class="btn btn-outline btn-small" (click)="openDebugMode()">
-            Debug Route
-          </button>
-
-          <button
-            class="btn btn-outline btn-small"
-            *ngIf="debugMode()"
-            (click)="closeDebugMode()"
-          >
-            Close Debug
-          </button>
-        </div>
-
-        <div class="inline-meta-item">
-          <span>Source trafic</span>
-          <strong [class]="matrixSourceClass()">{{ matrixSourceLabel() }}</strong>
-        </div>
-
-        <div class="inline-meta-item">
-          <span>Géométrie</span>
-          <strong [class]="geometrySourceClass()">{{ geometrySourceLabel() }}</strong>
-        </div>
-
-        <div class="inline-meta-item">
-          <span>Bacs</span>
-          <strong>{{ collectedBins() }}/{{ totalBins() }}</strong>
-        </div>
-
-        <div class="inline-meta-item">
-          <span>Progression</span>
-          <strong>{{ progressPercent() }}%</strong>
-        </div>
-      </div>
-
-      <div class="tabs-bar">
-        <button
-          class="tab-btn"
-          [class.active]="activeTab() === 'overview'"
-          (click)="setActiveTab('overview')"
-        >
-          Vue générale
-        </button>
-
-        <button
-          class="tab-btn"
-          [class.active]="activeTab() === 'map'"
-          (click)="setActiveTab('map')"
-        >
-          Carte
-        </button>
-
-        <button
-          class="tab-btn"
-          [class.active]="activeTab() === 'bins'"
-          (click)="setActiveTab('bins')"
-        >
-          Bacs
-        </button>
-        <button
-  class="tab-btn"
-  [class.active]="activeTab() === 'alerts'"
-  (click)="setActiveTab('alerts')"
->
-  Alertes
-</button>
-      </div>
-
-      <div *ngIf="activeTab() === 'overview'" class="tab-panel">
-        <div *ngIf="debugMode()" class="card" style="margin-bottom:15px; padding:14px;">
-          <h3 style="margin-top:0;">Route Debug</h3>
-
-          <div style="margin-bottom:12px; font-weight:700; font-size:16px;">
-            Total distance: {{ getTotalDistance().toFixed(2) }} km
+          <div>
+            <strong>Replanification automatique effectuée</strong>
+            <p>
+              Un incident a été détecté côté chauffeur/camion. Le système a recalculé automatiquement
+              la tournée et mis à jour les bacs restants.
+            </p>
           </div>
 
-          <div *ngIf="!routeDistances().length">
-            No distances computed
+          <span class="auto-replan-status">
+            {{ getStatusDetailLabel(getMissionStatusDetail(mission)) }}
+          </span>
+        </div>
+
+        <!-- META DETAILS -->
+        <div class="smart-info-row">
+          <div class="smart-info-item">
+            <span>Chauffeur</span>
+            <strong>👤 {{ mission.driverName || '—' }}</strong>
           </div>
 
-          <div *ngFor="let d of routeDistances(); let i = index" style="margin-bottom:6px;">
-            Segment {{ i + 1 }} → {{ d.toFixed(2) }} km
+          <div class="smart-info-item">
+            <span>Camion</span>
+            <strong>🚚 {{ mission.driverId ? ('Driver #' + mission.driverId) : '—' }}</strong>
+          </div>
+
+          <div class="smart-info-item">
+            <span>Zone</span>
+            <strong>📍 {{ mission.zoneName || '—' }}</strong>
+          </div>
+
+          <div class="smart-info-item">
+            <span>Date prévue</span>
+            <strong>🕘 {{ mission.plannedDate || '—' }}</strong>
           </div>
         </div>
 
-        <div class="progress-section">
-          <div class="progress-header">
-            <span>Progression</span>
+        <!-- PROGRESSION -->
+        <div class="smart-progress-block">
+          <div class="smart-section-title">
+            <h3>Progression de collecte</h3>
             <strong>{{ progressPercent() }}%</strong>
           </div>
 
-          <div class="progress-bar">
-            <div class="progress-value" [style.width.%]="progressPercent()"></div>
+          <div class="smart-progress-bar">
+            <div class="smart-progress-value" [style.width.%]="progressPercent()"></div>
           </div>
 
-          <div class="progress-meta">
-            <span>{{ collectedBins() }} collecté(s)</span>
-            <span>{{ totalBins() }} total</span>
+          <div class="smart-progress-cards">
+            <div>
+              <span>Collectés</span>
+              <strong>{{ collectedBins() }}</strong>
+              <small>bacs</small>
+            </div>
+
+            <div>
+              <span>Restants</span>
+              <strong>{{ remainingBins() }}</strong>
+              <small>bacs</small>
+            </div>
+
+            <div>
+              <span>Réaffectés</span>
+              <strong>{{ reassignedBins() }}</strong>
+              <small>bacs</small>
+            </div>
+
+            <div>
+              <span>Durée estimée</span>
+              <strong>
+                {{ estimatedRealDurationMin() ?? '—' }}
+                <small *ngIf="estimatedRealDurationMin() !== null">min</small>
+              </strong>
+              <small>{{ matrixSourceLabel() }}</small>
+            </div>
           </div>
         </div>
 
-        <div class="timestamps-inline">
-          <div><span>Créée:</span> {{ formatDate(mission.createdAt) }}</div>
-          <div><span>Démarrée:</span> {{ formatDate(mission.startedAt) }}</div>
-          <div><span>Terminée:</span> {{ formatDate(mission.completedAt) }}</div>
+        <!-- SYSTEM STATUS -->
+        <div
+          class="smart-status-box"
+          *ngIf="getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED' || getMissionStatusDetail(mission) === 'REPLANNED'">
+          ⚡ Replanification dynamique détectée : cette mission a été impactée par un incident et recalculée
+          automatiquement.
         </div>
-      </div>
 
-      <div *ngIf="activeTab() === 'map'" class="tab-panel">
-        <div class="mission-map-section">
-          <div *ngIf="loadingRoute()" class="empty-state">
-            Chargement de l’itinéraire...
+        <div class="traffic-alert-box danger" *ngIf="roadClosed()">
+          ⚠️ Route potentiellement fermée détectée. Replanification recommandée.
+        </div>
+
+        <div class="traffic-alert-box warning" *ngIf="!roadClosed() && trafficDelayMin() >= 15">
+          🚦 Trafic important détecté : +{{ trafficDelayMin() }} min par rapport à l’estimation OSRM.
+        </div>
+
+        <div class="traffic-alert-box success" *ngIf="trafficEnabled() && trafficDelayMin() < 15">
+          🛰️ Trafic réel activé via OSRM + TOMTOM Traffic.
+        </div>
+
+        <!-- TECH CARDS -->
+        <div class="smart-tech-grid">
+          <div>
+            <span>Source trafic</span>
+            <strong [class]="matrixSourceClass()">{{ matrixSourceLabel() }}</strong>
           </div>
 
-          <app-fleet-map
-            *ngIf="!loadingRoute()"
-            [showHeader]="true"
-            [title]="'Carte de la mission'"
-            [subtitle]="'Visualisation des bacs affectés et de l’itinéraire'"
-            [showTrucks]="false"
-            [showBins]="false"
-            [showReports]="false"
-            [allowAddBins]="false"
-            [missionBins]="missionMapBins()"
-            [missionRouteCoordinates]="missionRouteCoordinates()"
-            [collectionRouteCoordinates]="collectionRouteCoordinates()"
-            [transferRouteCoordinates]="transferRouteCoordinates()"
-            [missionRouteStops]="missionMapRouteStops()"
-            [snappedWaypoints]="snappedWaypoints()"
-            [matrixSource]="routeMatrixSource()"
-            [geometrySource]="routeGeometrySource()"
-          />
-        </div>
-      </div>
+          <div>
+            <span>Trafic réel</span>
+            <strong class="traffic-mini-badge" [ngClass]="trafficBadgeClass()">
+              {{ trafficLabel() }}
+            </strong>
+          </div>
 
-      <div *ngIf="activeTab() === 'bins'" class="tab-panel">
-        <div class="bins-section">
+          <div>
+            <span>Géométrie</span>
+            <strong [class]="geometrySourceClass()">{{ geometrySourceLabel() }}</strong>
+          </div>
+
+          <div>
+            <span>Types de déchets</span>
+            <div class="waste-types-list" *ngIf="missionWasteTypes().length; else noWasteTypeSmart">
+              <span *ngFor="let type of missionWasteTypes()" [class]="wasteTypeClass(type)">
+                {{ getWasteTypeLabel(type) }}
+                <small>{{ type }}</small>
+              </span>
+            </div>
+
+            <ng-template #noWasteTypeSmart>
+              <strong>—</strong>
+            </ng-template>
+          </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="smart-tabs">
+          <button class="smart-tab" [class.active]="activeTab() === 'overview'" (click)="setActiveTab('overview')">
+            📋 Journal
+          </button>
+
+          <button class="smart-tab" [class.active]="activeTab() === 'map'" (click)="setActiveTab('map')">
+            🗺️ Itinéraire
+          </button>
+
+          <button class="smart-tab" [class.active]="activeTab() === 'bins'" (click)="setActiveTab('bins')">
+            📦 Bacs
+          </button>
+
+          <button class="smart-tab" [class.active]="activeTab() === 'alerts'" (click)="setActiveTab('alerts')">
+            🚨 Alertes
+          </button>
+        </div>
+
+        <!-- ================= JOURNAL / OVERVIEW TAB ================= -->
+        <div *ngIf="activeTab() === 'overview'" class="smart-tab-panel">
+          <div *ngIf="debugMode()" class="debug-panel">
+            <h3>Route Debug</h3>
+
+            <div class="distance-item">
+              Total distance: {{ getTotalDistance().toFixed(2) }} km
+            </div>
+
+            <div *ngIf="!routeDistances().length">
+              No distances computed
+            </div>
+
+            <div *ngFor="let d of routeDistances(); let i = index" class="distance-item">
+              Segment {{ i + 1 }} → {{ d.toFixed(2) }} km
+            </div>
+          </div>
+
+          <div class="smart-journal">
+            <div class="smart-journal-title">
+              <h3>Journal opérationnel</h3>
+
+              <button class="btn btn-outline btn-small" (click)="openDebugMode()">
+                Debug Route
+              </button>
+            </div>
+
+            <div class="smart-journal-item">
+              <span>{{ formatDate(mission.createdAt) }}</span>
+              <div>
+                <strong>Mission générée par optimisation IA</strong>
+                <p>Création automatique de la tournée avec OR-Tools, OSRM et contraintes métier.</p>
+              </div>
+              <em>Automatique</em>
+            </div>
+
+            <div class="smart-journal-item smart-journal-item--replan" *ngIf="isMissionReplanned(mission)">
+              <span>Temps réel</span>
+
+              <div>
+                <strong>{{ getReplanJournalTitle(mission) }}</strong>
+                <p>{{ getReplanJournalMessage(mission) }}</p>
+              </div>
+
+              <em>Automatique</em>
+            </div>
+
+            <div class="smart-journal-item" *ngIf="mission.startedAt">
+              <span>{{ formatDate(mission.startedAt) }}</span>
+              <div>
+                <strong>Mission démarrée</strong>
+                <p>Le chauffeur a commencé la tournée de collecte.</p>
+              </div>
+              <em>Chauffeur</em>
+            </div>
+
+            <div class="smart-journal-item" *ngIf="trafficEnabled()">
+              <span>Trafic</span>
+              <div>
+                <strong>{{ trafficLabel() }}</strong>
+                <p>Durée réelle estimée : {{ estimatedRealDurationMin() ?? '—' }} min.</p>
+              </div>
+              <em>OSRM + TomTom</em>
+            </div>
+
+            <div class="smart-journal-item" *ngIf="mission.completedAt">
+              <span>{{ formatDate(mission.completedAt) }}</span>
+              <div>
+                <strong>Mission terminée</strong>
+                <p>La collecte associée à cette mission est clôturée.</p>
+              </div>
+              <em>Système</em>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= MAP TAB ================= -->
+        <div *ngIf="activeTab() === 'map'" class="smart-tab-panel">
+          <div class="mission-map-section">
+            <div *ngIf="loadingRoute()" class="empty-state">
+              Chargement de l’itinéraire...
+            </div>
+
+            <app-fleet-map
+              *ngIf="!loadingRoute()"
+              [showHeader]="true"
+              [title]="'Carte de la mission'"
+              [subtitle]="'Visualisation des bacs affectés et de l’itinéraire'"
+              [showTrucks]="false"
+              [showBins]="false"
+              [showReports]="false"
+              [allowAddBins]="false"
+              [missionBins]="missionMapBins()"
+              [missionRouteCoordinates]="missionRouteCoordinates()"
+              [collectionRouteCoordinates]="collectionRouteCoordinates()"
+              [transferRouteCoordinates]="transferRouteCoordinates()"
+              [missionRouteStops]="missionMapRouteStops()"
+              [snappedWaypoints]="snappedWaypoints()"
+              [matrixSource]="routeMatrixSource()"
+              [geometrySource]="routeGeometrySource()">
+            </app-fleet-map>
+          </div>
+        </div>
+
+        <!-- ================= BINS TAB ================= -->
+        <div *ngIf="activeTab() === 'bins'" class="smart-tab-panel">
           <div class="section-title">
             <h3>Bacs de la mission</h3>
             <span>{{ missionBins().length }} bac(s)</span>
           </div>
 
-          <div *ngIf="loadingBins()" class="empty-state">Chargement des bacs...</div>
+          <div *ngIf="loadingBins()" class="empty-state">
+            Chargement des bacs...
+          </div>
 
           <div *ngIf="!loadingBins() && !missionBins().length" class="empty-state">
             Aucun bac affecté à cette mission.
           </div>
 
-          <div class="bins-table" *ngIf="!loadingBins() && missionBins().length">
-            <div class="bins-row bins-head">
+          <div class="smart-bins-table" *ngIf="!loadingBins() && missionBins().length">
+            <div class="smart-bins-row smart-bins-head">
               <span>Ordre</span>
               <span>Bac</span>
+              <span>Type</span>
               <span>Seuil</span>
               <span>Statut</span>
               <span>Action</span>
             </div>
 
-            <div class="bins-row" *ngFor="let bin of missionBins()">
+            <div class="smart-bins-row" *ngFor="let bin of missionBins()">
               <span>#{{ bin.visitOrder }}</span>
-              <span>{{ bin.binCode || ('BIN-' + bin.binId) }}</span>
-              <span>{{ bin.targetFillThreshold ?? '—' }}%</span>
-              <span [class]="binStatusClass(bin)">
-                {{ bin.collected ? 'Collecté' : 'À collecter' }}
+
+              <span>
+                <strong>{{ bin.binCode || ('BIN-' + bin.binId) }}</strong>
+
+                <small *ngIf="bin.assignmentStatus === 'REASSIGNED'" class="reassign-note">
+                  Réaffecté vers camion #{{ bin.reassignedToTruckId || '—' }}
+                </small>
+
+                <small *ngIf="bin.skippedReason" class="skip-note">
+                  {{ bin.skippedReason }}
+                </small>
               </span>
+
+              <span>
+                <span *ngIf="bin.wasteType" [class]="wasteTypeClass(bin.wasteType)">
+                  {{ bin.wasteType }}
+                </span>
+                <span *ngIf="!bin.wasteType">—</span>
+              </span>
+
+              <span>{{ bin.targetFillThreshold ?? '—' }}%</span>
+
+              <span [class]="binStatusClass(bin)">
+                {{
+                  bin.assignmentStatus === 'REASSIGNED'
+                    ? 'Réaffecté'
+                    : bin.collected
+                      ? 'Collecté'
+                      : 'À collecter'
+                }}
+              </span>
+
               <span>
                 <button
                   class="btn btn-small btn-outline"
                   (click)="collectBin(bin)"
-                  [disabled]="bin.collected || actionLoading() || mission.status === 'COMPLETED'"
-                >
+                  [disabled]="
+                    bin.collected ||
+                    actionLoading() ||
+                    mission.status === 'COMPLETED' ||
+                    bin.assignmentStatus === 'REASSIGNED'
+                  ">
                   Collecter
                 </button>
               </span>
             </div>
           </div>
         </div>
-      </div>
-      <div *ngIf="activeTab() === 'alerts'" class="tab-panel">
-  <div class="section-title">
-    <h3>Alertes de la mission</h3>
-    <span>{{ missionAlerts().length }} alerte(s)</span>
-  </div>
 
-  <div *ngIf="loadingMissionAlerts()" class="empty-state">
-    Chargement des alertes...
-  </div>
+        <!-- ================= ALERTS TAB ================= -->
+        <div *ngIf="activeTab() === 'alerts'" class="smart-tab-panel">
+          <div class="section-title">
+            <h3>Alertes de la mission</h3>
+            <span>{{ missionAlerts().length }} alerte(s)</span>
+          </div>
 
-  <div *ngIf="!loadingMissionAlerts() && missionAlerts().length === 0" class="empty-state">
-    Aucune alerte ouverte pour cette mission.
-  </div>
+          <div *ngIf="loadingMissionAlerts()" class="empty-state">
+            Chargement des alertes...
+          </div>
 
-  <div class="mission-alerts-list" *ngIf="!loadingMissionAlerts() && missionAlerts().length">
-    <article
-      *ngFor="let a of missionAlerts()"
-      [class]="alertSeverityClass(a.severity)"
-    >
-      <div class="mission-alert-top">
-        <div>
-          <strong>{{ a.title }}</strong>
-          <p>{{ a.message }}</p>
+          <div *ngIf="!loadingMissionAlerts() && missionAlerts().length === 0" class="empty-state">
+            Aucune alerte ouverte pour cette mission.
+          </div>
+
+          <div class="mission-alerts-list" *ngIf="!loadingMissionAlerts() && missionAlerts().length">
+            <article *ngFor="let a of missionAlerts()" [class]="alertSeverityClass(a.severity)">
+              <div class="mission-alert-top">
+                <div>
+                  <strong>{{ a.title }}</strong>
+                  <p>{{ a.message }}</p>
+                </div>
+
+                <span class="mission-alert-severity">
+                  {{ getAlertSeverityLabel(a.severity) }}
+                </span>
+              </div>
+
+              <div class="mission-alert-meta">
+                <span>{{ a.alertType }}</span>
+                <span>{{ formatDate(a.createdAt) }}</span>
+              </div>
+
+              <div class="mission-alert-reco" *ngIf="a.recommendation">
+                {{ a.recommendation }}
+              </div>
+
+              <button class="btn btn-small btn-outline" (click)="resolveMissionAlert(a)">
+                Résoudre
+              </button>
+            </article>
+          </div>
         </div>
+      </section>
 
-        <span class="mission-alert-severity">
-          {{ getAlertSeverityLabel(a.severity) }}
-        </span>
-      </div>
-
-      <div class="mission-alert-meta">
-        <span>{{ a.alertType }}</span>
-        <span>{{ formatDate(a.createdAt) }}</span>
-      </div>
-
-      <div class="mission-alert-reco" *ngIf="a.recommendation">
-        {{ a.recommendation }}
-      </div>
-
-      <button class="btn btn-small btn-outline" (click)="resolveMissionAlert(a)">
-        Résoudre
-      </button>
-    </article>
-  </div>
-</div>
-    </div>
-
-    <div class="mission-details card" *ngIf="!selectedMission()">
-      <div class="empty-state large">
-        Sélectionnez une mission pour afficher les détails.
-      </div>
-    </div>
+      <section class="smart-panel smart-details-panel" *ngIf="!selectedMission()">
+        <div class="empty-state large">
+          Sélectionnez une mission pour afficher les détails.
+        </div>
+      </section>
+    </main>
   </div>
 </div>

@@ -26,7 +26,8 @@ public class TelemetryService {
     private final AlertRuleService alertRuleService;
     private final BinPredictionService binPredictionService;
     private final PythonPredictionService pythonPredictionService;
-
+    private final MunicipalExceptionAlertService municipalExceptionAlertService;
+    private final TelemetryAsyncService telemetryAsyncService;
     public TelemetryService(
             BinRepository binRepository,
             BinTelemetryRepository telemetryRepository,
@@ -34,7 +35,9 @@ public class TelemetryService {
             AnomalyDetectionService anomalyDetectionService,
             AlertRuleService alertRuleService,
             BinPredictionService binPredictionService,
-            PythonPredictionService pythonPredictionService
+            PythonPredictionService pythonPredictionService,
+            MunicipalExceptionAlertService municipalExceptionAlertService,
+            TelemetryAsyncService telemetryAsyncService
     ) {
         this.binRepository = binRepository;
         this.telemetryRepository = telemetryRepository;
@@ -43,6 +46,8 @@ public class TelemetryService {
         this.alertRuleService = alertRuleService;
         this.binPredictionService = binPredictionService;
         this.pythonPredictionService = pythonPredictionService;
+        this.municipalExceptionAlertService = municipalExceptionAlertService;
+        this.telemetryAsyncService=telemetryAsyncService;
     }
 
     @Transactional
@@ -89,68 +94,7 @@ public class TelemetryService {
             }
         }
 
-        double hour = saved.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getHour();
-
-        try {
-            binTimePredictionService.predictAndSave(
-                    bin.getId(),
-                    saved.getId(),
-                    hour,
-                    saved.getFillLevel(),
-                    fillRate,
-                    saved.getBatteryLevel() != null ? saved.getBatteryLevel() : 0,
-                    saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0,
-                    saved.getRssi() != null ? saved.getRssi() : 0,
-                    Boolean.TRUE.equals(saved.getCollected())
-            );
-        } catch (Exception e) {
-            System.err.println("Model2 prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
-        }
-
-        try {
-            List<BinTelemetry> history = telemetryRepository
-                    .findByBinIdOrderByTimestampDesc(bin.getId(), PageRequest.of(0, 3));
-
-            double fillLevelLag1 = history.size() > 1 ? history.get(1).getFillLevel() : fillLevel;
-            double fillLevelLag2 = history.size() > 2 ? history.get(2).getFillLevel() : fillLevel;
-            double fillRateLag1 = fillRate;
-            double weightKgLag1 = saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0;
-            double rssiLag1 = saved.getRssi() != null ? saved.getRssi() : 0;
-
-            PredictionResult result = pythonPredictionService.runPrediction(
-                    hour,
-                    fillLevel,
-                    fillRate,
-                    saved.getBatteryLevel() != null ? saved.getBatteryLevel() : 0,
-                    saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0,
-                    saved.getRssi() != null ? saved.getRssi() : 0,
-                    Boolean.TRUE.equals(saved.getCollected()),
-                    fillLevelLag1,
-                    fillLevelLag2,
-                    fillRateLag1,
-                    weightKgLag1,
-                    rssiLag1
-            );
-
-            binPredictionService.save(bin.getId(), saved, result);
-        } catch (Exception e) {
-            System.err.println("Model1 prediction failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
-        }
-
-        try {
-            anomalyDetectionService.evaluateAndPersist(bin, saved);
-        } catch (Exception e) {
-            System.err.println("Anomaly detection failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
-        }
-
-        try {
-            alertRuleService.evaluateAndCreateAlerts(bin, saved);
-        } catch (Exception e) {
-            System.err.println("Alert rules failed for telemetryId=" + saved.getId() + ": " + e.getMessage());
-        }
-
+        telemetryAsyncService.processAfterTelemetry(bin, saved, fillRate);
         TelemetryResponse res = new TelemetryResponse();
         res.id = saved.getId();
         res.binCode = bin.getBinCode();

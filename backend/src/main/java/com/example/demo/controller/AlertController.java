@@ -1,5 +1,6 @@
 package com.example.demo.controller;
-
+import com.example.demo.dto.MissionResponse;
+import com.example.demo.service.RoutingOptimizationService;
 import com.example.demo.dto.AlertCreateRequest;
 import com.example.demo.dto.AlertDetailsResponse;
 import com.example.demo.dto.AlertResponse;
@@ -15,9 +16,12 @@ import java.util.List;
 public class AlertController {
 
     private final AlertService alertService;
+    private final RoutingOptimizationService routingOptimizationService;
+   
 
-    public AlertController(AlertService alertService) {
+    public AlertController(AlertService alertService , RoutingOptimizationService routingOptimizationService) {
         this.alertService = alertService;
+        this.routingOptimizationService = routingOptimizationService;
     }
 
     @PostMapping
@@ -45,6 +49,10 @@ public class AlertController {
     ) {
         String username = principal != null ? principal.getName() : null;
         return alertService.resolve(id, username);
+    }
+    @PostMapping("/{id}/create-exception-mission")
+    public List<MissionResponse> createExceptionMission(@PathVariable Long id) {
+        return routingOptimizationService.planExceptionMissionFromAlert(id);
     }
 
     @GetMapping("/missions/{missionId}")

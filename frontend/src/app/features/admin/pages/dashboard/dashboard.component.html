@@ -24,10 +24,10 @@
         <div class="it-kpiIcon" [attr.data-icon]="k.icon">
           <span class="material-icons it-mi">
             {{
-              k.icon === 'trash' ? 'delete' :
-              k.icon === 'alert' ? 'report' :
-              k.icon === 'truck' ? 'local_shipping' :
-              'eco'
+            k.icon === 'trash' ? 'delete' :
+            k.icon === 'alert' ? 'report' :
+            k.icon === 'truck' ? 'local_shipping' :
+            'eco'
             }}
           </span>
         </div>
@@ -51,13 +51,8 @@
 
     <!-- ========= MAP ========= -->
     <section class="it-panel it-panel--map">
-      <app-fleet-map
-        [showTrucks]="false"
-        [showBins]="true"
-        [showReports]="true"
-        [allowAddBins]="true"
-        [reports]="mapReports"
-        title="Carte de l’état des bacs en temps réel"
+      <app-fleet-map [showTrucks]="false" [showBins]="true" [showReports]="true" [allowAddBins]="true"
+        [reports]="mapReports" title="Carte de l’état des bacs en temps réel"
         subtitle="Surveillance en temps réel à travers la ville">
       </app-fleet-map>
     </section>
@@ -65,19 +60,19 @@
     <!-- ========= ALERTS ========= -->
     <section class="it-panel it-panel--alerts">
 
-      <div class="it-panelHead">
+      <div class="it-panelHead it-alertsHead">
         <div>
-          <div class="it-panelTitle">Alertes récentes</div>
-          <div class="it-panelSub">Bacs et incidents nécessitant une intervention</div>
+          <div class="it-panelTitle">Alertes du jour</div>
+          <div class="it-panelSub">Événements actifs détectés aujourd’hui</div>
         </div>
 
-        <button class="it-refreshBtn" (click)="loadAlerts()">
+        <button class="it-refreshBtn" type="button" (click)="loadAlerts()">
           <span class="material-icons">refresh</span>
         </button>
       </div>
 
       <!-- Filters -->
-      <div class="it-alertFilters">
+      <div class="it-alertFilters it-alertFilters--clean">
         <select [(ngModel)]="filterResolved" (change)="loadAlerts()">
           <option value="false">Ouvertes</option>
           <option value="true">Résolues</option>
@@ -85,7 +80,7 @@
         </select>
 
         <select [(ngModel)]="filterSeverity" (change)="loadAlerts()">
-          <option value="">Sévérité : toutes</option>
+          <option value="">Sévérité</option>
           <option value="CRITICAL">Critique</option>
           <option value="HIGH">Élevée</option>
           <option value="MEDIUM">Moyenne</option>
@@ -93,8 +88,7 @@
         </select>
 
         <select [(ngModel)]="filterType" (change)="loadAlerts()">
-          <option value="">Type : tous</option>
-
+          <option value="">Type</option>
           <option value="BIN_FULL">Bac plein</option>
           <option value="BIN_ALMOST_FULL">Bac presque plein</option>
           <option value="BIN_FAST_FILLING">Remplissage rapide</option>
@@ -103,7 +97,6 @@
           <option value="BIN_BATTERY_LOW">Batterie faible</option>
           <option value="BIN_SENSOR_OR_OVERFLOW">Capteur / Overflow</option>
           <option value="NEED_EXTRA_BIN_NEARBY">Besoin bac supplémentaire</option>
-
           <option value="TRUCK_BREAKDOWN">Panne camion</option>
           <option value="TRUCK_GPS_LOST">GPS perdu</option>
           <option value="TRUCK_FUEL_LOW">Carburant faible</option>
@@ -111,49 +104,43 @@
           <option value="TRUCK_DELAY">Retard camion</option>
           <option value="TRUCK_TRAFFIC_BLOCK">Blocage trafic</option>
           <option value="DRIVER_UNAVAILABLE">Chauffeur indisponible</option>
+          <option value="SCHEDULE_EXCEPTION">Collecte exceptionnelle</option>
         </select>
 
-        <input
-          [(ngModel)]="searchText"
-          (keyup.enter)="loadAlerts()"
-          placeholder="Rechercher : BIN-001 / TRUCK-201 / titre..." />
+        <input [(ngModel)]="searchText" (keyup.enter)="loadAlerts()" placeholder="Rechercher..." />
 
-        <button class="it-filterBtn it-filterBtn--primary" (click)="loadAlerts()">
-          Rechercher
+        <button class="it-filterBtn it-filterBtn--primary" type="button" (click)="loadAlerts()">
+          Filtrer
         </button>
-        <button class="it-filterBtn it-filterBtn--secondary" (click)="resetFilters()">
-          Réinitialiser
+
+        <button class="it-filterBtn it-filterBtn--secondary" type="button" (click)="resetFilters()">
+          Reset
         </button>
       </div>
 
-      <!-- Loading -->
       <div *ngIf="loadingAlerts" class="it-muted">
-        Chargement des alertes...
+        Chargement des alertes du jour...
       </div>
 
-      <!-- Error -->
       <div *ngIf="!loadingAlerts && alertsError" class="it-error">
         {{ alertsError }}
       </div>
 
-      <!-- List -->
       <div *ngIf="!loadingAlerts && !alertsError">
-        <div *ngIf="alerts.length === 0" class="it-emptyState">
+        <div *ngIf="alerts.length === 0" class="it-emptyState it-emptyState--alerts">
           <span class="material-icons">check_circle</span>
-          <span>Aucune alerte active</span>
+          <span>Aucune alerte aujourd’hui</span>
         </div>
 
-        <article class="it-alertCard" *ngFor="let a of alerts">
+        <article class="it-alertCard it-alertCard--clean" *ngFor="let a of alerts">
           <div class="it-alertCard__top">
             <div class="it-alertId">
-              <span
-                class="it-alertDot"
-                [ngClass]="{
-                  'dot-high': a.severity === 'HIGH' || a.severity === 'CRITICAL',
-                  'dot-med': a.severity === 'MEDIUM',
-                  'dot-low': a.severity === 'LOW'
-                }">
-              </span>
+              <span class="it-alertDot" [ngClass]="{
+            'dot-high': a.severity === 'HIGH' || a.severity === 'CRITICAL',
+            'dot-med': a.severity === 'MEDIUM',
+            'dot-low': a.severity === 'LOW'
+          }"></span>
+
               <span>{{ a.id }}</span>
             </div>
 
@@ -165,36 +152,27 @@
           </div>
 
           <div class="it-alertMeta">
-            <div
-              class="it-badge"
-              [class.isFull]="a.status === 'Plein'"
-              [class.isMaint]="a.status === 'Maintenance'">
-              {{ a.status }}
+            <div class="it-badge it-badge--entity">
+              {{ entityLabel(a) }}
             </div>
 
-           <div class="it-badge it-badge--entity">
-  {{ entityLabel(a) }}
-</div>
+            <div class="it-badge it-badge--type" *ngIf="a.alertType">
+              {{ alertTypeLabel(a.alertType) }}
+            </div>
 
-<div class="it-badge it-badge--type" *ngIf="a.alertType">
-  {{ alertTypeLabel(a.alertType) }}
-</div>
-
-<div class="it-badge it-badge--severity">
-  {{ severityLabel(a.severity) }}
-</div>
+            <div class="it-badge it-badge--severity">
+              {{ severityLabel(a.severity) }}
+            </div>
           </div>
 
           <div class="it-alertActions">
-            <button class="it-actionBtn it-actionBtn--light" (click)="openDetails(a)">
+            <button class="it-actionBtn it-actionBtn--light" type="button" (click)="openDetails(a)">
               Détails
             </button>
 
-            <button
-              class="it-actionBtn it-actionBtn--dark"
-              (click)="resolve(a)"
-              [disabled]="resolvingId === a.alertId">
-              {{ resolvingId === a.alertId ? 'Traitement...' : 'Résoudre' }}
+            <button *ngIf="canCreateExceptionMission(a)" class="it-actionBtn it-actionBtn--softGreen" type="button"
+              (click)="createExceptionMission(a)" [disabled]="creatingMissionId === a.alertId">
+              {{ creatingMissionId === a.alertId ? 'Création...' : 'Créer mission' }}
             </button>
           </div>
         </article>
@@ -205,7 +183,10 @@
         <div class="it-modal" (click)="$event.stopPropagation()">
 
           <div class="it-modalHeader">
-            <h3>Détails de l’alerte</h3>
+            <div>
+              <h3>Détails de l’alerte</h3>
+              <p>Informations complètes et recommandation d’intervention</p>
+            </div>
             <button type="button" (click)="closeDetails()">✕</button>
           </div>
 
@@ -217,7 +198,8 @@
             <div class="it-detailItem">
               <span class="it-detailLabel">Identifiant</span>
               <span class="it-detailValue">
-                {{ selectedDetails.binCode || selectedDetails.truckCode || selectedDetails.entityType + '-' + selectedDetails.entityId }}
+                {{ selectedDetails.binCode || selectedDetails.truckCode || selectedDetails.entityType + '-' +
+                selectedDetails.entityId }}
               </span>
             </div>
 
@@ -281,33 +263,16 @@
               <span class="it-detailValue">{{ selectedDetails.missionId }}</span>
             </div>
 
-            <div class="it-detailItem" *ngIf="selectedDetails.binLat || selectedDetails.binLng">
-              <span class="it-detailLabel">Coordonnées bac</span>
-              <span class="it-detailValue">
-                {{ selectedDetails.binLat || '—' }}, {{ selectedDetails.binLng || '—' }}
-              </span>
-            </div>
-
-            <div class="it-detailItem" *ngIf="selectedDetails.truckLat || selectedDetails.truckLng">
-              <span class="it-detailLabel">Coordonnées camion</span>
-              <span class="it-detailValue">
-                {{ selectedDetails.truckLat || '—' }}, {{ selectedDetails.truckLng || '—' }}
-              </span>
-            </div>
-
-            <div class="it-detailItem" *ngIf="selectedDetails.fillLevel !== null && selectedDetails.fillLevel !== undefined">
+            <div class="it-detailItem"
+              *ngIf="selectedDetails.fillLevel !== null && selectedDetails.fillLevel !== undefined">
               <span class="it-detailLabel">Niveau</span>
               <span class="it-detailValue">{{ selectedDetails.fillLevel }}%</span>
             </div>
 
-            <div class="it-detailItem" *ngIf="selectedDetails.batteryLevel !== null && selectedDetails.batteryLevel !== undefined">
+            <div class="it-detailItem"
+              *ngIf="selectedDetails.batteryLevel !== null && selectedDetails.batteryLevel !== undefined">
               <span class="it-detailLabel">Batterie</span>
               <span class="it-detailValue">{{ selectedDetails.batteryLevel }}%</span>
-            </div>
-
-            <div class="it-detailItem" *ngIf="selectedDetails.telemetryTimestamp">
-              <span class="it-detailLabel">Télémétrie</span>
-              <span class="it-detailValue">{{ selectedDetails.telemetryTimestamp }}</span>
             </div>
 
             <div class="it-detailItem">
@@ -316,7 +281,6 @@
             </div>
 
           </div>
-
         </div>
       </div>
 
@@ -379,28 +343,15 @@
           <line x1="30" y1="190" x2="500" y2="190" class="it-axisBase"></line>
 
           <g *ngFor="let bar of weeklyBarItems">
-            <text
-              [attr.x]="bar.labelX"
-              [attr.y]="bar.valueY"
-              text-anchor="middle"
-              class="it-barValue">
+            <text [attr.x]="bar.labelX" [attr.y]="bar.valueY" text-anchor="middle" class="it-barValue">
               {{ bar.value }}
             </text>
 
-            <rect
-              [attr.x]="bar.x"
-              [attr.y]="bar.y"
-              [attr.width]="bar.width"
-              [attr.height]="bar.height"
-              rx="12"
+            <rect [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.width" [attr.height]="bar.height" rx="12"
               class="it-barRect">
             </rect>
 
-            <text
-              [attr.x]="bar.labelX"
-              y="214"
-              text-anchor="middle"
-              class="it-axisLabel">
+            <text [attr.x]="bar.labelX" y="214" text-anchor="middle" class="it-axisLabel">
               {{ bar.label }}
             </text>
           </g>
@@ -418,49 +369,21 @@
 
       <div class="it-chart it-chart--donut" *ngIf="!chartsLoading && !chartsError">
         <svg viewBox="0 0 220 220" width="220" height="220">
-          <circle
-            cx="110"
-            cy="110"
-            r="78"
-            fill="none"
-            stroke="var(--donut-track, #e5e7eb)"
-            stroke-width="18">
+          <circle cx="110" cy="110" r="78" fill="none" stroke="var(--donut-track, #e5e7eb)" stroke-width="18">
           </circle>
 
           <g class="it-donutRings">
-            <circle
-              cx="110"
-              cy="110"
-              r="78"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="18"
-              [attr.stroke-dasharray]="donutStrokeEmpty"
-              stroke-dashoffset="0"
+            <circle cx="110" cy="110" r="78" fill="none" stroke="#22c55e" stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokeEmpty" stroke-dashoffset="0" stroke-linecap="round">
+            </circle>
+
+            <circle cx="110" cy="110" r="78" fill="none" stroke="#f59e0b" stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokePartial" [attr.stroke-dashoffset]="donutOffsetPartial"
               stroke-linecap="round">
             </circle>
 
-            <circle
-              cx="110"
-              cy="110"
-              r="78"
-              fill="none"
-              stroke="#f59e0b"
-              stroke-width="18"
-              [attr.stroke-dasharray]="donutStrokePartial"
-              [attr.stroke-dashoffset]="donutOffsetPartial"
-              stroke-linecap="round">
-            </circle>
-
-            <circle
-              cx="110"
-              cy="110"
-              r="78"
-              fill="none"
-              stroke="#ef4444"
-              stroke-width="18"
-              [attr.stroke-dasharray]="donutStrokeFull"
-              [attr.stroke-dashoffset]="donutOffsetFull"
+            <circle cx="110" cy="110" r="78" fill="none" stroke="#ef4444" stroke-width="18"
+              [attr.stroke-dasharray]="donutStrokeFull" [attr.stroke-dashoffset]="donutOffsetFull"
               stroke-linecap="round">
             </circle>
           </g>

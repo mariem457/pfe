@@ -793,3 +793,20 @@
   font-size: 9px;
   font-weight: 800;
 }
+
+
+:host-context(app-dashboard) #fleetMap {
+  height: 520px;
+  min-height: 520px;
+  border-radius: 0 0 24px 24px;
+}
+
+:host-context(app-dashboard) .map-header {
+  padding: 20px 20px 0;
+}
+
+:host-context(app-dashboard) .map-legend {
+  margin: 0;
+  border-radius: 0 0 24px 24px;
+  box-shadow: none;
+}

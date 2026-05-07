@@ -21,4 +21,5 @@ public interface TruckService {
     List<TruckResponseDto> getActiveTrucks();
 
     void deactivateTruck(Long truckId);
+    TruckResponseDto unloadTruck(Long truckId);
 }

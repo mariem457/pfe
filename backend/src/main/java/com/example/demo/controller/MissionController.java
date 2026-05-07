@@ -60,6 +60,9 @@ public class MissionController {
     public ResponseEntity<MissionResponse> completeMission(@PathVariable Long missionId) {
         return ResponseEntity.ok(missionService.completeMission(missionId));
     }
+    
+    
+  
 
     @PostMapping("/{missionId}/bins/{missionBinId}/collect")
     public ResponseEntity<MissionResponse> collectMissionBin(@PathVariable Long missionId,

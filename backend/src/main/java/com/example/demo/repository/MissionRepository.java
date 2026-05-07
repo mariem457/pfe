@@ -1,6 +1,8 @@
 package com.example.demo.repository;
 
 import com.example.demo.entity.Mission;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import com.example.demo.entity.Truck;
 import com.example.demo.entity.Zone;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -36,4 +38,29 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     List<Mission> findByStatusOrderByPlannedDateAsc(String status);
 
     Optional<Mission> findTopByZoneAndStatusInOrderByCreatedAtDesc(Zone zone, List<String> statuses);
+    
+    List<Mission> findByTruckAndStatusInAndPlannedDateOrderByCreatedAtAsc(
+            Truck truck,
+            List<String> statuses,
+            LocalDate plannedDate
+    );
+    
+    long countByPlannedDateAndStatusIn(LocalDate plannedDate, List<String> statuses);
+    
+    
+    
+    @Query(value = """
+    	    SELECT
+    	        m.planned_date AS day,
+    	        COUNT(*) AS completed_count
+    	    FROM missions m
+    	    WHERE m.planned_date BETWEEN :startDate AND :endDate
+    	      AND UPPER(m.status) = 'COMPLETED'
+    	    GROUP BY m.planned_date
+    	    ORDER BY m.planned_date
+    	""", nativeQuery = true)
+    	List<Object[]> countCompletedMissionsByDay(
+    	        @Param("startDate") LocalDate startDate,
+    	        @Param("endDate") LocalDate endDate
+    	);
 }

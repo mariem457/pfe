@@ -1,6 +1,9 @@
 package com.example.demo.service;
-
+import java.util.Objects;
+import java.time.OffsetDateTime;
 import com.example.demo.dto.MissionBinActionRequest;
+import com.example.demo.repository.TruckRepository;
+import java.math.BigDecimal;
 import com.example.demo.dto.MissionBinResponse;
 import com.example.demo.dto.MissionFuelStatusResponse;
 import com.example.demo.dto.MissionResponse;
@@ -18,6 +21,7 @@ import com.example.demo.entity.RouteStop;
 import com.example.demo.entity.Truck;
 import com.example.demo.exception.BadRequestException;
 import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.repository.BinTelemetryRepository;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.MissionBinRepository;
 import com.example.demo.repository.MissionRepository;
@@ -41,6 +45,7 @@ public class MissionServiceImpl implements MissionService {
     private static final double PREEMPTIVE_REFUEL_MARGIN_KM = 2.0;
     private static final double MAX_ALLOWED_LEG_KM = 80.0;
     private static final double MAX_ALLOWED_DISTANCE_FROM_FIRST_POINT_KM = 50.0;
+    private static final boolean ENABLE_AUTO_MISSION_CHAINING = true;
 
     private final MissionRepository missionRepository;
     private final MissionBinRepository missionBinRepository;
@@ -50,6 +55,8 @@ public class MissionServiceImpl implements MissionService {
     private final WebClient.Builder webClientBuilder;
     private final FuelManagementService fuelManagementService;
     private final FuelStationService fuelStationService;
+    private final TruckRepository truckRepository;
+    private final BinTelemetryRepository binTelemetryRepository;
 
     public MissionServiceImpl(
             MissionRepository missionRepository,
@@ -59,7 +66,9 @@ public class MissionServiceImpl implements MissionService {
             RouteStopRepository routeStopRepository,
             WebClient.Builder webClientBuilder,
             FuelManagementService fuelManagementService,
-            FuelStationService fuelStationService
+            FuelStationService fuelStationService,
+            TruckRepository truckRepository,
+            BinTelemetryRepository binTelemetryRepository
     ) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
@@ -69,6 +78,8 @@ public class MissionServiceImpl implements MissionService {
         this.webClientBuilder = webClientBuilder;
         this.fuelManagementService = fuelManagementService;
         this.fuelStationService = fuelStationService;
+        this.truckRepository = truckRepository;
+        this.binTelemetryRepository = binTelemetryRepository;
     }
 
     @Override
@@ -81,6 +92,10 @@ public class MissionServiceImpl implements MissionService {
             throw new BadRequestException("Mission is already completed");
         }
 
+        if ("CANCELLED".equalsIgnoreCase(mission.getStatus())) {
+            throw new BadRequestException("Cannot start a cancelled mission");
+        }
+
         mission.setStatus("IN_PROGRESS");
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.IN_PROGRESS);
 
@@ -89,7 +104,34 @@ public class MissionServiceImpl implements MissionService {
         }
 
         missionRepository.save(mission);
+
+        Truck truck = mission.getTruck();
+
+        if (truck != null) {
+            truck.setStatus(Truck.TruckStatus.ON_MISSION);
+            truck.setLastStatusUpdate(OffsetDateTime.now());
+            truckRepository.save(truck);
+        }
+
+        try {
+            RoutePlan latestPlan = getLatestRoutePlanOrThrow(mission);
+
+            if (latestPlan.getPlanStatus() != RoutePlan.PlanStatus.ACTIVE) {
+                latestPlan.setPlanStatus(RoutePlan.PlanStatus.ACTIVE);
+                routePlanRepository.save(latestPlan);
+            }
+        } catch (Exception e) {
+            System.out.println("START MISSION ROUTE PLAN ACTIVATION SKIPPED => missionId="
+                    + mission.getId() + " | reason=" + e.getMessage());
+        }
+
         autoInsertRefuelStopIfNeeded(mission);
+
+        System.out.println(
+                "MISSION STARTED => missionId=" + mission.getId()
+                        + " | truckId=" + (truck != null ? truck.getId() : null)
+                        + " | truckStatus=" + (truck != null ? truck.getStatus() : null)
+        );
 
         return mapMissionToResponse(mission);
     }
@@ -107,15 +149,7 @@ public class MissionServiceImpl implements MissionService {
             throw new BadRequestException("Cannot complete mission. Some bins are still not collected.");
         }
 
-        mission.setStatus("COMPLETED");
-        mission.setMissionStatusDetail(Mission.MissionStatusDetail.COMPLETED);
-
-        if (mission.getStartedAt() == null) {
-            mission.setStartedAt(Instant.now());
-        }
-
-        mission.setCompletedAt(Instant.now());
-        missionRepository.save(mission);
+        autoCompleteMissionAfterLastCollection(mission);
 
         return mapMissionToResponse(mission);
     }
@@ -157,20 +191,83 @@ public class MissionServiceImpl implements MissionService {
         }
 
         missionBinRepository.save(missionBin);
+        Truck truck = mission.getTruck();
+
+        if (truck != null) {
+
+            BigDecimal currentLoad = truck.getCurrentLoadKg() != null
+                    ? truck.getCurrentLoadKg()
+                    : BigDecimal.ZERO;
+
+            BigDecimal binWeight = BigDecimal.ZERO;
+
+            if (missionBin.getBin() != null && missionBin.getBin().getId() != null) {
+                binWeight = binTelemetryRepository
+                        .findTopByBinIdOrderByTimestampDesc(missionBin.getBin().getId())
+                        .map(t -> t.getWeightKg() != null ? t.getWeightKg() : BigDecimal.ZERO)
+                        .orElse(BigDecimal.ZERO);
+            }
+            BigDecimal newLoad = currentLoad.add(binWeight);
+
+            BigDecimal maxLoad = truck.getMaxLoadKg() != null
+                    ? truck.getMaxLoadKg()
+                    : BigDecimal.ZERO;
+
+            if (maxLoad.compareTo(BigDecimal.ZERO) > 0 && newLoad.compareTo(maxLoad) > 0) {
+
+                if (binWeight.compareTo(maxLoad) > 0) {
+                    throw new BadRequestException(
+                            "Bac impossible à collecter: poids du bac=" + binWeight
+                                    + "kg dépasse la capacité maximale du camion=" + maxLoad + "kg"
+                    );
+                }
+
+                if (currentLoad.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal loadBeforeUnload = currentLoad;
+
+                    boolean inserted = autoInsertDisposalStopBeforeBin(mission, missionBin);
+
+                    truck.setCurrentLoadKg(BigDecimal.ZERO);
+                    truckRepository.save(truck);
+
+                    currentLoad = BigDecimal.ZERO;
+                    newLoad = currentLoad.add(binWeight);
+
+                    System.out.println(
+                            (inserted ? "AUTO DISPOSAL INSERTED" : "AUTO DISPOSAL SKIPPED")
+                                    + " => truckId=" + truck.getId()
+                                    + " | loadBeforeUnload=" + loadBeforeUnload
+                                    + "kg | nextBinWeight=" + binWeight + "kg"
+                    );
+                }
+
+                if (newLoad.compareTo(maxLoad) > 0) {
+                    throw new BadRequestException(
+                            "Capacité camion dépassée même après déchargement: truckId=" + truck.getId()
+                                    + " | binWeight=" + binWeight
+                                    + "kg | maxLoad=" + maxLoad + "kg"
+                    );
+                }
+            }
+
+          
+
+            truck.setCurrentLoadKg(currentLoad.add(binWeight));
+
+            truckRepository.save(truck);
+
+            System.out.println(
+                    "TRUCK LOAD UPDATED => truckId=" + truck.getId()
+                            + " | added=" + binWeight
+                            + "kg | newLoad=" + truck.getCurrentLoadKg()
+            );
+        }
 
         long remaining =
                 missionBinRepository.findByMissionIdAndCollectedFalseOrderByVisitOrderAsc(missionId).size();
 
         if (remaining == 0) {
-            mission.setStatus("COMPLETED");
-            mission.setMissionStatusDetail(Mission.MissionStatusDetail.COMPLETED);
-
-            if (mission.getStartedAt() == null) {
-                mission.setStartedAt(Instant.now());
-            }
-
-            mission.setCompletedAt(Instant.now());
-            missionRepository.save(mission);
+            autoCompleteMissionAfterLastCollection(mission);
         } else {
             if (!"IN_PROGRESS".equalsIgnoreCase(mission.getStatus())) {
                 mission.setStatus("IN_PROGRESS");
@@ -186,6 +283,117 @@ public class MissionServiceImpl implements MissionService {
         }
 
         return mapMissionToResponse(mission);
+    }
+    
+    
+    
+    private void autoCompleteMissionAfterLastCollection(Mission mission) {
+        if (mission == null || mission.getId() == null) {
+            return;
+        }
+
+        mission.setStatus("COMPLETED");
+        mission.setMissionStatusDetail(Mission.MissionStatusDetail.COMPLETED);
+
+        if (mission.getStartedAt() == null) {
+            mission.setStartedAt(Instant.now());
+        }
+
+        mission.setCompletedAt(Instant.now());
+        missionRepository.save(mission);
+
+        List<RoutePlan> plans = routePlanRepository.findByMissionOrderByCreatedAtDesc(mission);
+
+        if (plans != null && !plans.isEmpty()) {
+            RoutePlan latestPlan = plans.get(0);
+
+            if (latestPlan.getPlanStatus() != RoutePlan.PlanStatus.COMPLETED) {
+                latestPlan.setPlanStatus(RoutePlan.PlanStatus.COMPLETED);
+                routePlanRepository.save(latestPlan);
+            }
+        }
+
+        Truck truck = mission.getTruck();
+
+        if (truck != null) {
+            truck.setStatus(Truck.TruckStatus.AVAILABLE);
+            truck.setCurrentLoadKg(BigDecimal.ZERO);
+            truck.setLastStatusUpdate(OffsetDateTime.now());
+            truckRepository.save(truck);
+        }
+
+        System.out.println(
+                "MISSION AUTO COMPLETED => missionId=" + mission.getId()
+                        + " | truckId=" + (truck != null ? truck.getId() : null)
+        );
+
+        if (ENABLE_AUTO_MISSION_CHAINING && truck != null) {
+            tryStartNextMissionForSameTruck(mission, truck);
+        }
+    }
+    
+    
+    private void tryStartNextMissionForSameTruck(Mission completedMission, Truck truck) {
+        if (completedMission == null || truck == null) {
+            return;
+        }
+
+        List<String> candidateStatuses = List.of("CREATED", "PLANNED");
+
+        List<Mission> candidates =
+                missionRepository.findByTruckAndStatusInAndPlannedDateOrderByCreatedAtAsc(
+                        truck,
+                        candidateStatuses,
+                        completedMission.getPlannedDate()
+                );
+
+        Mission nextMission = candidates.stream()
+                .filter(m -> m.getId() != null)
+                .filter(m -> !m.getId().equals(completedMission.getId()))
+                .filter(m -> missionBinRepository.countByMissionIdAndCollectedFalse(m.getId()) > 0)
+                .findFirst()
+                .orElse(null);
+
+        if (nextMission == null) {
+            System.out.println(
+                    "MISSION CHAINING => no next mission found for truckId=" + truck.getId()
+            );
+            return;
+        }
+
+        nextMission.setStatus("IN_PROGRESS");
+        nextMission.setMissionStatusDetail(Mission.MissionStatusDetail.IN_PROGRESS);
+
+        if (nextMission.getStartedAt() == null) {
+            nextMission.setStartedAt(Instant.now());
+        }
+
+        missionRepository.save(nextMission);
+
+        truck.setStatus(Truck.TruckStatus.ON_MISSION);
+        truck.setLastStatusUpdate(OffsetDateTime.now());
+        truckRepository.save(truck);
+
+        try {
+            RoutePlan latestPlan = getLatestRoutePlanOrThrow(nextMission);
+
+            if (latestPlan.getPlanStatus() != RoutePlan.PlanStatus.ACTIVE) {
+                latestPlan.setPlanStatus(RoutePlan.PlanStatus.ACTIVE);
+                routePlanRepository.save(latestPlan);
+            }
+        } catch (Exception e) {
+            System.out.println(
+                    "MISSION CHAINING ROUTE PLAN ACTIVATION SKIPPED => missionId="
+                            + nextMission.getId()
+                            + " | reason=" + e.getMessage()
+            );
+        }
+
+        System.out.println(
+                "MISSION CHAINING STARTED => completedMissionId=" + completedMission.getId()
+                        + " | nextMissionId=" + nextMission.getId()
+                        + " | truckId=" + truck.getId()
+        );
     }
 
     @Override
@@ -298,8 +506,37 @@ public class MissionServiceImpl implements MissionService {
         dto.setTransferSnappedWaypoints(transferRoute.snappedWaypoints);
         dto.setTransferDistanceKm(transferRoute.totalDistanceKm);
 
-        dto.setMatrixSource("OSRM");
+        Integer realDurationMin = latestPlan.getEstimatedDurationMin();
+        Integer baseDurationMin = fullRoute.durationMin;
+
+        int delayMin = 0;
+        if (realDurationMin != null && baseDurationMin != null) {
+            delayMin = Math.max(0, realDurationMin - baseDurationMin);
+        }
+
+        boolean trafficEnabled = delayMin > 0;
+
+        String trafficLevel;
+        if (delayMin >= 30) {
+            trafficLevel = "HEAVY";
+        } else if (delayMin >= 15) {
+            trafficLevel = "MODERATE";
+        } else if (delayMin >= 5) {
+            trafficLevel = "LIGHT";
+        } else {
+            trafficLevel = "FLUID";
+        }
+
+        dto.setMatrixSource(trafficEnabled ? "OSRM + TOMTOM_TRAFFIC" : "OSRM");
         dto.setGeometrySource("OSRM");
+
+        dto.setTrafficEnabled(trafficEnabled);
+        dto.setTrafficSource(trafficEnabled ? "OSRM + TOMTOM Traffic" : "OSRM standard");
+        dto.setEstimatedBaseDurationMin(baseDurationMin);
+        dto.setTrafficDelayMin(delayMin);
+        dto.setRoadClosed(false);
+        dto.setTrafficLevel(trafficLevel);
+
         dto.setValidationWarnings(warnings);
 
         return dto;
@@ -398,6 +635,128 @@ public class MissionServiceImpl implements MissionService {
         } catch (Exception e) {
             System.out.println("AUTO REFUEL INSERT FAILED => " + e.getMessage());
         }
+    }
+    
+    
+    private boolean autoInsertDisposalStopBeforeBin(Mission mission, MissionBin missionBin) {
+        if (mission == null || missionBin == null || missionBin.getBin() == null) {
+            return false;
+        }
+
+        RoutePlan latestPlan = getLatestRoutePlanOrThrow(mission);
+
+        List<RouteStop> existingStops = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(latestPlan);
+
+        if (existingStops == null || existingStops.isEmpty()) {
+            throw new BadRequestException("No route stops found for mission: " + mission.getId());
+        }
+
+        RouteStop targetBinStop = existingStops.stream()
+                .filter(stop -> stop.getStopType() == RouteStop.StopType.BIN_PICKUP)
+                .filter(stop -> stop.getBin() != null)
+                .filter(stop -> Objects.equals(stop.getBin().getId(), missionBin.getBin().getId()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException(
+                        "Cannot insert disposal stop: target bin stop not found in route. binId="
+                                + missionBin.getBin().getId()
+                ));
+
+        int targetOrder = targetBinStop.getStopOrder() != null ? targetBinStop.getStopOrder() : -1;
+
+        boolean previousStopAlreadyDisposal = existingStops.stream()
+                .anyMatch(stop ->
+                        stop.getStopOrder() != null
+                                && stop.getStopOrder() == targetOrder - 1
+                                && stop.getStopType() == RouteStop.StopType.DISPOSAL_SITE
+                );
+
+        if (previousStopAlreadyDisposal) {
+            System.out.println(
+                    "AUTO DISPOSAL SKIPPED => previous stop already disposal before binId="
+                            + missionBin.getBin().getId()
+            );
+            return false;
+        }
+
+        RouteStop disposalStop = buildDisposalStop(latestPlan, missionBin);
+
+        List<RouteStop> reordered = new ArrayList<>();
+        boolean inserted = false;
+
+        for (RouteStop stop : existingStops) {
+            if (!inserted && Objects.equals(stop.getId(), targetBinStop.getId())) {
+                reordered.add(disposalStop);
+                inserted = true;
+            }
+
+            RouteStop cloned = cloneRouteStop(latestPlan, stop);
+            reordered.add(cloned);
+        }
+
+        routeStopRepository.deleteAllInBatch(existingStops);
+        routeStopRepository.flush();
+
+        int order = 1;
+        for (RouteStop stop : reordered) {
+            stop.setStopOrder(order++);
+        }
+
+        routeStopRepository.saveAll(reordered);
+        routeStopRepository.flush();
+
+        System.out.println(
+                "DISPOSAL STOP AUTO INSERTED BEFORE BIN => missionId=" + mission.getId()
+                        + " | binId=" + missionBin.getBin().getId()
+                        + " | oldBinStopOrder=" + targetBinStop.getStopOrder()
+        );
+
+        return true;
+    }
+
+    private RouteStop buildDisposalStop(RoutePlan routePlan, MissionBin missionBin) {
+        RouteStop stop = new RouteStop();
+        stop.setRoutePlan(routePlan);
+        stop.setStopType(RouteStop.StopType.DISPOSAL_SITE);
+        stop.setStatus(RouteStop.StopStatus.PLANNED);
+        stop.setNotes("Déchargement automatique: capacité camion insuffisante avant la collecte du bac suivant.");
+
+        String wasteType = missionBin.getBin().getWasteType() != null
+                ? missionBin.getBin().getWasteType().name()
+                : "UNKNOWN";
+
+        if ("YELLOW".equalsIgnoreCase(wasteType)) {
+            stop.setDisposalSiteId(1L);
+            stop.setDisposalSiteName("Centre de tri Paris XV");
+            stop.setLat(48.8339);
+            stop.setLng(2.2773);
+        } else {
+            stop.setDisposalSiteId(2L);
+            stop.setDisposalSiteName("Espace tri Quai d'Issy");
+            stop.setLat(48.8332);
+            stop.setLng(2.2676);
+        }
+
+        return stop;
+    }
+
+    private RouteStop cloneRouteStop(RoutePlan routePlan, RouteStop source) {
+        RouteStop cloned = new RouteStop();
+        cloned.setRoutePlan(routePlan);
+        cloned.setStopType(source.getStopType());
+        cloned.setBin(source.getBin());
+        cloned.setFuelStation(source.getFuelStation());
+        cloned.setDisposalSiteId(source.getDisposalSiteId());
+        cloned.setDisposalSiteName(source.getDisposalSiteName());
+        cloned.setLat(source.getLat());
+        cloned.setLng(source.getLng());
+        cloned.setStatus(source.getStatus());
+        cloned.setNotes(source.getNotes());
+        cloned.setEstimatedArrival(source.getEstimatedArrival());
+        cloned.setActualArrival(source.getActualArrival());
+        cloned.setEstimatedDeparture(source.getEstimatedDeparture());
+        cloned.setActualDeparture(source.getActualDeparture());
+        cloned.setDelayMinutes(source.getDelayMinutes());
+        return cloned;
     }
 
     private MissionFuelStatusResponse buildMissionFuelStatus(Mission mission, RoutePlan latestPlan) {
@@ -643,13 +1002,21 @@ public class MissionServiceImpl implements MissionService {
 
     private MissionRouteStopDto mapRouteStopToDto(RouteStop stop) {
         MissionRouteStopDto dto = new MissionRouteStopDto();
+
         dto.setStopOrder(stop.getStopOrder());
         dto.setStopType(stop.getStopType() != null ? stop.getStopType().name() : null);
+
         dto.setBinId(stop.getBin() != null ? stop.getBin().getId() : null);
+
         dto.setFuelStationId(stop.getFuelStation() != null ? stop.getFuelStation().getId() : null);
         dto.setFuelStationName(stop.getFuelStation() != null ? stop.getFuelStation().getName() : null);
+
+        dto.setDisposalSiteId(stop.getDisposalSiteId());
+        dto.setDisposalSiteName(stop.getDisposalSiteName());
+
         dto.setLat(stop.getLat());
         dto.setLng(stop.getLng());
+
         return dto;
     }
 
@@ -785,6 +1152,11 @@ public class MissionServiceImpl implements MissionService {
         if (totalDistanceObj instanceof Number distanceMeters) {
             result.totalDistanceKm = round(distanceMeters.doubleValue() / 1000.0);
         }
+        
+        Object durationObj = firstRoute.get("duration");
+        if (durationObj instanceof Number durationSeconds) {
+            result.durationMin = (int) Math.round(durationSeconds.doubleValue() / 60.0);
+        }
 
         Object geometryObj = firstRoute.get("geometry");
         if (geometryObj instanceof Map<?, ?> geometry) {
@@ -913,6 +1285,11 @@ public class MissionServiceImpl implements MissionService {
         }
 
         dto.setStatus(mission.getStatus());
+
+        if (mission.getMissionStatusDetail() != null) {
+            dto.setMissionStatusDetail(mission.getMissionStatusDetail().name());
+        }
+
         dto.setPriority(mission.getPriority());
         dto.setPlannedDate(mission.getPlannedDate());
         dto.setCreatedAt(mission.getCreatedAt());
@@ -941,6 +1318,10 @@ public class MissionServiceImpl implements MissionService {
             dto.setBinCode(missionBin.getBin().getBinCode());
             dto.setLat(missionBin.getBin().getLat());
             dto.setLng(missionBin.getBin().getLng());
+
+            if (missionBin.getBin().getWasteType() != null) {
+                dto.setWasteType(missionBin.getBin().getWasteType().name());
+            }
         }
 
         dto.setVisitOrder(missionBin.getVisitOrder());
@@ -982,5 +1363,8 @@ public class MissionServiceImpl implements MissionService {
         private final List<RouteCoordinateDto> snappedWaypoints = new ArrayList<>();
         private final List<Double> legDistancesKm = new ArrayList<>();
         private Double totalDistanceKm;
+        private Integer durationMin;
     }
+    
+   
 }

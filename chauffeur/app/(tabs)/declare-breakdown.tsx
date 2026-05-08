@@ -21,7 +21,7 @@ import {
 } from "react-native";
 import { BASE_URL } from "../../lib/api";
 import { getToken, getUserId } from "../../lib/storage";
-
+import { declareTruckIncident, getCurrentMissionId } from "../../lib/truckApi";
 const panneTypes = [
   "Panne camion",
   "Panne moteur",
@@ -151,29 +151,25 @@ export default function DeclareBreakdownScreen() {
         router.replace("/login");
         return;
       }
+const missionId = await getCurrentMissionId();
 
-      const payload = {
-        driverUserId: userId,
-        missionBinId: missionBinId ? Number(missionBinId) : null,
-        binCode: binCode ?? null,
-        type: selectedType,
-        location: location.trim() || "Localisation non détectée",
-        description: description.trim(),
-        createdAt: new Date().toISOString(),
-      };
-
-      console.log("TRUCK BREAKDOWN:", payload);
-
-      /*
-      await fetch(`${BASE_URL}/api/incidents/truck-breakdown`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      */
+await declareTruckIncident({
+  missionId,
+  incidentType:
+    selectedType === "Panne camion" ||
+    selectedType === "Panne moteur" ||
+    selectedType === "Pneu crevé" ||
+    selectedType === "Problème frein"
+      ? "BREAKDOWN"
+      : selectedType === "Problème carburant"
+      ? "FUEL_LOW"
+      : "OTHER",
+  description: `${selectedType} - ${description.trim()} - ${
+    location.trim() || "Localisation non détectée"
+  }`,
+  lat: null,
+  lng: null,
+});
 
 Alert.alert("Succès", "Panne déclarée avec succès.", [
   {

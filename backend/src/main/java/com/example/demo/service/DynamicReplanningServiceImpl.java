@@ -1,5 +1,6 @@
 package com.example.demo.service;
 import com.example.demo.entity.TruckLocation;
+
 import com.example.demo.repository.TruckLocationRepository;
 import com.example.demo.dto.MissionResponse;
 import com.example.demo.dto.routing.ReplanRequestDto;
@@ -43,7 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
+import org.springframework.transaction.annotation.Propagation;
 @Service
 public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
@@ -457,7 +458,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<MissionResponse> replanMission(Long missionId, ReplanRequestDto request) {
         Mission originalMission = missionRepository.findById(missionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mission not found: " + missionId));
@@ -1141,6 +1142,11 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         }
 
         dto.setStatus(mission.getStatus());
+
+        if (mission.getMissionStatusDetail() != null) {
+            dto.setMissionStatusDetail(mission.getMissionStatusDetail().name());
+        }
+
         dto.setPriority(mission.getPriority());
         dto.setPlannedDate(mission.getPlannedDate());
         dto.setCreatedAt(mission.getCreatedAt());

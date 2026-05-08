@@ -51,7 +51,7 @@ const paris15: any = {
   features: [],
 };
 
-const BASE_URL = "http://10.221.127.113:8081";
+const BASE_URL = "http://10.221.127.114:8081";
 
 export default function Dashboard() {
   const colorScheme = useColorScheme();
@@ -82,55 +82,55 @@ export default function Dashboard() {
   ];
 
   const loadDashboardHeader = useCallback(async () => {
-  try {
-    const token = await getToken();
-    const userId = await getUserId();
+    try {
+      const token = await getToken();
+      const userId = await getUserId();
 
-    console.log("AUTH USER ID:", userId);
-    console.log("TOKEN EXISTS:", !!token);
+      console.log("AUTH USER ID:", userId);
+      console.log("TOKEN EXISTS:", !!token);
 
-    if (!token || !userId) {
+      if (!token || !userId) {
+        setDriverName("Driver");
+        setTruckId("Not assigned");
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/drivers/${userId}/profile`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+
+      console.log("PROFILE STATUS:", response.status);
+      console.log("PROFILE RAW RESPONSE:", text);
+
+      if (!response.ok) {
+        throw new Error(text);
+      }
+
+      const data = text ? JSON.parse(text) : {};
+      console.log("PROFILE DATA:", data);
+      console.log("ASSIGNED TRUCK:", data.assignedTruck);
+      console.log("ASSIGNED TRUCK ID:", data.assignedTruckId);
+
+      setDriverName(data.fullName || "Driver");
+      setTruckId(data.assignedTruck || "Not assigned");
+
+      if (data.assignedTruckId) {
+        await saveTruckId(data.assignedTruckId);
+        console.log("TRUCK ID SAVED:", data.assignedTruckId);
+      } else {
+        console.log("NO assignedTruckId FOUND IN PROFILE");
+      }
+    } catch (error) {
+      console.log("Erreur header:", error);
       setDriverName("Driver");
       setTruckId("Not assigned");
-      return;
     }
-
-    const response = await fetch(`${BASE_URL}/api/drivers/${userId}/profile`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const text = await response.text();
-
-    console.log("PROFILE STATUS:", response.status);
-    console.log("PROFILE RAW RESPONSE:", text);
-
-    if (!response.ok) {
-      throw new Error(text);
-    }
-
-    const data = text ? JSON.parse(text) : {};
-    console.log("PROFILE DATA:", data);
-    console.log("ASSIGNED TRUCK:", data.assignedTruck);
-    console.log("ASSIGNED TRUCK ID:", data.assignedTruckId);
-
-    setDriverName(data.fullName || "Driver");
-    setTruckId(data.assignedTruck || "Not assigned");
-
-    if (data.assignedTruckId) {
-      await saveTruckId(data.assignedTruckId);
-      console.log("TRUCK ID SAVED:", data.assignedTruckId);
-    } else {
-      console.log("NO assignedTruckId FOUND IN PROFILE");
-    }
-  } catch (error) {
-    console.log("Erreur header:", error);
-    setDriverName("Driver");
-    setTruckId("Not assigned");
-  }
-}, []);
+  }, []);
 
   const fetchMyBins = useCallback(async () => {
     try {
@@ -294,52 +294,52 @@ export default function Dashboard() {
     };
   }, [loadDriverNotifications]);
 
-useFocusEffect(
-  useCallback(() => {
-    fetchMyBins();
-    loadDriverNotifications(false);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyBins();
+      loadDriverNotifications(false);
 
-    loadDashboardHeader().then(() => {
-      getMyTruckIncidents()
-        .then((data) => console.log("MY TRUCK INCIDENTS:", data))
-        .catch((err) => console.log("INCIDENTS ERROR:", err));
-    });
-  }, [fetchMyBins, loadDashboardHeader, loadDriverNotifications])
-);
+      loadDashboardHeader().then(() => {
+        getMyTruckIncidents()
+          .then((data) => console.log("MY TRUCK INCIDENTS:", data))
+          .catch((err) => console.log("INCIDENTS ERROR:", err));
+      });
+    }, [fetchMyBins, loadDashboardHeader, loadDriverNotifications])
+  );
 
   const colors = isDark
     ? {
-        container: "#0F172A",
-        card: "#1A232D",
-        softCard: "#111827",
-        text: "#F3F4F6",
-        subtext: "#94A3B8",
-        border: "#2A3642",
-        whiteBorder: "#334155",
-        dangerSoft: "#2B1620",
-        warningSoft: "#3A2A12",
-        greenSoft: "#123226",
-        blueSoft: "#172554",
-        redText: "#FF6B6B",
-        orangeText: "#FBBF24",
-        greenText: "#34D399",
-      }
+      container: "#0F172A",
+      card: "#1A232D",
+      softCard: "#111827",
+      text: "#F3F4F6",
+      subtext: "#94A3B8",
+      border: "#2A3642",
+      whiteBorder: "#334155",
+      dangerSoft: "#2B1620",
+      warningSoft: "#3A2A12",
+      greenSoft: "#123226",
+      blueSoft: "#172554",
+      redText: "#FF6B6B",
+      orangeText: "#FBBF24",
+      greenText: "#34D399",
+    }
     : {
-        container: "#F3F5F7",
-        card: "#FFFFFF",
-        softCard: "#F7F9FB",
-        text: "#102A43",
-        subtext: "#7C8DA6",
-        border: "#BDE8D2",
-        whiteBorder: "#D9DEE5",
-        dangerSoft: "#FFF1F2",
-        warningSoft: "#FFF7ED",
-        greenSoft: "#E9FBF3",
-        blueSoft: "#EEF4FF",
-        redText: "#EF4444",
-        orangeText: "#F59E0B",
-        greenText: "#10B981",
-      };
+      container: "#F3F5F7",
+      card: "#FFFFFF",
+      softCard: "#F7F9FB",
+      text: "#102A43",
+      subtext: "#7C8DA6",
+      border: "#BDE8D2",
+      whiteBorder: "#D9DEE5",
+      dangerSoft: "#FFF1F2",
+      warningSoft: "#FFF7ED",
+      greenSoft: "#E9FBF3",
+      blueSoft: "#EEF4FF",
+      redText: "#EF4444",
+      orangeText: "#F59E0B",
+      greenText: "#10B981",
+    };
 
   const totalBins = bins.length;
   const collectedBins = bins.filter((bin) => bin.collected).length;
@@ -392,6 +392,49 @@ useFocusEffect(
     } catch (error) {
       console.log("Erreur déclaration panne bin:", error);
       Alert.alert("Erreur", "Impossible de déclarer la panne.");
+    }
+  }
+
+  async function startCurrentMissionAndOpenRoute() {
+    try {
+      const token = await getToken();
+
+      if (!token) {
+        Alert.alert("Erreur", "Session expirée. Veuillez vous reconnecter.");
+        return;
+      }
+
+      const missionId = bins.find((b) => !!b.missionId)?.missionId;
+
+      if (!missionId) {
+        Alert.alert("Erreur", "Aucune mission active trouvée.");
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/missions/${missionId}/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      const text = await response.text();
+
+      if (!response.ok) {
+        throw new Error(text || "Impossible de démarrer la mission.");
+      }
+
+      await fetchMyBins();
+
+      router.push("/route-map");
+    } catch (error: any) {
+      console.log("START MISSION ERROR:", error);
+      Alert.alert(
+        "Erreur",
+        error?.message || "Impossible de démarrer la mission."
+      );
     }
   }
 
@@ -645,17 +688,18 @@ useFocusEffect(
             {loadingBins
               ? "Loading..."
               : totalBins === 0
-              ? "No Bins Assigned"
-              : collectedBins === totalBins
-              ? "Completed"
-              : "Ready To Start"}
+                ? "No Bins Assigned"
+                : collectedBins === totalBins
+                  ? "Completed"
+                  : "Ready To Start"}
           </Text>
         </View>
 
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => router.push("/route-map")}
+          onPress={startCurrentMissionAndOpenRoute}
           activeOpacity={0.85}
+          disabled={loadingBins || totalBins === 0 || collectedBins === totalBins}
         >
           <Ionicons name="play-outline" size={18} color="white" />
           <Text style={styles.startText}>Start Route</Text>

@@ -15,8 +15,8 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { getToken, getUserId } from "../lib/storage";
 
-const BASE_URL = "http://10.221.127.113:8081";
-const OSRM_URL = "http://10.221.127.113:5000";
+const BASE_URL = "http://10.221.127.114:8081";
+const OSRM_URL = "http://10.221.127.114:5000";
 const DEV_MODE_PARIS = true;
 
 // ─── Types ───────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-
+import com.example.demo.dto.routing.ReplanRequestDto;
 @Service
 @Transactional
 public class TruckIncidentServiceImpl implements TruckIncidentService {
@@ -26,19 +26,22 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
     private final SmartAlertService smartAlertService;
+    private final DynamicReplanningService dynamicReplanningService;
 
     public TruckIncidentServiceImpl(
             TruckIncidentRepository truckIncidentRepository,
             TruckRepository truckRepository,
             MissionRepository missionRepository,
             UserRepository userRepository,
-            SmartAlertService smartAlertService
+            SmartAlertService smartAlertService,
+            DynamicReplanningService dynamicReplanningService
     ) {
         this.truckIncidentRepository = truckIncidentRepository;
         this.truckRepository = truckRepository;
         this.missionRepository = missionRepository;
         this.userRepository = userRepository;
         this.smartAlertService = smartAlertService;
+        this.dynamicReplanningService = dynamicReplanningService;
     }
 
     @Override
@@ -79,6 +82,8 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         smartAlertService.createTruckIncidentAlert(saved);
 
+        triggerAutomaticReplanIfNeeded(saved);
+
         return mapToResponse(saved);
     }
 
@@ -92,6 +97,22 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
             if (request.getStatus() == TruckIncident.IncidentStatus.RESOLVED) {
                 incident.setResolvedAt(OffsetDateTime.now());
+
+                if (incident.getTruck() != null) {
+                    Truck truck = incident.getTruck();
+
+                    boolean hasOtherOpenIncidents = truckIncidentRepository
+                            .findByTruckAndStatus(truck, TruckIncident.IncidentStatus.OPEN)
+                            .stream()
+                            .anyMatch(other -> !other.getId().equals(incident.getId()));
+
+                    if (!hasOtherOpenIncidents) {
+                        truck.setStatus(Truck.TruckStatus.AVAILABLE);
+                        truck.setLastStatusUpdate(OffsetDateTime.now());
+                        truckRepository.save(truck);
+                    }
+                }
+
                 smartAlertService.resolveAlertsByIncident(incident.getId());
             }
         }
@@ -134,6 +155,133 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+    
+    
+    
+    private void triggerAutomaticReplanIfNeeded(TruckIncident incident) {
+        if (incident == null) {
+            return;
+        }
+
+        if (incident.getStatus() != TruckIncident.IncidentStatus.OPEN) {
+            return;
+        }
+
+        if (incident.getTruck() == null || incident.getTruck().getId() == null) {
+            System.out.println("AUTO REPLAN SKIPPED => incident has no truckId, incidentId=" + incident.getId());
+            return;
+        }
+
+        if (!isReplanningIncident(incident.getIncidentType())) {
+            System.out.println(
+                    "AUTO REPLAN SKIPPED => incidentType="
+                            + incident.getIncidentType()
+                            + ", incidentId="
+                            + incident.getId()
+            );
+            return;
+        }
+
+        Mission missionForReplan = resolveMissionForAutomaticReplan(incident);
+
+        if (missionForReplan == null || missionForReplan.getId() == null) {
+            System.out.println(
+                    "AUTO REPLAN SKIPPED => no matching active mission found for truckId="
+                            + incident.getTruck().getId()
+                            + ", incidentId="
+                            + incident.getId()
+            );
+            return;
+        }
+
+        ReplanRequestDto replanRequest = new ReplanRequestDto();
+        replanRequest.setAffectedTruckId(incident.getTruck().getId());
+        replanRequest.setIncidentType(incident.getIncidentType().name());
+        replanRequest.setReason(
+                incident.getDescription() != null && !incident.getDescription().isBlank()
+                        ? incident.getDescription()
+                        : "Incident camion déclaré par chauffeur"
+        );
+
+        try {
+            dynamicReplanningService.replanMission(missionForReplan.getId(), replanRequest);
+
+            System.out.println(
+                    "✅ AUTO REPLAN DONE => incidentId="
+                            + incident.getId()
+                            + ", missionId="
+                            + missionForReplan.getId()
+                            + ", truckId="
+                            + incident.getTruck().getId()
+                            + ", incidentType="
+                            + incident.getIncidentType()
+            );
+        } catch (Exception e) {
+            System.out.println(
+                    "⚠️ AUTO REPLAN FAILED BUT INCIDENT SAVED => incidentId="
+                            + incident.getId()
+                            + ", missionId="
+                            + missionForReplan.getId()
+                            + ", reason="
+                            + e.getMessage()
+            );
+        }
+    }
+    
+    private Mission resolveMissionForAutomaticReplan(TruckIncident incident) {
+        if (incident == null || incident.getTruck() == null || incident.getTruck().getId() == null) {
+            return null;
+        }
+
+        Long incidentTruckId = incident.getTruck().getId();
+
+        /*
+         * First choice: use the mission sent by the chauffeur app,
+         * but only if it is really assigned to the same truck.
+         */
+        if (incident.getMission() != null
+                && incident.getMission().getTruck() != null
+                && incident.getMission().getTruck().getId() != null
+                && incident.getMission().getTruck().getId().equals(incidentTruckId)) {
+            return incident.getMission();
+        }
+
+        if (incident.getMission() != null) {
+            Long missionTruckId = incident.getMission().getTruck() != null
+                    ? incident.getMission().getTruck().getId()
+                    : null;
+
+            System.out.println(
+                    "AUTO REPLAN MISSION/TRUCK MISMATCH => incidentId="
+                            + incident.getId()
+                            + ", sentMissionId="
+                            + incident.getMission().getId()
+                            + ", sentMissionTruckId="
+                            + missionTruckId
+                            + ", incidentTruckId="
+                            + incidentTruckId
+                            + ". Searching active mission for this truck..."
+            );
+        }
+
+        return missionRepository
+                .findTopByTruckAndStatusInOrderByCreatedAtDesc(
+                        incident.getTruck(),
+                        List.of("IN_PROGRESS", "CREATED", "PLANNED")
+                )
+                .orElse(null);
+    }
+
+    private boolean isReplanningIncident(TruckIncident.IncidentType incidentType) {
+        if (incidentType == null) {
+            return false;
+        }
+
+        return switch (incidentType) {
+            case BREAKDOWN, FUEL_LOW, TRAFFIC_BLOCK, DELAY, DRIVER_UNAVAILABLE -> true;
+            default -> false;
+        };
     }
 
     private void applyTruckStatusFromIncident(Truck truck, TruckIncident.IncidentType incidentType) {

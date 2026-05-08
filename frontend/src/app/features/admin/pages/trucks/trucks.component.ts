@@ -272,14 +272,30 @@ export class TrucksComponent implements OnInit {
     return this.incidentMap[truckCode];
   }
 
-  resolveIncident(incident: TruckIncident): void {
-    this.resolvedIncidentId = incident.id;
+ resolveIncident(incident: TruckIncident): void {
+  const ok = confirm(
+    `Voulez-vous vraiment résoudre l’incident du camion ${incident.truckCode} ?\n\nLe camion sera remis disponible s’il n’a pas d’autre incident ouvert.`
+  );
 
-    this.incidentService.resolveIncident(incident.id, incident.description).subscribe({
+  if (!ok) return;
+
+  this.resolvedIncidentId = incident.id;
+
+  this.incidentService
+    .resolveIncident(
+      incident.id,
+      incident.description || 'Incident résolu par la municipalité'
+    )
+    .subscribe({
       next: () => {
         this.resolvedIncidentId = null;
+
+        this.autoDetectionMessage =
+          `Incident du camion ${incident.truckCode} résolu. Le statut du camion a été mis à jour.`;
+
         this.loadOpenIncidents();
         this.loadDashboard();
+        this.loadTruckAlerts();
       },
       error: (err: any) => {
         console.error('Resolve incident error:', err);
@@ -287,7 +303,7 @@ export class TrucksComponent implements OnInit {
         this.resolvedIncidentId = null;
       },
     });
-  }
+}
 
   replanIncident(incident: TruckIncident): void {
     if (this.replanningIncidentId === incident.id) return;

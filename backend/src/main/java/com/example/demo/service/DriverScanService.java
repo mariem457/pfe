@@ -1,5 +1,10 @@
 package com.example.demo.service;
+import com.example.demo.entity.Mission;
+import com.example.demo.entity.Truck;
+import com.example.demo.repository.MissionRepository;
+import com.example.demo.repository.TruckRepository;
 
+import java.util.List;
 import com.example.demo.dto.BinScanRequest;
 import com.example.demo.entity.Bin;
 import com.example.demo.entity.Driver;
@@ -17,7 +22,9 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Optional;
-
+import com.example.demo.entity.BinTelemetry;
+import com.example.demo.repository.BinTelemetryRepository;
+import java.math.BigDecimal;
 @Service
 public class DriverScanService {
 
@@ -25,17 +32,26 @@ public class DriverScanService {
     private final DriverRepository driverRepository;
     private final MissionBinRepository missionBinRepository;
     private final UserRepository userRepository;
+    private final MissionRepository missionRepository;
+    private final TruckRepository truckRepository;
+    private final BinTelemetryRepository binTelemetryRepository;
 
     public DriverScanService(
             BinRepository binRepository,
             DriverRepository driverRepository,
             MissionBinRepository missionBinRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            MissionRepository missionRepository,
+            TruckRepository truckRepository,
+            BinTelemetryRepository binTelemetryRepository
     ) {
         this.binRepository = binRepository;
         this.driverRepository = driverRepository;
         this.missionBinRepository = missionBinRepository;
         this.userRepository = userRepository;
+        this.missionRepository = missionRepository;
+        this.truckRepository = truckRepository;
+        this.binTelemetryRepository = binTelemetryRepository;
     }
 
     @Transactional
@@ -71,7 +87,11 @@ public class DriverScanService {
             missionBin.setAssignmentStatus(MissionBin.AssignmentStatus.SKIPPED);
             missionBin.setSkippedReason(issueType);
 
-            return missionBinRepository.save(missionBin);
+            MissionBin saved = missionBinRepository.save(missionBin);
+
+            syncMissionStatusAfterDriverAction(saved.getMission());
+
+            return saved;
         }
 
         // cas normal
@@ -84,7 +104,127 @@ public class DriverScanService {
         missionBin.setAssignmentStatus(MissionBin.AssignmentStatus.COLLECTED);
         missionBin.setSkippedReason(null);
 
-        return missionBinRepository.save(missionBin);
+        MissionBin saved = missionBinRepository.save(missionBin);
+
+        updateTruckLoadAfterBinCollection(saved);
+
+        syncMissionStatusAfterDriverAction(saved.getMission());
+
+        return saved;
+    }
+    
+    
+    private void updateTruckLoadAfterBinCollection(MissionBin missionBin) {
+        if (missionBin == null || missionBin.getMission() == null) {
+            return;
+        }
+
+        Mission mission = missionBin.getMission();
+        Truck truck = mission.getTruck();
+
+        if (truck == null) {
+            System.out.println("TRUCK LOAD SKIPPED => mission has no truck");
+            return;
+        }
+
+        BigDecimal currentLoad = truck.getCurrentLoadKg() != null
+                ? truck.getCurrentLoadKg()
+                : BigDecimal.ZERO;
+
+        BigDecimal binWeight = BigDecimal.ZERO;
+
+        if (missionBin.getBin() != null && missionBin.getBin().getId() != null) {
+            binWeight = binTelemetryRepository
+                    .findTopByBinIdOrderByTimestampDesc(missionBin.getBin().getId())
+                    .map(BinTelemetry::getWeightKg)
+                    .filter(weight -> weight != null)
+                    .orElse(BigDecimal.ZERO);
+        }
+
+        BigDecimal maxLoad = truck.getMaxLoadKg() != null
+                ? truck.getMaxLoadKg()
+                : BigDecimal.ZERO;
+
+        BigDecimal newLoad = currentLoad.add(binWeight);
+
+        if (maxLoad.compareTo(BigDecimal.ZERO) > 0 && newLoad.compareTo(maxLoad) > 0) {
+            throw new ConflictException(
+                    "Capacité camion dépassée: charge actuelle="
+                            + currentLoad + "kg, bac="
+                            + binWeight + "kg, capacité="
+                            + maxLoad + "kg"
+            );
+        }
+
+        truck.setCurrentLoadKg(newLoad);
+        truck.setLastStatusUpdate(OffsetDateTime.now());
+        truckRepository.save(truck);
+
+        System.out.println(
+                "TRUCK LOAD UPDATED FROM DRIVER SCAN => truckId=" + truck.getId()
+                        + " | binId=" + (missionBin.getBin() != null ? missionBin.getBin().getId() : null)
+                        + " | added=" + binWeight
+                        + "kg | newLoad=" + newLoad
+        );
+    }
+    
+    private void syncMissionStatusAfterDriverAction(Mission mission) {
+        if (mission == null || mission.getId() == null) {
+            return;
+        }
+
+        List<MissionBin> allBins = missionBinRepository.findByMissionOrderByVisitOrderAsc(mission);
+
+        boolean hasCollected = allBins.stream().anyMatch(MissionBin::isCollected);
+
+        boolean hasRemaining = allBins.stream()
+                .anyMatch(mb -> !mb.isCollected()
+                        && mb.getAssignmentStatus() != MissionBin.AssignmentStatus.REASSIGNED
+                        && mb.getAssignmentStatus() != MissionBin.AssignmentStatus.SKIPPED);
+
+        if (hasCollected && hasRemaining) {
+            mission.setStatus("IN_PROGRESS");
+            mission.setMissionStatusDetail(Mission.MissionStatusDetail.IN_PROGRESS);
+
+            if (mission.getStartedAt() == null) {
+                mission.setStartedAt(Instant.now());
+            }
+
+            Truck truck = mission.getTruck();
+
+            if (truck != null) {
+                truck.setStatus(Truck.TruckStatus.ON_MISSION);
+                truck.setLastStatusUpdate(OffsetDateTime.now());
+                truckRepository.save(truck);
+            }
+
+            missionRepository.save(mission);
+            return;
+        }
+
+        if (hasCollected && !hasRemaining) {
+            mission.setStatus("COMPLETED");
+            mission.setMissionStatusDetail(Mission.MissionStatusDetail.COMPLETED);
+
+            if (mission.getStartedAt() == null) {
+                mission.setStartedAt(Instant.now());
+            }
+
+            if (mission.getCompletedAt() == null) {
+                mission.setCompletedAt(Instant.now());
+            }
+
+            Truck truck = mission.getTruck();
+
+            if (truck != null) {
+                truck.setStatus(Truck.TruckStatus.AVAILABLE);
+                truck.setCurrentLoadKg(java.math.BigDecimal.ZERO);
+                truck.setLastStatusUpdate(OffsetDateTime.now());
+                truckRepository.save(truck);
+            }
+
+            missionRepository.save(mission);
+        }
     }
 
     private MissionBin findPlannedMissionBin(String binCode, Long driverId) {

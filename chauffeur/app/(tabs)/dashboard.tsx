@@ -54,7 +54,27 @@ const paris15: any = {
   features: [],
 };
 
-const BASE_URL = "http://10.221.127.114:8081";
+const BASE_URL = "http://192.168.0.13:8081";
+
+function formatTruckLabel(value: string) {
+  return value.replace(/^TRUCK/i, "CAMION");
+}
+
+function formatDuration(minutes: number | null) {
+  if (minutes == null) return "--";
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+
+  return rest > 0 ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+function formatDistance(km: number | null) {
+  if (km == null) return "--";
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
 
 function formatTruckLabel(value: string) {
   return value.replace(/^TRUCK/i, "CAMION");

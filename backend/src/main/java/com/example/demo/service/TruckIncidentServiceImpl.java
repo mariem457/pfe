@@ -64,7 +64,9 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         incident.setLat(request.getLat());
         incident.setLng(request.getLng());
         incident.setAutoDetected(request.getAutoDetected() != null ? request.getAutoDetected() : false);
-        incident.setStatus(request.getStatus() != null ? request.getStatus() : TruckIncident.IncidentStatus.OPEN);
+        TruckIncident.IncidentStatus incidentStatus =
+                request.getStatus() != null ? request.getStatus() : TruckIncident.IncidentStatus.OPEN;
+        incident.setStatus(incidentStatus);
 
         if (request.getMissionId() != null) {
             Mission mission = missionRepository.findById(request.getMissionId())
@@ -78,10 +80,10 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
             incident.setReportedByUser(user);
         }
 
-        applyTruckStatusFromIncident(truck, incident.getIncidentType());
+        applyTruckStatusFromIncident(truck, incident.getIncidentType(), incidentStatus);
 
         TruckIncident saved = truckIncidentRepository.save(incident);
-        truckRepository.save(truck);
+        truckRepository.saveAndFlush(truck);
 
         smartAlertService.createTruckIncidentAlert(saved);
 
@@ -290,10 +292,24 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         };
     }
 
-    private void applyTruckStatusFromIncident(Truck truck, TruckIncident.IncidentType incidentType) {
+    private void applyTruckStatusFromIncident(
+            Truck truck,
+            TruckIncident.IncidentType incidentType,
+            TruckIncident.IncidentStatus incidentStatus
+    ) {
+        if (truck == null || incidentType == null) {
+            return;
+        }
+
+        if (incidentStatus == TruckIncident.IncidentStatus.RESOLVED
+                || incidentStatus == TruckIncident.IncidentStatus.CANCELLED) {
+            return;
+        }
+
         switch (incidentType) {
             case BREAKDOWN -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
             case FUEL_LOW -> truck.setStatus(Truck.TruckStatus.REFUELING);
+            case GPS_LOST -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
             case DRIVER_UNAVAILABLE, OVERLOAD -> truck.setStatus(Truck.TruckStatus.UNAVAILABLE);
             default -> {
             }

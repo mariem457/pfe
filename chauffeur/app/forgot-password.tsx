@@ -123,7 +123,7 @@ export default function ForgotPasswordScreen() {
         <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={18} color={colors.backText} />
           <Text style={[styles.backText, { color: colors.backText }]}>
-            Back
+            Retour
           </Text>
         </TouchableOpacity>
 
@@ -137,10 +137,10 @@ export default function ForgotPasswordScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.title, { color: colors.title }]}>
-              Forgot Password
+              Mot de passe oublié
             </Text>
             <Text style={[styles.subtitle, { color: colors.subtitle }]}>
-              Enter your email to receive a reset code
+              Entrez votre e-mail pour recevoir un code de réinitialisation
             </Text>
 
             <View style={styles.formGroup}>
@@ -167,7 +167,7 @@ export default function ForgotPasswordScreen() {
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="Enter your email"
+                  placeholder="Entrez votre e-mail"
                   placeholderTextColor={colors.placeholder}
                   style={[styles.input, { color: colors.inputText }]}
                   autoCapitalize="none"
@@ -188,7 +188,7 @@ export default function ForgotPasswordScreen() {
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.mainButtonText}>Send Code</Text>
+                  <Text style={styles.mainButtonText}>Envoyer le code</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>

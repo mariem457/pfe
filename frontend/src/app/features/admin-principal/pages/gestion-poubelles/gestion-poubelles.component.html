@@ -9,8 +9,7 @@
     <div class="header-actions">
       <div class="search-box">
         <span class="material-icons">search</span>
-        <input type="text" placeholder="Rechercher une poubelle..."
-               [(ngModel)]="termeRecherche" />
+        <input type="text" placeholder="Rechercher une poubelle..." [(ngModel)]="termeRecherche" />
       </div>
 
       <button class="btn-add-bin" type="button" (click)="openAddModal()">
@@ -25,14 +24,17 @@
       <div class="stat-icon stat-total"><span class="material-icons">delete</span></div>
       <div><p>Total poubelles</p><h2>{{ nombreTotalPoubelles }}</h2></div>
     </div>
+
     <div class="stat-card">
       <div class="stat-icon stat-full"><span class="material-icons">warning</span></div>
       <div><p>Poubelles pleines</p><h2>{{ nombrePoubellesPleines }}</h2></div>
     </div>
+
     <div class="stat-card">
       <div class="stat-icon stat-active"><span class="material-icons">check_circle</span></div>
       <div><p>Poubelles actives</p><h2>{{ nombrePoubellesActives }}</h2></div>
     </div>
+
     <div class="stat-card">
       <div class="stat-icon stat-maintenance"><span class="material-icons">engineering</span></div>
       <div><p>Maintenance</p><h2>{{ nombrePoubellesMaintenance }}</h2></div>
@@ -64,16 +66,15 @@
       <thead>
         <tr>
           <th style="width:130px">Code</th>
-          <th>Nom</th>
           <th>Zone</th>
           <th>Statut</th>
           <th>Remplissage</th>
           <th>Batterie</th>
           <th>Signal</th>
-          <th>Température</th>
           <th>Dernière collecte</th>
           <th>Prochaine collecte</th>
           <th style="width:180px">QR Code</th>
+          <th style="width:70px">Actions</th>
         </tr>
       </thead>
 
@@ -88,7 +89,6 @@
             </div>
           </td>
 
-          <td>{{ poubelle.nom }}</td>
           <td>{{ poubelle.zone }}</td>
 
           <td>
@@ -110,25 +110,51 @@
 
           <td>{{ poubelle.batterie }}%</td>
           <td>{{ poubelle.signal }}</td>
-          <td>{{ poubelle.temperature }}</td>
           <td>{{ poubelle.derniereCollecte }}</td>
           <td>{{ poubelle.prochaineCollecte }}</td>
 
           <td>
             <div class="qr-actions">
               <button class="btn-qr"
+                      type="button"
                       [disabled]="qrLoading && selectedBin?.id === poubelle.id"
                       (click)="regenerateQR(poubelle)">
                 <span class="material-icons">qr_code_2</span>
                 <span>{{ qrLoading && selectedBin?.id === poubelle.id ? '...' : 'Régénérer' }}</span>
               </button>
 
-              <button class="btn-print" (click)="printQR(poubelle)">
+              <button class="btn-print" type="button" (click)="printQR(poubelle)">
                 <span class="material-icons">print</span>
                 <span>Imprimer</span>
               </button>
             </div>
           </td>
+
+          <td class="actions-cell">
+            <div class="menu-container">
+              <button class="menu-btn" type="button" (click)="toggleMenu(poubelle.id)">
+                <span class="material-icons">more_vert</span>
+              </button>
+
+              <div class="dropdown-menu" *ngIf="menuOpenId === poubelle.id">
+                <button type="button" (click)="showDetails(poubelle)">
+                  <span class="material-icons">visibility</span>
+                  Détails
+                </button>
+
+                <button type="button" (click)="editBin(poubelle)">
+                  <span class="material-icons">edit</span>
+                  Modifier
+                </button>
+
+                <button type="button" class="delete-action" (click)="deleteBin(poubelle.id)">
+                  <span class="material-icons">delete</span>
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </td>
+
         </tr>
       </tbody>
     </table>
@@ -144,12 +170,13 @@
 
 </div>
 
+<!-- Modal QR Code -->
 <div class="qr-modal-overlay" *ngIf="showQrModal" (click)="closeQrModal()">
   <div class="qr-modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>QR Code</h3>
       <span class="modal-code">{{ selectedBin?.code }}</span>
-      <button class="modal-close" (click)="closeQrModal()">
+      <button class="modal-close" type="button" (click)="closeQrModal()">
         <span class="material-icons">close</span>
       </button>
     </div>
@@ -157,17 +184,20 @@
     <img [src]="qrPreviewUrl" alt="QR Code" class="qr-image" />
 
     <div class="modal-actions">
-      <button class="btn-download" (click)="downloadQR()">
+      <button class="btn-download" type="button" (click)="downloadQR()">
         <span class="material-icons">download</span> Télécharger
       </button>
-      <button class="btn-print-modal" (click)="printFromModal()">
+
+      <button class="btn-print-modal" type="button" (click)="printFromModal()">
         <span class="material-icons">print</span> Imprimer
       </button>
-      <button class="btn-cancel" (click)="closeQrModal()">Fermer</button>
+
+      <button class="btn-cancel" type="button" (click)="closeQrModal()">Fermer</button>
     </div>
   </div>
 </div>
 
+<!-- Modal Ajouter -->
 <div class="add-modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
   <div class="add-modal" (click)="$event.stopPropagation()">
 
@@ -183,38 +213,50 @@
       </label>
 
       <label>
-        Type
-        <input type="text" [(ngModel)]="newBin.type" placeholder="Ex: plastique, organique..." />
+        Type déchet
+        <input type="text" [(ngModel)]="newBin.type" placeholder="gris, vert, jaune, blanc" />
       </label>
 
       <label>
-        Zone ID
-        <input type="number" [(ngModel)]="newBin.zoneId" placeholder="Ex: 1" />
+        Zone
+        <select [(ngModel)]="newBin.zoneId"
+                (ngModelChange)="zoomToZone(newBin.zoneId, 'add')">
+          <option [ngValue]="null" disabled selected hidden>Choisir une zone</option>
+          <option [ngValue]="10">10 - Saint-Lambert</option>
+          <option [ngValue]="11">11 - Necker</option>
+          <option [ngValue]="12">12 - Grenelle</option>
+          <option [ngValue]="13">13 - Javel</option>
+        </select>
       </label>
 
       <label>
         Latitude
-        <input type="number" [(ngModel)]="newBin.lat" placeholder="Ex: 35.5047" />
+        <input type="number" [(ngModel)]="newBin.lat" readonly placeholder="Cliquez sur la carte" />
       </label>
 
       <label>
         Longitude
-        <input type="number" [(ngModel)]="newBin.lng" placeholder="Ex: 11.0622" />
+        <input type="number" [(ngModel)]="newBin.lng" readonly placeholder="Cliquez sur la carte" />
       </label>
 
       <label>
         Date installation
-        <input type="date" [(ngModel)]="newBin.installationDate" />
+        <input type="date" [(ngModel)]="newBin.installationDate" readonly />
       </label>
 
-      <label class="checkbox-line">
+      <label class="checkbox-line full">
         <input type="checkbox" [(ngModel)]="newBin.isActive" />
-        Active
+        <span>Active</span>
       </label>
 
       <label class="full">
         Notes
         <textarea rows="3" [(ngModel)]="newBin.notes" placeholder="Notes..."></textarea>
+      </label>
+
+      <label class="full">
+        Position sur la carte
+        <div id="addMap" class="map-box"></div>
       </label>
     </div>
 
@@ -223,6 +265,154 @@
       <button type="button" class="btn-save" (click)="addBin()" [disabled]="addLoading">
         {{ addLoading ? 'Ajout...' : 'Ajouter' }}
       </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal Modifier -->
+<div class="add-modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+  <div class="add-modal" (click)="$event.stopPropagation()">
+
+    <div class="add-modal-header">
+      <h2>Modifier la poubelle</h2>
+      <button type="button" (click)="closeEditModal()">×</button>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        Code poubelle
+        <input type="text" [value]="editingBin?.code" readonly />
+      </label>
+
+      <label>
+        Type déchet
+        <input type="text" [(ngModel)]="editForm.type" placeholder="gris, vert, jaune, blanc" />
+      </label>
+
+      <label>
+        Zone
+        <select [(ngModel)]="editForm.zoneId"
+                (ngModelChange)="zoomToZone(editForm.zoneId, 'edit')">
+          <option [ngValue]="null" disabled selected hidden>Choisir une zone</option>
+          <option [ngValue]="10">10 - Saint-Lambert</option>
+          <option [ngValue]="11">11 - Necker</option>
+          <option [ngValue]="12">12 - Grenelle</option>
+          <option [ngValue]="13">13 - Javel</option>
+        </select>
+      </label>
+
+      <label>
+        Latitude
+        <input type="number" [(ngModel)]="editForm.lat" readonly placeholder="Cliquez sur la carte" />
+      </label>
+
+      <label>
+        Longitude
+        <input type="number" [(ngModel)]="editForm.lng" readonly placeholder="Cliquez sur la carte" />
+      </label>
+
+      <label class="checkbox-line full">
+        <input type="checkbox" [(ngModel)]="editForm.isActive" />
+        <span>Active</span>
+      </label>
+
+      <label class="full">
+        Notes
+        <textarea rows="3" [(ngModel)]="editForm.notes" placeholder="Notes..."></textarea>
+      </label>
+
+      <label class="full">
+        Position sur la carte
+        <div id="editMap" class="map-box"></div>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button type="button"
+              class="btn-save"
+              (click)="updateBin()"
+              [disabled]="editLoading || !hasEditChanges()">
+        {{ editLoading ? 'Modification...' : 'Modifier' }}
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal Détails -->
+<div class="details-modal-overlay" *ngIf="showDetailsModal" (click)="closeDetailsModal()">
+  <div class="details-modal" (click)="$event.stopPropagation()">
+
+    <div class="details-header">
+      <div>
+        <h2>Détails de la poubelle</h2>
+        <p>{{ detailsBin?.code }}</p>
+      </div>
+
+      <button type="button" (click)="closeDetailsModal()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="details-grid">
+      <div class="detail-card">
+        <span>Zone</span>
+        <strong>{{ detailsBin?.zone }}</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Type déchet</span>
+        <strong>
+          {{
+            detailsBin?.wasteType === 'GRAY' ? 'gris' :
+            detailsBin?.wasteType === 'GREEN' ? 'vert' :
+            detailsBin?.wasteType === 'YELLOW' ? 'jaune' :
+            detailsBin?.wasteType === 'WHITE' ? 'blanc' :
+            (detailsBin?.wasteType || '--')
+          }}
+        </strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Latitude</span>
+        <strong>{{ detailsBin?.lat || '--' }}</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Longitude</span>
+        <strong>{{ detailsBin?.lng || '--' }}</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Batterie</span>
+        <strong>{{ detailsBin?.batterie }}%</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Remplissage</span>
+        <strong>{{ detailsBin?.niveauRemplissage }}%</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Statut</span>
+        <strong>{{ detailsBin ? getLibelleStatut(detailsBin.statut) : '--' }}</strong>
+      </div>
+
+      <div class="detail-card">
+        <span>Active</span>
+        <strong>{{ detailsBin?.isActive ? 'Oui' : 'Non' }}</strong>
+      </div>
+
+      <div class="detail-card full">
+        <span>Notes</span>
+        <strong>{{ detailsBin?.notes || '--' }}</strong>
+      </div>
+    </div>
+
+    <div class="details-actions">
+      <button type="button" class="btn-cancel" (click)="closeDetailsModal()">Fermer</button>
     </div>
 
   </div>

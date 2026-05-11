@@ -5,6 +5,7 @@ import { AlertService, AlertDto } from '../../../../services/alert.service';
 import { FormsModule } from '@angular/forms';
 import {
   MissionBinResponse,
+  MissionReassignmentResponse,
   MissionResponse,
   MissionRouteResponse,
   MissionRouteStop,
@@ -18,6 +19,23 @@ import {
 } from '../trucks/fleet-map/fleet-map.component';
 
 type MissionTab = 'overview' | 'map' | 'bins' | 'alerts';
+type MissionJournalKind =
+  | 'created'
+  | 'started'
+  | 'collection'
+  | 'replan'
+  | 'replacement'
+  | 'alert'
+  | 'completed'
+  | 'system';
+
+interface MissionJournalItem {
+  kind: MissionJournalKind;
+  time: string | null;
+  title: string;
+  message: string;
+  actor: string;
+}
 
 @Component({
   selector: 'app-missions-page',
@@ -57,11 +75,14 @@ export class MissionsComponent implements OnInit, OnDestroy {
 
   searchTerm = signal('');
   selectedStatus = signal('ALL');
+  showHistory = signal(false);
 
   debugMode = signal(false);
   routeDistances = signal<number[]>([]);
   missionAlerts = signal<AlertDto[]>([]);
   loadingMissionAlerts = signal(false);
+  missionReassignments = signal<MissionReassignmentResponse[]>([]);
+loadingReassignments = signal(false);
   private alertSub = new Subscription();
 
   trafficEnabled = signal(false);
@@ -126,7 +147,17 @@ export class MissionsComponent implements OnInit, OnDestroy {
   }
 
 filteredMissions = computed(() => {
-  let data = [...this.missions()];
+  const today = this.todayIsoDate();
+
+  let data = [...this.missions()].filter(m => {
+    const planned = this.normalizeDateOnly(m.plannedDate);
+
+    if (this.showHistory()) {
+      return !!planned && planned < today;
+    }
+
+    return planned === today;
+  });
 
   if (this.showOnlyLatestAi()) {
     const latestIds = this.latestAiMissionIds();
@@ -146,7 +177,8 @@ filteredMissions = computed(() => {
       (m.missionCode || '').toLowerCase().includes(q) ||
       (m.driverName || '').toLowerCase().includes(q) ||
       (m.zoneName || '').toLowerCase().includes(q) ||
-      (m.status || '').toLowerCase().includes(q)
+      (m.status || '').toLowerCase().includes(q) ||
+      (m.plannedDate || '').toLowerCase().includes(q)
     );
   }
 
@@ -163,7 +195,52 @@ filteredMissions = computed(() => {
       cancelled: data.filter(m => m.status === 'CANCELLED')
     };
   });
+  todayMissionsCount = computed(() => {
+  const today = this.todayIsoDate();
+  return this.missions().filter(m => this.normalizeDateOnly(m.plannedDate) === today).length;
+});
 
+historyMissionsCount = computed(() => {
+  const today = this.todayIsoDate();
+  return this.missions().filter(m => {
+    const planned = this.normalizeDateOnly(m.plannedDate);
+    return !!planned && planned < today;
+  }).length;
+});
+
+private todayIsoDate(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+private normalizeDateOnly(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return String(value).slice(0, 10);
+}
+
+toggleHistory(): void {
+  this.showHistory.set(!this.showHistory());
+  this.selectedStatus.set('ALL');
+  this.searchTerm.set('');
+
+  const first = this.filteredMissions()[0] || null;
+  if (first) {
+    this.selectMission(first);
+  } else {
+    this.selectedMission.set(null);
+    this.missionBins.set([]);
+    this.missionRouteCoordinates.set([]);
+    this.collectionRouteCoordinates.set([]);
+    this.transferRouteCoordinates.set([]);
+    this.missionRouteStops.set([]);
+    this.snappedWaypoints.set([]);
+    this.missionAlerts.set([]);
+    this.missionReassignments.set([]);
+  }
+}
   newestMissionId = computed(() => {
     const all = [...this.missions()].sort((a, b) => b.id - a.id);
     return all.length ? all[0].id : null;
@@ -209,32 +286,183 @@ filteredMissions = computed(() => {
     return [...new Set(types)];
   });
 
-  missionMapBins = computed<FleetMapMissionBinItem[]>(() =>
-    this.missionBins()
-      .filter(bin => bin.lat != null && bin.lng != null)
-      .map(bin => ({
+  missionJournal = computed<MissionJournalItem[]>(() => {
+  const mission = this.selectedMission();
+
+  if (!mission) {
+    return [];
+  }
+
+  const items: MissionJournalItem[] = [];
+
+  const detail = this.getMissionStatusDetail(mission);
+  const bins = this.missionBins();
+  const reassignments = this.missionReassignments();
+
+  const collected = bins.filter(b => b.collected).length;
+  const reassigned = bins.filter(b => b.assignmentStatus === 'REASSIGNED').length;
+
+  const targetTruckIds = [
+    ...new Set(
+      bins
+        .filter(b => b.assignmentStatus === 'REASSIGNED' && b.reassignedToTruckId != null)
+        .map(b => b.reassignedToTruckId as number)
+    )
+  ];
+
+  const sourceTruckIds = [
+    ...new Set(
+      bins
+        .filter(b => b.assignmentStatus === 'REASSIGNED' && b.reassignedFromTruckId != null)
+        .map(b => b.reassignedFromTruckId as number)
+    )
+  ];
+
+  const replacementMission = this.missions().find(m =>
+    m.id !== mission.id &&
+    (m.notes || '').toLowerCase().includes(`mission ${mission.id}`)
+  );
+
+  items.push({
+    kind: 'created',
+    time: mission.createdAt,
+    title: 'Mission générée par optimisation IA',
+    message: 'Création automatique de la tournée avec OR-Tools, OSRM et contraintes métier.',
+    actor: 'Automatique'
+  });
+
+  if (mission.startedAt) {
+    items.push({
+      kind: 'started',
+      time: mission.startedAt,
+      title: 'Mission démarrée',
+      message: 'Le chauffeur a commencé la tournée de collecte depuis l’application mobile.',
+      actor: 'Chauffeur'
+    });
+  }
+
+  if (collected > 0) {
+    items.push({
+      kind: 'collection',
+      time: null,
+      title: `${collected} bac(s) collecté(s)`,
+      message: `La progression de collecte est mise à jour en temps réel. Bacs restants non réaffectés: ${this.remainingBins()}.`,
+      actor: 'Chauffeur'
+    });
+  }
+
+  if (this.isMissionReplanned(mission)) {
+    const sourceText = sourceTruckIds.length
+      ? ` depuis camion #${sourceTruckIds.join(', #')}`
+      : '';
+
+    const targetText = targetTruckIds.length
+      ? ` vers camion #${targetTruckIds.join(', #')}`
+      : '';
+
+    items.push({
+      kind: 'replan',
+      time: reassignments[0]?.reassignedAt || null,
+      title: 'Replanification dynamique effectuée',
+      message:
+        reassigned > 0
+          ? `${reassigned} bac(s) restant(s) ont été réaffectés automatiquement${sourceText}${targetText}.`
+          : this.getReplanJournalMessage(mission),
+      actor: 'Système IA'
+    });
+  }
+
+  if (replacementMission) {
+    items.push({
+      kind: 'replacement',
+      time: replacementMission.createdAt,
+      title: `Mission de remplacement créée: ${replacementMission.missionCode}`,
+      message: `Nouvelle mission prioritaire générée pour reprendre les bacs non collectés. Statut: ${this.getStatusLabel(replacementMission.status)}.`,
+      actor: 'Automatique'
+    });
+  }
+
+  if ((mission.notes || '').toLowerCase().includes('replanifiee a partir')) {
+    items.push({
+      kind: 'replacement',
+      time: mission.createdAt,
+      title: 'Mission issue d’une replanification',
+      message: mission.notes || 'Cette mission a été créée automatiquement suite à un incident camion.',
+      actor: 'Automatique'
+    });
+  }
+
+  if (this.missionAlerts().length > 0) {
+    items.push({
+      kind: 'alert',
+      time: this.missionAlerts()[0]?.createdAt || null,
+      title: `${this.missionAlerts().length} alerte(s) ouverte(s)`,
+      message: 'Des alertes opérationnelles sont encore liées à cette mission.',
+      actor: 'Monitoring'
+    });
+  }
+
+  if (mission.completedAt || detail === 'COMPLETED') {
+    items.push({
+      kind: 'completed',
+      time: mission.completedAt,
+      title: 'Mission terminée',
+      message: 'La collecte associée à cette mission est clôturée.',
+      actor: 'Système'
+    });
+  }
+
+  return items;
+});
+
+missionMapBins = computed<FleetMapMissionBinItem[]>(() => {
+  const routeStops = this.missionRouteStops();
+
+  return this.missionBins()
+    .filter(bin => bin.lat != null && bin.lng != null)
+    .map(bin => {
+      const stop = routeStops.find(s =>
+        s.stopType === 'BIN_PICKUP' &&
+        s.binId === bin.binId &&
+        s.lat != null &&
+        s.lng != null
+      );
+
+      return {
         id: bin.id,
         binId: bin.binId,
         binCode: bin.binCode,
-        lat: bin.lat as number,
-        lng: bin.lng as number,
+
+        // المهم: marker الأزرق يمشي لنفس point متاع route stop
+        lat: stop ? Number(stop.lat) : Number(bin.lat),
+        lng: stop ? Number(stop.lng) : Number(bin.lng),
+
         visitOrder: bin.visitOrder,
         collected: bin.collected,
         targetFillThreshold: bin.targetFillThreshold,
         wasteType: (bin as any).wasteType ?? null,
+
         fillLevel: (bin as any).fillLevel ?? null,
         batteryLevel: (bin as any).batteryLevel ?? null,
         status: (bin as any).status ?? null,
         zoneName: (bin as any).zoneName ?? null,
         clusterId: (bin as any).clusterId ?? null,
+
+        priorityScore: (bin as any).priorityScore ?? null,
+        predictedFillLevelNext: (bin as any).predictedFillLevelNext ?? null,
+        hoursToFull: (bin as any).hoursToFull ?? null,
+        alertStatus: (bin as any).alertStatus ?? null,
+        shouldCollect: (bin as any).shouldCollect ?? null,
+
         decisionReason: (bin as any).decisionReason ?? null,
         scoreExplanation: (bin as any).scoreExplanation ?? null,
         urgencyExplanation: (bin as any).urgencyExplanation ?? null,
         feedbackExplanation: (bin as any).feedbackExplanation ?? null,
         postponementExplanation: (bin as any).postponementExplanation ?? null,
         classificationExplanation: (bin as any).classificationExplanation ?? null
-      }))
-  );
+      };
+    });
+});
 
   missionMapRouteStops = computed<FleetMapRouteStop[]>(() =>
     this.missionRouteStops()
@@ -372,6 +600,7 @@ filteredMissions = computed(() => {
     this.collectionRouteCoordinates.set([]);
     this.transferRouteCoordinates.set([]);
     this.missionRouteStops.set([]);
+    this.missionReassignments.set([]);
     this.snappedWaypoints.set([]);
     this.routeMatrixSource.set(null);
     this.routeGeometrySource.set('OSRM');
@@ -382,6 +611,9 @@ filteredMissions = computed(() => {
     this.loadMissionBins(mission.id);
     this.loadMissionRoute(mission.id);
     this.loadMissionAlerts(mission.id);
+    
+
+    this.loadMissionReassignments(mission.id);
   }
 
   loadMissionBins(missionId: number): void {
@@ -737,6 +969,22 @@ filteredMissions = computed(() => {
     return this.routeDistances().reduce((sum, d) => sum + d, 0);
   }
 
+
+  loadMissionReassignments(missionId: number): void {
+  this.loadingReassignments.set(true);
+
+  this.missionService.getMissionReassignments(missionId).subscribe({
+    next: (data) => {
+      this.missionReassignments.set(data || []);
+      this.loadingReassignments.set(false);
+    },
+    error: (err) => {
+      console.error('Mission reassignments error:', err);
+      this.missionReassignments.set([]);
+      this.loadingReassignments.set(false);
+    }
+  });
+}
   loadMissionAlerts(missionId: number): void {
     this.loadingMissionAlerts.set(true);
 
@@ -854,39 +1102,57 @@ filteredMissions = computed(() => {
 
 
 
+isMissionReplanned(mission: MissionResponse | null | undefined): boolean {
+  if (!mission) return false;
 
-  isMissionReplanned(mission: MissionResponse | null | undefined): boolean {
-    const detail = this.getMissionStatusDetail(mission);
+  const detail = this.getMissionStatusDetail(mission);
 
-    return detail === 'REPLANNED' || detail === 'PARTIALLY_REASSIGNED';
+  return (
+    detail === 'REPLANNED' ||
+    detail === 'PARTIALLY_REASSIGNED' ||
+    this.reassignedBins() > 0 ||
+    this.missionReassignments().length > 0 ||
+    (mission.notes || '').toLowerCase().includes('replanifiee')
+  );
+}
+
+getReplanJournalTitle(mission: MissionResponse | null | undefined): string {
+  const detail = this.getMissionStatusDetail(mission);
+
+  if (detail === 'PARTIALLY_REASSIGNED') {
+    return 'Replanification dynamique avec réaffectation partielle';
   }
 
-  getReplanJournalTitle(mission: MissionResponse | null | undefined): string {
-    const detail = this.getMissionStatusDetail(mission);
-
-    if (detail === 'PARTIALLY_REASSIGNED') {
-      return 'Bacs restants réaffectés automatiquement';
-    }
-
-    if (detail === 'REPLANNED') {
-      return 'Itinéraire recalculé automatiquement';
-    }
-
-    return 'Replanification automatique effectuée';
+  if (detail === 'REPLANNED') {
+    return 'Mission replanifiée automatiquement';
   }
 
-  getReplanJournalMessage(mission: MissionResponse | null | undefined): string {
-    const detail = this.getMissionStatusDetail(mission);
+  return 'Replanification automatique effectuée';
+}
 
-    if (detail === 'PARTIALLY_REASSIGNED') {
-      return `${this.reassignedBins()} bac(s) ont été réaffecté(s) vers un autre camion disponible suite à un incident chauffeur/camion.`;
-    }
+getReplanJournalMessage(mission: MissionResponse | null | undefined): string {
+  const reassigned = this.reassignedBins();
 
-    if (detail === 'REPLANNED') {
-      return 'La tournée a été recalculée automatiquement suite à un événement temps réel, sans relancer toute la planification journalière.';
-    }
-
-    return 'Le système a détecté un changement opérationnel et a mis à jour la mission automatiquement.';
+  if (reassigned > 0) {
+    return `${reassigned} bac(s) restant(s) ont été réaffectés vers un camion disponible après incident.`;
   }
 
+  if (mission?.notes) {
+    return mission.notes;
+  }
+
+  return 'Le système a détecté un incident opérationnel et recalculé la tournée automatiquement.';
+}
+
+journalItemClass(item: MissionJournalItem): string {
+  return `smart-journal-item smart-journal-item--${item.kind}`;
+}
+
+formatJournalTime(item: MissionJournalItem): string {
+  if (!item.time) {
+    return item.kind === 'replan' ? 'Temps réel' : '—';
+  }
+
+  return this.formatDate(item.time);
+}
 }

@@ -1,4 +1,11 @@
 package com.example.demo.service;
+
+
+import com.example.demo.entity.Alert;
+import com.example.demo.repository.AlertRepository;
+
+import java.lang.reflect.Method;
+import java.util.Collection;
 import com.example.demo.entity.TruckLocation;
 
 import com.example.demo.repository.TruckLocationRepository;
@@ -78,6 +85,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     private final PythonRoutingClient pythonRoutingClient;
     private final BinRepository binRepository;
     private final TruckLocationRepository truckLocationRepository;
+    private final AlertRepository alertRepository;
 
     public DynamicReplanningServiceImpl(MissionRepository missionRepository,
                                         MissionBinRepository missionBinRepository,
@@ -91,7 +99,10 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                         RoutingPayloadBuilderService routingPayloadBuilderService,
                                         PythonRoutingClient pythonRoutingClient,
                                         BinRepository binRepository,
-                                        TruckLocationRepository truckLocationRepository) {
+                                        TruckLocationRepository truckLocationRepository,
+                                        AlertRepository alertRepository
+                                        
+    		) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
         this.missionReassignmentRepository = missionReassignmentRepository;
@@ -105,6 +116,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         this.pythonRoutingClient = pythonRoutingClient;
         this.binRepository = binRepository;
         this.truckLocationRepository = truckLocationRepository;
+        this.alertRepository = alertRepository;
     }
 
     @Override
@@ -123,18 +135,58 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             return;
         }
 
-        List<String> activeStatuses = List.of("IN_PROGRESS", "CREATED", "PLANNED");
+        String urgentWasteType = extractWasteTypeFromBin(bin);
 
-        Mission mission = missionRepository
-                .findTopByZoneAndStatusInOrderByCreatedAtDesc(bin.getZone(), activeStatuses)
-                .orElse(null);
+        if (urgentWasteType == null || urgentWasteType.isBlank()) {
+            System.out.println("URGENT BIN IGNORED => wasteType missing, binId=" + binId);
+            return;
+        }
+
+        boolean alreadyAssignedToActiveMission = missionBinRepository
+                .findByBinIdOrderByIdDesc(binId)
+                .stream()
+                .anyMatch(mb ->
+                        mb.getMission() != null
+                                && mb.getMission().getStatus() != null
+                                && List.of("CREATED", "PLANNED", "IN_PROGRESS").contains(mb.getMission().getStatus().toUpperCase())
+                                && !mb.isCollected()
+                                && mb.getAssignmentStatus() != MissionBin.AssignmentStatus.CANCELLED
+                );
+
+        if (alreadyAssignedToActiveMission) {
+            System.out.println("URGENT BIN IGNORED => already assigned to active mission, binId=" + binId);
+            return;
+        }
+
+        Mission mission = findCompatibleActiveMissionForUrgentBin(bin, urgentWasteType);
 
         if (mission == null) {
-            System.out.println("URGENT BIN => no active mission found in same zone, binId=" + binId);
+            System.out.println(
+                    "URGENT BIN => no compatible active mission found. No new mission created. binId="
+                            + binId
+                            + ", wasteType="
+                            + urgentWasteType
+            );
+
+            markOpenBinAlertsNotInserted(bin);
             return;
         }
 
         validateMissionEligibleForReplan(mission);
+
+        if (mission.getTruck() == null || !isTruckCompatibleWithWasteType(mission.getTruck(), urgentWasteType)) {
+            System.out.println(
+                    "URGENT BIN IGNORED => mission truck not compatible, missionId="
+                            + mission.getId()
+                            + ", truckId="
+                            + (mission.getTruck() != null ? mission.getTruck().getId() : null)
+                            + ", binWasteType="
+                            + urgentWasteType
+            );
+
+            markOpenBinAlertsNotInserted(bin);
+            return;
+        }
 
         boolean alreadyAssigned = missionBinRepository.existsByMissionIdAndBinId(mission.getId(), binId);
 
@@ -148,7 +200,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         urgentMissionBin.setBin(bin);
         urgentMissionBin.setVisitOrder(9999);
         urgentMissionBin.setCollected(false);
-        urgentMissionBin.setAssignedReason("MANUAL");
+        urgentMissionBin.setAssignedReason("THRESHOLD");
         urgentMissionBin.setAssignmentStatus(MissionBin.AssignmentStatus.PLANNED);
 
         missionBinRepository.save(urgentMissionBin);
@@ -163,10 +215,15 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         if (routingResponse == null
                 || routingResponse.getMissions() == null
                 || routingResponse.getMissions().isEmpty()) {
+
+            missionBinRepository.delete(urgentMissionBin);
+            markOpenBinAlertsNotInserted(bin);
+
             throw new BadRequestException("Urgent bin routing failed for binId=" + binId);
         }
 
         RoutingMissionDto routingMission = routingResponse.getMissions().get(0);
+
         boolean urgentBinServed = routingMission.getStops() != null
                 && routingMission.getStops()
                 .stream()
@@ -174,11 +231,13 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
 
         if (!urgentBinServed) {
             missionBinRepository.delete(urgentMissionBin);
+            markOpenBinAlertsNotInserted(bin);
 
             throw new BadRequestException(
                     "Urgent bin was not accepted by routing engine, rollback applied. binId=" + binId
             );
         }
+
         validateUrgentReplanCostAcceptable(mission, routingMission, urgentMissionBin, binId);
 
         updateMissionBinVisitOrders(mission, routingMission);
@@ -190,17 +249,274 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 routingMission,
                 routingRequest
         );
+
         mission.setMissionStatusDetail(Mission.MissionStatusDetail.REPLANNED);
         mission.setReplannedCount((mission.getReplannedCount() != null ? mission.getReplannedCount() : 0) + 1);
         missionRepository.save(mission);
+
+        markOpenBinAlertsInsertedInMission(bin, mission);
+
         System.out.println(
-                "✅ URGENT BIN INSERTED => binId="
+                "✅ URGENT BIN INSERTED INTO EXISTING MISSION => binId="
                         + binId
                         + ", telemetryId="
                         + telemetryId
                         + ", missionId="
                         + mission.getId()
+                        + ", truckId="
+                        + mission.getTruck().getId()
+                        + ", wasteType="
+                        + urgentWasteType
         );
+    }
+    
+    
+    private Mission findCompatibleActiveMissionForUrgentBin(Bin bin, String wasteType) {
+        if (bin == null || bin.getZone() == null || wasteType == null) {
+            return null;
+        }
+
+        List<String> activeStatuses = List.of("IN_PROGRESS", "CREATED", "PLANNED");
+
+        return missionRepository.findByZone(bin.getZone())
+                .stream()
+                .filter(m -> m.getStatus() != null)
+                .filter(m -> activeStatuses.contains(m.getStatus().toUpperCase()))
+                .filter(m -> m.getTruck() != null)
+                .filter(m -> isTruckCompatibleWithWasteType(m.getTruck(), wasteType))
+                .filter(m -> {
+                    try {
+                        validateMissionEligibleForReplan(m);
+                        return true;
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String extractWasteTypeFromBin(Bin bin) {
+        if (bin == null) {
+            return null;
+        }
+
+        Object value = invokeNoArg(bin, "getWasteType");
+
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name().trim().toUpperCase();
+        }
+
+        return String.valueOf(value).trim().toUpperCase();
+    }
+
+    private boolean isTruckCompatibleWithWasteType(Truck truck, String wasteType) {
+        if (truck == null || wasteType == null || wasteType.isBlank()) {
+            return false;
+        }
+
+        String normalizedWasteType = wasteType.trim().toUpperCase();
+
+        Object supportedWasteTypes = invokeNoArg(truck, "getSupportedWasteTypes");
+
+        if (supportedWasteTypes instanceof Collection<?> collection) {
+            return collection.stream()
+                    .filter(v -> v != null)
+                    .map(this::normalizeWasteTypeValue)
+                    .anyMatch(normalizedWasteType::equals);
+        }
+
+        Object singleWasteType = invokeNoArg(truck, "getWasteType");
+
+        if (singleWasteType != null) {
+            return normalizedWasteType.equals(normalizeWasteTypeValue(singleWasteType));
+        }
+
+        Object wasteTypes = invokeNoArg(truck, "getWasteTypes");
+
+        if (wasteTypes instanceof Collection<?> collection) {
+            return collection.stream()
+                    .filter(v -> v != null)
+                    .map(this::normalizeWasteTypeValue)
+                    .anyMatch(normalizedWasteType::equals);
+        }
+
+        Object supportedWasteType = invokeNoArg(truck, "getSupportedWasteType");
+
+        if (supportedWasteType != null) {
+            return normalizedWasteType.equals(normalizeWasteTypeValue(supportedWasteType));
+        }
+
+        return false;
+    }
+
+    private String normalizeWasteTypeValue(Object value) {
+        if (value == null) {
+            return "";
+        }
+
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name().trim().toUpperCase();
+        }
+
+        return String.valueOf(value).trim().toUpperCase();
+    }
+
+    private Object invokeNoArg(Object target, String methodName) {
+        if (target == null || methodName == null) {
+            return null;
+        }
+
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void markOpenBinAlertsInsertedInMission(Bin bin, Mission mission) {
+        if (bin == null || mission == null || mission.getId() == null) {
+            return;
+        }
+
+        List<Alert> alerts = alertRepository.findByBinIdAndResolvedFalseWithRelations(bin.getId());
+
+        if (alerts == null || alerts.isEmpty()) {
+            return;
+        }
+
+        Alert mainAlert = alerts.stream()
+                .filter(a -> a.getAlertType() != null)
+                .filter(a -> "BIN_FULL".equalsIgnoreCase(a.getAlertType()))
+                .findFirst()
+                .orElse(null);
+
+        if (mainAlert == null) {
+            mainAlert = alerts.stream()
+                    .filter(a -> a.getAlertType() != null)
+                    .filter(a -> "BIN_SUDDEN_FILL".equalsIgnoreCase(a.getAlertType()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (mainAlert == null) {
+            mainAlert = alerts.stream()
+                    .filter(a -> a.getAlertType() != null)
+                    .filter(a -> "BIN_ALMOST_FULL".equalsIgnoreCase(a.getAlertType()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (mainAlert != null) {
+            String missionCode = mission.getMissionCode() != null ? mission.getMissionCode() : ("#" + mission.getId());
+            String truckCode = mission.getTruck() != null && mission.getTruck().getTruckCode() != null
+                    ? mission.getTruck().getTruckCode()
+                    : "—";
+
+            mainAlert.setMission(mission);
+            mainAlert.setEntityType("MISSION");
+            mainAlert.setEntityId(mission.getId());
+            mainAlert.setActionType("IN_MISSION");
+
+            mainAlert.setTitle("Bac intégré automatiquement dans une mission");
+
+            mainAlert.setRecommendation(
+                    "Le bac urgent a été intégré automatiquement dans la mission "
+                            + missionCode
+                            + " (camion "
+                            + truckCode
+                            + ")."
+            );
+
+            mainAlert.setMessage(
+                    "Le bac "
+                            + bin.getBinCode()
+                            + " est devenu urgent et a été intégré automatiquement dans la mission "
+                            + missionCode
+                            + "."
+            );
+
+            alertRepository.save(mainAlert);
+        }
+
+        for (Alert alert : alerts) {
+            if (mainAlert != null && alert.getId().equals(mainAlert.getId())) {
+                continue;
+            }
+
+            if (!isSecondaryCollectionAlert(alert)) {
+                continue;
+            }
+
+            alert.setResolved(true);
+            alert.setResolvedAt(Instant.now());
+            alert.setActionType("AUTO_CLOSED");
+            alert.setRecommendation(
+                    "Cette alerte a été clôturée automatiquement car le bac a déjà été intégré dans une mission active."
+            );
+
+            alertRepository.save(alert);
+        }
+
+        alertRepository.flush();
+    }
+    
+    private boolean isSecondaryCollectionAlert(Alert alert) {
+        if (alert == null || alert.getAlertType() == null) {
+            return false;
+        }
+
+        String type = alert.getAlertType().trim().toUpperCase();
+
+        return type.equals("BIN_FAST_FILLING")
+                || type.equals("NEED_EXTRA_BIN_NEARBY")
+                || type.equals("BIN_ALMOST_FULL")
+                || type.equals("THRESHOLD");
+    }
+
+    private void markOpenBinAlertsNotInserted(Bin bin) {
+        if (bin == null) {
+            return;
+        }
+
+        List<Alert> alerts = alertRepository.findByBinIdAndResolvedFalseWithRelations(bin.getId());
+
+        if (alerts == null || alerts.isEmpty()) {
+            return;
+        }
+
+        for (Alert alert : alerts) {
+            if (!isUrgentBinAlert(alert)) {
+                continue;
+            }
+
+            alert.setActionType("WAITING_MISSION");
+            alert.setRecommendation(
+                    "Aucune mission active compatible n’a été trouvée pour ce bac. "
+                            + "La municipalité doit lancer une génération ou attendre une mission compatible."
+            );
+
+            alertRepository.save(alert);
+        }
+
+        alertRepository.flush();
+    }
+
+    private boolean isUrgentBinAlert(Alert alert) {
+        if (alert == null || alert.getAlertType() == null) {
+            return false;
+        }
+
+        String type = alert.getAlertType().trim().toUpperCase();
+
+        return type.equals("BIN_FULL")
+                || type.equals("BIN_SUDDEN_FILL")
+                || type.equals("BIN_ALMOST_FULL");
     }
     
     private RoutingRequestDto buildUrgentPartialReplanRequest(Mission mission, List<MissionBin> remainingBins) {

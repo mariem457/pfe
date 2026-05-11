@@ -32,8 +32,13 @@ public class MqttConfig {
     @Value("${mqtt.password:}")
     private String password;
 
+    public MqttConfig() {
+        System.out.println("🔥 MQTT CONFIG CONSTRUCTOR CALLED");
+    }
+
     @PostConstruct
     public void debugMqttConfig() {
+        System.out.println("🚀 MQTT CONFIG LOADED");
         System.out.println("MQTT brokerUrl = " + brokerUrl);
         System.out.println("MQTT clientId = " + clientId);
         System.out.println("MQTT topic = " + topic);
@@ -52,6 +57,8 @@ public class MqttConfig {
         options.setServerURIs(new String[]{brokerUrl});
         options.setAutomaticReconnect(true);
         options.setCleanSession(true);
+        options.setConnectionTimeout(10);
+        options.setKeepAliveInterval(30);
 
         if (username != null && !username.isBlank()) {
             options.setUserName(username);
@@ -77,7 +84,10 @@ public class MqttConfig {
 
         adapter.setCompletionTimeout(5000);
         adapter.setQos(1);
+        adapter.setAutoStartup(true);
         adapter.setOutputChannel(mqttInputChannel());
+
+        System.out.println("MQTT ADAPTER CREATED FOR TOPIC = " + topic);
 
         return adapter;
     }

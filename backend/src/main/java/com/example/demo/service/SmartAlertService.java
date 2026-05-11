@@ -30,49 +30,59 @@ public class SmartAlertService {
 	    this.alertRealtimeService = alertRealtimeService;
 	    this.alertService = alertService;
 	}
-    @Transactional
-    public void createTruckIncidentAlert(TruckIncident incident) {
-        if (incident == null || incident.getId() == null) {
-            return;
-        }
+	@Transactional
+	public void createTruckIncidentAlert(TruckIncident incident) {
+	    if (incident == null || incident.getId() == null) {
+	        return;
+	    }
 
-        String alertType = resolveAlertType(incident);
+	    String alertType = resolveAlertType(incident);
 
-        boolean exists = alertRepository.existsByIncidentIdAndAlertTypeAndResolvedFalse(
-                incident.getId(),
-                alertType
-        );
+	    boolean exists = alertRepository.existsByIncidentIdAndAlertTypeAndResolvedFalse(
+	            incident.getId(),
+	            alertType
+	    );
 
-        if (exists) {
-            return;
-        }
+	    if (exists) {
+	        return;
+	    }
 
-        Alert alert = new Alert();
-        alert.setAlertType(alertType);
-        alert.setSeverity(incident.getSeverity() != null ? incident.getSeverity().name() : "MEDIUM");
+	    Alert alert = new Alert();
+	    alert.setAlertType(alertType);
+	    alert.setSeverity(incident.getSeverity() != null ? incident.getSeverity().name() : "MEDIUM");
 
-        alert.setEntityType("INCIDENT");
-        alert.setEntityId(incident.getId());
-        alert.setIncident(incident);
+	    alert.setEntityType("INCIDENT");
+	    alert.setEntityId(incident.getId());
+	    alert.setIncident(incident);
 
-        if (incident.getTruck() != null) {
-            alert.setTruck(incident.getTruck());
-        }
+	    if (incident.getTruck() != null) {
+	        alert.setTruck(incident.getTruck());
+	    }
 
-        if (incident.getMission() != null) {
-            alert.setMission(incident.getMission());
-        }
+	    if (incident.getMission() != null) {
+	        alert.setMission(incident.getMission());
+	    }
 
-        alert.setTitle(buildIncidentTitle(incident));
-        alert.setMessage(buildIncidentMessage(incident));
-        alert.setRecommendation(buildIncidentRecommendation(incident));
-        alert.setActionType(resolveActionType(incident));
-        alert.setResolved(false);
+	    alert.setTitle(buildIncidentTitle(incident));
+	    alert.setMessage(buildIncidentMessage(incident));
+	    alert.setRecommendation(buildIncidentRecommendation(incident));
+	    alert.setActionType(resolveActionType(incident));
+	    alert.setResolved(false);
 
-        Alert saved = alertRepository.save(alert);
+	    Alert saved = alertRepository.save(alert);
+	    alertRepository.flush();
 
-       
-    }
+	    Alert loaded = alertRepository.findCreatedAlertWithRelations(saved.getId());
+	    var response = alertService.toResponse(loaded);
+
+	    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+	        @Override
+	        public void afterCommit() {
+	            alertRealtimeService.publishCreated(response);
+	            System.out.println("REALTIME TRUCK INCIDENT ALERT SENT => " + response.getId());
+	        }
+	    });
+	}
 
     @Transactional
     public int backfillOpenTruckIncidentAlerts(List<TruckIncident> incidents) {

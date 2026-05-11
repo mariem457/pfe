@@ -131,7 +131,7 @@ export default function ResetPasswordScreen() {
       <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={18} color={colors.backText} />
-          <Text style={[styles.backText, { color: colors.backText }]}>Back</Text>
+          <Text style={[styles.backText, { color: colors.backText }]}>Retour</Text>
         </TouchableOpacity>
 
         <View style={styles.centerContent}>
@@ -146,16 +146,16 @@ export default function ResetPasswordScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.title, { color: colors.title }]}>
-              Reset Password
+              Réinitialiser le mot de passe
             </Text>
 
             <Text style={[styles.subtitle, { color: colors.subtitle }]}>
-              Choose a new password
+              Choisissez un nouveau mot de passe
             </Text>
 
             <View style={styles.formGroup}>
               <Text style={[styles.label, { color: colors.label }]}>
-                New Password
+                Nouveau mot de passe
               </Text>
               <View
                 style={[
@@ -175,7 +175,7 @@ export default function ResetPasswordScreen() {
                 <TextInput
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="Enter new password"
+                  placeholder="Entrez le nouveau mot de passe"
                   placeholderTextColor={colors.placeholder}
                   secureTextEntry={!showPassword}
                   style={[styles.input, { color: colors.inputText }]}
@@ -192,7 +192,7 @@ export default function ResetPasswordScreen() {
 
             <View style={styles.formGroup}>
               <Text style={[styles.label, { color: colors.label }]}>
-                Confirm Password
+                Confirmer le mot de passe
               </Text>
               <View
                 style={[
@@ -212,7 +212,7 @@ export default function ResetPasswordScreen() {
                 <TextInput
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Confirm new password"
+                  placeholder="Confirmez le nouveau mot de passe"
                   placeholderTextColor={colors.placeholder}
                   secureTextEntry={!showConfirmPassword}
                   style={[styles.input, { color: colors.inputText }]}
@@ -244,7 +244,7 @@ export default function ResetPasswordScreen() {
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.mainButtonText}>Reset Password</Text>
+                  <Text style={styles.mainButtonText}>Réinitialiser</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>

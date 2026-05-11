@@ -1,0 +1,151 @@
+﻿<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>État des batteries</h1>
+      <p>Suivi des niveaux de batterie des poubelles intelligentes.</p>
+    </div>
+
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        type="search"
+        [value]="searchTerm"
+        (input)="onSearch($event)"
+        placeholder="Rechercher une batterie..."
+        aria-label="Rechercher une batterie">
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon stat-total">
+        <span class="material-icons">battery_full</span>
+      </div>
+      <div>
+        <p>Total batteries</p>
+        <h2>{{ total }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-approved">
+        <span class="material-icons">check_circle</span>
+      </div>
+      <div>
+        <p>Normal</p>
+        <h2>{{ normal }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-pending">
+        <span class="material-icons">battery_4_bar</span>
+      </div>
+      <div>
+        <p>Faible</p>
+        <h2>{{ faible }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-rejected">
+        <span class="material-icons">battery_alert</span>
+      </div>
+      <div>
+        <p>Critique / panne</p>
+        <h2>{{ critique + enPanne }}</h2>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-title">
+    <h2>Liste des batteries</h2>
+    <p>{{ filteredBins.length }} poubelle(s)</p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Code poubelle</th>
+          <th>Zone</th>
+          <th>Type</th>
+          <th>Batterie</th>
+          <th>Statut</th>
+          <th>Dernière télémétrie</th>
+        </tr>
+      </thead>
+
+      <tbody *ngIf="!loading">
+        <tr *ngFor="let bin of filteredBins">
+
+          <!-- CODE -->
+          <td>
+            <div class="bin-cell">
+              <div class="bin-avatar">
+                <span class="material-icons">delete</span>
+              </div>
+              <strong>{{ getCode(bin) }}</strong>
+            </div>
+          </td>
+
+          <!-- ZONE -->
+          <td>{{ getZone(bin) }}</td>
+
+          <!-- WASTE TYPE -->
+          <td>
+            <span class="type-badge" [ngClass]="getWasteClass(bin)">
+              {{ getWasteType(bin) }}
+            </span>
+          </td>
+
+          <!-- BATTERY -->
+          <td>
+            <div class="battery-cell" *ngIf="getBatteryLevel(bin) !== null; else noBattery">
+              <strong>{{ getBatteryLevel(bin) }}%</strong>
+
+              <div class="battery-bar">
+                <div
+                  class="battery-fill"
+                  [ngClass]="getBatteryClass(bin)"
+                  [style.width.%]="getBatteryLevel(bin)">
+                </div>
+              </div>
+            </div>
+
+            <ng-template #noBattery>
+              <span class="muted">Aucune donnée</span>
+            </ng-template>
+          </td>
+
+          <!-- STATUS -->
+          <td>
+            <span class="status-badge" [ngClass]="getBatteryClass(bin)">
+              {{ getBatteryStatus(bin) }}
+            </span>
+          </td>
+
+          <!-- DATE -->
+          <td>
+            {{ getLastTelemetry(bin) }}
+          </td>
+
+        </tr>
+
+        <tr *ngIf="filteredBins.length === 0">
+          <td colspan="6" class="empty">
+            Aucune poubelle trouvée.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="loading" class="loading-box">
+      Chargement des données...
+    </div>
+  </div>
+
+</div>

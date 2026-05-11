@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AUTH_KEY = "auth_data";
+const REMEMBER_EMAIL_KEY = "remember_email";
 
 export type AuthData = {
   token: string;
@@ -79,4 +80,16 @@ export async function saveTruckId(truckId: number | string): Promise<void> {
 export async function getTruckId(): Promise<number | null> {
   const auth = await getAuth();
   return auth?.truckId ?? null;
+}
+
+export async function saveRememberedEmail(email: string): Promise<void> {
+  await AsyncStorage.setItem(REMEMBER_EMAIL_KEY, email);
+}
+
+export async function getRememberedEmail(): Promise<string | null> {
+  return AsyncStorage.getItem(REMEMBER_EMAIL_KEY);
+}
+
+export async function removeRememberedEmail(): Promise<void> {
+  await AsyncStorage.removeItem(REMEMBER_EMAIL_KEY);
 }

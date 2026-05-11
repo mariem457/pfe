@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FleetMapComponent, FleetMapInitialTruck } from './fleet-map/fleet-map.component';
 import { AlertService, AlertDto } from '../../../../services/alert.service';
@@ -44,7 +45,7 @@ interface TruckCard {
   templateUrl: './trucks.component.html',
   styleUrls: ['./trucks.component.css'],
 })
-export class TrucksComponent implements OnInit {
+export class TrucksComponent implements OnInit, OnDestroy {
   missionColors = ['#2563eb', '#059669', '#7c3aed', '#f97316', '#475569', '#ef4444'];
 
   kpis = [
@@ -70,18 +71,75 @@ export class TrucksComponent implements OnInit {
   resolvedIncidentId: number | null = null;
 
   autoDetectionMessage = '';
+  private alertSub = new Subscription();
+  private refreshTimer: any;
 
   constructor(
     private dashboardService: TruckDashboardService,
     private incidentService: TruckIncidentService,
     private replanService: RoutingReplanService,
     private alertService: AlertService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadDashboard();
     this.loadOpenIncidents();
     this.loadTruckAlerts();
+
+    this.alertSub.add(
+      this.alertService.realtimeAlert$.subscribe(alert => {
+        if (!alert || alert.resolved) return;
+
+        const type = (alert as any).alertType ?? (alert as any).alert_type ?? '';
+
+        const isFleetAlert =
+          [
+            'TRUCK_FUEL_LOW',
+            'TRUCK_GPS_LOST',
+            'TRUCK_OVERLOAD',
+            'TRUCK_BREAKDOWN',
+            'TRUCK_TRAFFIC_BLOCK',
+            'TRUCK_DELAY',
+            'DRIVER_UNAVAILABLE'
+          ].includes(type);
+
+        if (!isFleetAlert) return;
+
+        const exists = this.alerts.some(a => a.id === alert.id);
+
+        if (!exists) {
+          this.alerts = [alert, ...this.alerts];
+        }
+
+        this.loadOpenIncidents();
+        this.loadDashboard();
+      })
+    );
+
+    this.alertSub.add(
+      this.alertService.realtimeResolved$.subscribe(alert => {
+        if (!alert) return;
+
+        this.alerts = this.alerts.filter(a => a.id !== alert.id);
+        this.loadTruckAlerts();
+        this.loadOpenIncidents();
+        this.loadDashboard();
+      })
+    );
+
+    // Refresh automatique كل 30 ثانية
+    this.refreshTimer = setInterval(() => {
+      this.loadOpenIncidents();
+      this.loadTruckAlerts();
+      this.loadDashboard();
+    }, 30000);
+  }
+  ngOnDestroy(): void {
+    this.alertSub.unsubscribe();
+
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+    }
   }
 
   loadDashboard(): void {
@@ -91,7 +149,12 @@ export class TrucksComponent implements OnInit {
           const lat = t.lat ?? t.latitude ?? t.lastKnownLat ?? t.last_known_lat ?? null;
           const lng = t.lng ?? t.longitude ?? t.lastKnownLng ?? t.last_known_lng ?? null;
           const truckStatus = t.truckStatus ?? t.truck_status ?? 'UNKNOWN';
-          const inMission = truckStatus === 'ON_MISSION';
+          const currentMissionId = t.currentMissionId ?? t.current_mission_id ?? null;
+
+          // نعرضو كان camions اللي فعلاً في مهمة
+          const inMission =
+            truckStatus === 'ON_MISSION' ||
+            truckStatus === 'IN_PROGRESS';
 
           return {
             driverId: t.driverId ?? t.driver_id ?? null,
@@ -106,7 +169,7 @@ export class TrucksComponent implements OnInit {
             remaining: t.remainingBins ?? t.remaining_bins ?? 0,
             fuel: t.fuelLevel ?? t.fuel_level ?? 0,
             etaMins: t.etaMinutes ?? t.eta_minutes ?? 0,
-            currentMissionId: t.currentMissionId ?? t.current_mission_id ?? null,
+            currentMissionId,
             lat,
             lng,
           };
@@ -115,8 +178,12 @@ export class TrucksComponent implements OnInit {
         this.missionTrucks = this.trucks.filter((t) => t.inMission);
         this.offMissionTrucks = this.trucks.filter((t) => !t.inMission);
 
-        this.mapTrucks = this.missionTrucks
-          .filter((t) => t.lat != null && t.lng != null)
+        this.mapTrucks = this.trucks
+          .filter((t) =>
+            t.inMission &&
+            t.lat != null &&
+            t.lng != null
+          )
           .map((t) => ({
             id: String(t.driverId ?? t.id),
             truckCode: t.id,
@@ -126,9 +193,10 @@ export class TrucksComponent implements OnInit {
             progress: t.progress,
             fuelLevel: t.fuel,
             etaMinutes: t.etaMins,
-            status: this.getIncidentForTruck(t.id) ? 'INCIDENT' : t.truckStatus,
+            status: 'ON_MISSION',
             currentMissionId: t.currentMissionId ?? null,
           } as any));
+
 
         this.updateKpis(data);
         this.loadMissionRoutesForTrucks();
@@ -160,7 +228,7 @@ export class TrucksComponent implements OnInit {
       },
       {
         icon: 'smart_toy',
-        label: 'Auto-détectés',
+        label: 'Incidents auto',
         value: autoCount.toString(),
       },
     ];
@@ -211,6 +279,7 @@ export class TrucksComponent implements OnInit {
         this.loadingIncidents = false;
         this.updateKpis();
         this.loadDashboard();
+        this.loadTruckAlerts();
       },
       error: (err: any) => {
         console.error('Truck incidents error:', err);
@@ -219,27 +288,7 @@ export class TrucksComponent implements OnInit {
     });
   }
 
-  runAutoDetection(): void {
-    if (this.runningAutoDetection) return;
-
-    this.runningAutoDetection = true;
-    this.autoDetectionMessage = '';
-
-    this.incidentService.runAutoDetection().subscribe({
-      next: (res) => {
-        this.autoDetectionMessage =
-          `${res.scannedTrucks} camion(s) analysé(s), ${res.createdIncidents} incident(s) créé(s).`;
-        this.runningAutoDetection = false;
-        this.loadOpenIncidents();
-        this.loadDashboard();
-      },
-      error: (err) => {
-        console.error('Auto detection error:', err);
-        this.autoDetectionMessage = 'Erreur lors de la détection automatique.';
-        this.runningAutoDetection = false;
-      },
-    });
-  }
+ 
 
   buildIncidentMap(): void {
     this.incidentMap = {};
@@ -272,38 +321,38 @@ export class TrucksComponent implements OnInit {
     return this.incidentMap[truckCode];
   }
 
- resolveIncident(incident: TruckIncident): void {
-  const ok = confirm(
-    `Voulez-vous vraiment résoudre l’incident du camion ${incident.truckCode} ?\n\nLe camion sera remis disponible s’il n’a pas d’autre incident ouvert.`
-  );
+  resolveIncident(incident: TruckIncident): void {
+    const ok = confirm(
+      `Voulez-vous vraiment résoudre l’incident du camion ${incident.truckCode} ?\n\nLe camion sera remis disponible s’il n’a pas d’autre incident ouvert.`
+    );
 
-  if (!ok) return;
+    if (!ok) return;
 
-  this.resolvedIncidentId = incident.id;
+    this.resolvedIncidentId = incident.id;
 
-  this.incidentService
-    .resolveIncident(
-      incident.id,
-      incident.description || 'Incident résolu par la municipalité'
-    )
-    .subscribe({
-      next: () => {
-        this.resolvedIncidentId = null;
+    this.incidentService
+      .resolveIncident(
+        incident.id,
+        incident.description || 'Incident résolu par la municipalité'
+      )
+      .subscribe({
+        next: () => {
+          this.resolvedIncidentId = null;
 
-        this.autoDetectionMessage =
-          `Incident du camion ${incident.truckCode} résolu. Le statut du camion a été mis à jour.`;
+          this.autoDetectionMessage =
+            `Incident du camion ${incident.truckCode} résolu. Le statut du camion a été mis à jour.`;
 
-        this.loadOpenIncidents();
-        this.loadDashboard();
-        this.loadTruckAlerts();
-      },
-      error: (err: any) => {
-        console.error('Resolve incident error:', err);
-        alert('Erreur lors de la résolution de l’incident.');
-        this.resolvedIncidentId = null;
-      },
-    });
-}
+          this.loadOpenIncidents();
+          this.loadDashboard();
+          this.loadTruckAlerts();
+        },
+        error: (err: any) => {
+          console.error('Resolve incident error:', err);
+          alert('Erreur lors de la résolution de l’incident.');
+          this.resolvedIncidentId = null;
+        },
+      });
+  }
 
   replanIncident(incident: TruckIncident): void {
     if (this.replanningIncidentId === incident.id) return;
@@ -448,17 +497,71 @@ export class TrucksComponent implements OnInit {
     return new Date(value).toLocaleString('fr-FR');
   }
   loadTruckAlerts(): void {
-  this.alertService.searchAlerts({
-    resolved: false,
-    entityType: 'INCIDENT'
-  }).subscribe({
-    next: (alerts: AlertDto[]) => {
-      this.alerts = alerts || [];
-      console.log('Truck related alerts:', this.alerts);
-    },
-    error: (err: any) => {
-      console.error('Truck alerts error:', err);
+    this.alertService.searchAlerts({
+      resolved: false,
+      entityType: 'INCIDENT'
+    }).subscribe({
+      next: (alerts: AlertDto[]) => {
+        this.alerts = (alerts || []).filter((a: any) => {
+          const type = a.alertType ?? a.alert_type ?? '';
+
+          return [
+            'TRUCK_FUEL_LOW',
+            'TRUCK_GPS_LOST',
+            'TRUCK_OVERLOAD',
+            'TRUCK_BREAKDOWN',
+            'TRUCK_TRAFFIC_BLOCK',
+            'TRUCK_DELAY',
+            'DRIVER_UNAVAILABLE'
+          ].includes(type);
+        });
+
+        console.log('Fleet truck alerts shown:', this.alerts);
+      },
+      error: (err: any) => {
+        console.error('Truck alerts error:', err);
+        this.alerts = [];
+      }
+    });
+  }
+
+
+
+
+
+
+
+
+
+
+
+  hasAutomaticReplanInfo(incident: TruckIncident): boolean {
+    return !!incident.missionId && ['BREAKDOWN', 'FUEL_LOW', 'TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType);
+  }
+
+  getIncidentMissionLabel(incident: TruckIncident): string {
+    return incident.missionId ? `Mission #${incident.missionId}` : 'Aucune mission liée';
+  }
+
+  getIncidentReplanMessage(incident: TruckIncident): string {
+    if (!incident.missionId) {
+      return 'Incident enregistré sans mission active associée.';
     }
-  });
+
+    if (incident.incidentType === 'BREAKDOWN') {
+      return 'Replanification automatique lancée: les bacs restants sont transférés vers un camion disponible.';
+    }
+
+    if (incident.incidentType === 'FUEL_LOW') {
+      return 'Incident carburant détecté: le système peut recalculer la tournée ou proposer un arrêt carburant.';
+    }
+
+    return 'Incident opérationnel détecté: la mission peut être adaptée dynamiquement.';
+  }
+
+shouldShowManualReplan(incident: TruckIncident): boolean {
+  return !!incident.missionId &&
+    ['BREAKDOWN', 'DRIVER_UNAVAILABLE', 'TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType) &&
+    !this.replanningIncidentId;
 }
 }

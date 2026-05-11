@@ -5,10 +5,7 @@
       <p class="it-trkSub">Suivi en temps réel des camions, missions et alertes liées à la flotte</p>
     </div>
 
-    <button type="button" class="it-autoBtn" (click)="runAutoDetection()" [disabled]="runningAutoDetection">
-      <span class="material-icons">smart_toy</span>
-      {{ runningAutoDetection ? 'Analyse...' : 'Détection auto' }}
-    </button>
+
   </div>
 
   <div class="it-autoMessage" *ngIf="autoDetectionMessage">
@@ -36,15 +33,8 @@
         </div>
       </div>
 
-      <app-fleet-map
-        class="fleet-map-only"
-        [showTrucks]="true"
-        [showBins]="false"
-        [showReports]="false"
-        [allowAddBins]="false"
-        [showHeader]="false"
-        [minimalMode]="true"
-        [initialTrucks]="mapTrucks"
+      <app-fleet-map class="fleet-map-only" [showTrucks]="true" [showBins]="false" [showReports]="false"
+        [allowAddBins]="false" [showHeader]="false" [minimalMode]="true" [initialTrucks]="mapTrucks"
         [truckRoutes]="truckRoutes">
       </app-fleet-map>
     </section>
@@ -62,11 +52,7 @@
       </div>
 
       <div class="it-alertPanel">
-        <article
-          class="it-fleetAlert"
-          *ngFor="let a of alerts"
-          [ngClass]="getSeverityClass(a.severity)"
-        >
+        <article class="it-fleetAlert" *ngFor="let a of alerts" [ngClass]="getSeverityClass(a.severity)">
           <div class="it-fleetAlertTop">
             <div>
               <div class="it-fleetAlertCode">
@@ -85,8 +71,15 @@
           </div>
         </article>
 
-        <div class="it-emptyState" *ngIf="!alerts || alerts.length === 0">
-          Aucune alerte flotte ouverte.
+        <div class="it-alertEmpty" *ngIf="!alerts || alerts.length === 0">
+          <div class="it-alertEmptyIcon">
+            <span class="material-icons">notifications_active</span>
+          </div>
+
+          <div>
+            <strong>Aucune alerte flotte ouverte</strong>
+            <p>Les alertes liées aux incidents camion seront supprimées automatiquement après résolution.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -109,15 +102,18 @@
     </div>
 
     <div class="it-incidentList it-incidentList--grid" *ngIf="!loadingIncidents">
-      <article
-        class="it-incidentItem"
-        *ngFor="let incident of openIncidents"
-        [ngClass]="getSeverityClass(incident.severity)"
-      >
+      <article class="it-incidentItem it-incidentItem--rich" *ngFor="let incident of openIncidents"
+        [ngClass]="getSeverityClass(incident.severity)">
         <div class="it-incidentTop">
           <div>
-            <div class="it-incidentTruck">{{ incident.truckCode }}</div>
-            <div class="it-incidentType">{{ getIncidentTypeLabel(incident.incidentType) }}</div>
+            <div class="it-incidentTruck">
+              {{ incident.truckCode }}
+              <span class="it-incidentStatusPill">Incident ouvert</span>
+            </div>
+
+            <div class="it-incidentType">
+              {{ getIncidentTypeLabel(incident.incidentType) }}
+            </div>
           </div>
 
           <span class="it-autoBadge" *ngIf="incident.autoDetected">Auto</span>
@@ -128,41 +124,54 @@
           {{ incident.description || 'Aucune description' }}
         </div>
 
-        <div class="it-incidentMeta">
+        <div class="it-incidentMeta it-incidentMeta--chips">
           <span>{{ getSeverityLabel(incident.severity) }}</span>
-          <span>•</span>
+          <span>{{ getIncidentMissionLabel(incident) }}</span>
           <span>{{ formatDate(incident.reportedAt) }}</span>
         </div>
 
-        <div class="it-incidentActions">
-          <button
-            type="button"
-            class="it-resolveBtn"
-            (click)="resolveIncident(incident)"
-            [disabled]="resolvedIncidentId === incident.id"
-          >
-            {{ resolvedIncidentId === incident.id ? 'Résolution...' : 'Résoudre' }}
-          </button>
-
-          <button
-            type="button"
-            class="it-replanBtn"
-            *ngIf="incident.missionId"
-            (click)="replanIncident(incident)"
-            [disabled]="replanningIncidentId === incident.id"
-          >
-            {{ replanningIncidentId === incident.id ? 'Replan...' : 'Replanifier' }}
-          </button>
+        <div class="it-replanInfo" *ngIf="hasAutomaticReplanInfo(incident)">
+          <span class="material-icons">auto_awesome</span>
+          <div>
+            <strong>Replanification dynamique</strong>
+            <p>{{ getIncidentReplanMessage(incident) }}</p>
+          </div>
         </div>
+
+       <div class="it-incidentActions">
+  <span
+    class="it-autoResolveInfo"
+    *ngIf="['GPS_LOST', 'FUEL_LOW', 'OVERLOAD'].includes(incident.incidentType)"
+  >
+    Résolution automatique dès retour à la normale
+  </span>
+
+  <button
+    type="button"
+    class="it-replanBtn it-replanBtn--secondary"
+    *ngIf="shouldShowManualReplan(incident)"
+    (click)="replanIncident(incident)"
+    [disabled]="replanningIncidentId === incident.id"
+  >
+    {{ replanningIncidentId === incident.id ? 'Réaffectation...' : 'Réaffecter la mission' }}
+  </button>
+</div>
       </article>
 
-      <div class="it-emptyState" *ngIf="openIncidents.length === 0">
-        Aucun incident ouvert.
+      <div class="it-incidentEmpty" *ngIf="openIncidents.length === 0">
+        <div class="it-incidentEmptyIcon">
+          <span class="material-icons">verified</span>
+        </div>
+
+        <div>
+          <strong>Aucun incident ouvert</strong>
+          <p>Tous les camions sont opérationnels. Les pannes et alertes critiques apparaîtront ici automatiquement.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="it-card it-sectionFull">
+  <section class="it-card it-sectionFull it-sectionFleet">
     <div class="it-cardHead">
       <div>
         <div class="it-cardTitle">Missions en cours</div>
@@ -171,38 +180,48 @@
     </div>
 
     <div class="it-trkList it-trkList--grid">
-      <article class="it-trkItem" *ngFor="let t of missionTrucks; let i = index">
-        <div class="it-trkItemTop">
-          <div
-            class="it-dot"
-            [style.background]="getIncidentForTruck(t.id) ? '#ef4444' : missionColors[i % missionColors.length]">
+      <article class="it-trkMissionCard" *ngFor="let t of missionTrucks; let i = index"
+        [class.has-incident]="getIncidentForTruck(t.id)">
+        <div class="it-trkMissionTop">
+          <div class="it-trkAvatar" [style.background]="getIncidentForTruck(t.id) ? '#fee2e2' : '#dbeafe'">
+            <span class="material-icons" [style.color]="getIncidentForTruck(t.id) ? '#dc2626' : '#2563eb'">
+              local_shipping
+            </span>
           </div>
 
-          <div class="it-missionMain">
-            <div class="it-trkId">
+          <div class="it-trkMissionMain">
+            <div class="it-trkMissionTitle">
               {{ t.id }}
               <span class="it-miniIncident" *ngIf="getIncidentForTruck(t.id)">
                 {{ getIncidentTypeLabel(getIncidentForTruck(t.id)!.incidentType) }}
               </span>
             </div>
 
-            <div class="it-trkDriver">
+            <div class="it-trkMissionSub">
               Mission #{{ t.currentMissionId || '—' }} · {{ t.driver }}
-            </div>
-
-            <div class="it-trkLoc">
-              <span class="material-icons it-pin">place</span>
-              <span>{{ t.location }}</span>
             </div>
           </div>
 
-          <b class="it-percent">{{ t.progress }}%</b>
+          <b class="it-percent it-percentBig">{{ t.progress }}%</b>
         </div>
 
-        <div class="it-progBar">
-          <div
-            class="it-progIn"
-            [style.width.%]="t.progress"
+        <div class="it-trkMissionMeta">
+          <span>
+            <span class="material-icons">place</span>
+            {{ t.location }}
+          </span>
+          <span>
+            <span class="material-icons">speed</span>
+            ETA {{ t.etaMins || 0 }} min
+          </span>
+          <span>
+            <span class="material-icons">local_gas_station</span>
+            {{ t.fuel || 0 }}%
+          </span>
+        </div>
+
+        <div class="it-progBar it-progBarBig">
+          <div class="it-progIn" [style.width.%]="t.progress"
             [style.background]="getIncidentForTruck(t.id) ? '#ef4444' : missionColors[i % missionColors.length]">
           </div>
         </div>
@@ -214,7 +233,7 @@
     </div>
   </section>
 
-  <section class="it-card it-sectionFull">
+  <section class="it-card it-sectionFull it-sectionFleet">
     <div class="it-cardHead">
       <div>
         <div class="it-cardTitle">Camions hors mission</div>
@@ -223,24 +242,34 @@
     </div>
 
     <div class="it-trkList it-trkList--grid it-trkList--off">
-      <article class="it-trkItem it-trkItem--off" *ngFor="let t of offMissionTrucks">
+      <article class="it-offTruckCard" *ngFor="let t of offMissionTrucks"
+        [class.has-incident]="getIncidentForTruck(t.id)">
         <div class="it-offTop">
-          <div>
-            <div class="it-trkId">
-              {{ t.id }}
-              <span class="it-miniIncident" *ngIf="getIncidentForTruck(t.id)">
-                {{ getIncidentTypeLabel(getIncidentForTruck(t.id)!.incidentType) }}
-              </span>
+          <div class="it-offLeft">
+            <div class="it-offIcon">
+              <span class="material-icons">local_shipping</span>
             </div>
-            <div class="it-trkDriver">{{ t.driver }}</div>
+
+            <div>
+              <div class="it-trkId">
+                {{ t.id }}
+                <span class="it-miniIncident" *ngIf="getIncidentForTruck(t.id)">
+                  {{ getIncidentTypeLabel(getIncidentForTruck(t.id)!.incidentType) }}
+                </span>
+              </div>
+
+              <div class="it-trkDriver">{{ t.driver }}</div>
+
+              <div class="it-trkLoc">
+                <span class="material-icons it-pin">place</span>
+                <span>{{ t.location }}</span>
+              </div>
+            </div>
           </div>
 
-          <span class="it-offBadge">{{ getTruckStatusLabel(t.truckStatus) }}</span>
-        </div>
-
-        <div class="it-trkLoc">
-          <span class="material-icons it-pin">place</span>
-          <span>{{ t.location }}</span>
+          <span class="it-offBadge" [class.it-offBadge--incident]="getIncidentForTruck(t.id)">
+            {{ getIncidentForTruck(t.id) ? 'Incident actif' : getTruckStatusLabel(t.truckStatus) }}
+          </span>
         </div>
       </article>
 

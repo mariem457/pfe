@@ -17,15 +17,33 @@
       </div>
     </div>
 
-    <div class="smart-header__actions">
-      <button class="btn btn-outline" (click)="loadMissions()">
-        Actualiser
-      </button>
+    <div class="mission-actions-right">
+  <button
+    type="button"
+    class="mission-action-btn mission-action-btn--secondary"
+    (click)="refreshSelectedMission()"
+    [disabled]="actionLoading()"
+  >
+    Actualiser
+  </button>
 
-      <button class="btn btn-primary" (click)="generateAiMissions()" [disabled]="generatingAi()">
-        {{ generatingAi() ? 'Génération...' : '✨ Générer missions optimisées' }}
-      </button>
-    </div>
+  <button
+    type="button"
+    class="mission-action-btn mission-action-btn--outline"
+    (click)="toggleHistory()"
+  >
+    {{ showHistory() ? 'Aujourd’hui' : 'Historique' }}
+  </button>
+
+  <button
+    type="button"
+    class="mission-action-btn mission-action-btn--primary"
+    (click)="generateAiMissions()"
+    [disabled]="generatingAi()"
+  >
+    {{ generatingAi() ? 'Génération...' : '✨ Générer missions optimisées' }}
+  </button>
+</div>
   </div>
 
   <!-- ================= MESSAGES ================= -->
@@ -85,7 +103,7 @@
       <div>
         <span>Total missions</span>
         <strong>{{ totalMissions() }}</strong>
-        <small>OR-Tools OSRM v4.3</small>
+        <small>{{ showHistory() ? 'Historique' : 'Missions du jour' }}</small>
       </div>
     </div>
   </div>
@@ -97,10 +115,37 @@
       <div class="smart-panel smart-panel--sidebar">
         <div class="smart-sidebar-head">
           <div>
-            <h2>File des missions</h2>
-            <p>Navigation rapide</p>
+            <h2>{{ showHistory() ? 'Historique des missions' : 'Missions du jour' }}</h2>
+            <p>
+              {{
+                showHistory()
+                  ? 'Anciennes tournées clôturées ou planifiées les jours précédents'
+                  : 'Navigation rapide des missions prévues aujourd’hui'
+              }}
+            </p>
           </div>
+
           <span>{{ filteredMissions().length }}</span>
+        </div>
+
+        <div class="mission-view-switch">
+          <button
+            type="button"
+            [class.active]="!showHistory()"
+            (click)="showHistory.set(false); loadMissions()"
+          >
+            Aujourd’hui
+            <span>{{ todayMissionsCount() }}</span>
+          </button>
+
+          <button
+            type="button"
+            [class.active]="showHistory()"
+            (click)="showHistory.set(true); loadMissions()"
+          >
+            Historique
+            <span>{{ historyMissionsCount() }}</span>
+          </button>
         </div>
 
         <div class="smart-search">
@@ -117,28 +162,32 @@
           <button
             class="smart-filter-chip"
             [class.active]="selectedStatus() === 'ALL'"
-            (click)="selectedStatus.set('ALL')">
+            (click)="selectedStatus.set('ALL')"
+          >
             Toutes
           </button>
 
           <button
             class="smart-filter-chip"
             [class.active]="selectedStatus() === 'IN_PROGRESS'"
-            (click)="selectedStatus.set('IN_PROGRESS')">
+            (click)="selectedStatus.set('IN_PROGRESS')"
+          >
             En cours
           </button>
 
           <button
             class="smart-filter-chip"
             [class.active]="selectedStatus() === 'CREATED'"
-            (click)="selectedStatus.set('CREATED')">
+            (click)="selectedStatus.set('CREATED')"
+          >
             Planifiées
           </button>
 
           <button
             class="smart-filter-chip"
             [class.active]="selectedStatus() === 'COMPLETED'"
-            (click)="selectedStatus.set('COMPLETED')">
+            (click)="selectedStatus.set('COMPLETED')"
+          >
             Terminées
           </button>
         </div>
@@ -148,7 +197,7 @@
         </div>
 
         <div *ngIf="!loading() && !filteredMissions().length" class="empty-state">
-          Aucune mission trouvée.
+          {{ showHistory() ? 'Aucune ancienne mission trouvée.' : 'Aucune mission prévue aujourd’hui.' }}
         </div>
 
         <div class="smart-mission-list" *ngIf="!loading() && filteredMissions().length">
@@ -164,7 +213,8 @@
               *ngFor="let mission of groupedMissions().inProgress"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)">
+              (click)="selectMission(mission)"
+            >
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -206,7 +256,8 @@
               *ngFor="let mission of groupedMissions().created"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)">
+              (click)="selectMission(mission)"
+            >
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -248,7 +299,8 @@
               *ngFor="let mission of groupedMissions().completed"
               [class.active]="selectedMission()?.id === mission.id"
               [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)">
+              (click)="selectMission(mission)"
+            >
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -282,7 +334,8 @@
               class="smart-mission-card muted"
               *ngFor="let mission of groupedMissions().cancelled"
               [class.active]="selectedMission()?.id === mission.id"
-              (click)="selectMission(mission)">
+              (click)="selectMission(mission)"
+            >
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -442,7 +495,11 @@
         <!-- SYSTEM STATUS -->
         <div
           class="smart-status-box"
-          *ngIf="getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED' || getMissionStatusDetail(mission) === 'REPLANNED'">
+          *ngIf="
+            getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED' ||
+            getMissionStatusDetail(mission) === 'REPLANNED'
+          "
+        >
           ⚡ Replanification dynamique détectée : cette mission a été impactée par un incident et recalculée
           automatiquement.
         </div>
@@ -480,6 +537,7 @@
 
           <div>
             <span>Types de déchets</span>
+
             <div class="waste-types-list" *ngIf="missionWasteTypes().length; else noWasteTypeSmart">
               <span *ngFor="let type of missionWasteTypes()" [class]="wasteTypeClass(type)">
                 {{ getWasteTypeLabel(type) }}
@@ -532,58 +590,31 @@
 
           <div class="smart-journal">
             <div class="smart-journal-title">
-              <h3>Journal opérationnel</h3>
+              <div>
+                <h3>Journal opérationnel</h3>
+                <p>Chronologie complète de la mission, de la génération à la replanification.</p>
+              </div>
 
               <button class="btn btn-outline btn-small" (click)="openDebugMode()">
                 Debug Route
               </button>
             </div>
 
-            <div class="smart-journal-item">
-              <span>{{ formatDate(mission.createdAt) }}</span>
-              <div>
-                <strong>Mission générée par optimisation IA</strong>
-                <p>Création automatique de la tournée avec OR-Tools, OSRM et contraintes métier.</p>
-              </div>
-              <em>Automatique</em>
+            <div class="smart-journal-empty" *ngIf="!missionJournal().length">
+              Aucun événement enregistré pour cette mission.
             </div>
 
-            <div class="smart-journal-item smart-journal-item--replan" *ngIf="isMissionReplanned(mission)">
-              <span>Temps réel</span>
+            <div *ngFor="let item of missionJournal()" [class]="journalItemClass(item)">
+              <span class="smart-journal-time">
+                {{ formatJournalTime(item) }}
+              </span>
 
-              <div>
-                <strong>{{ getReplanJournalTitle(mission) }}</strong>
-                <p>{{ getReplanJournalMessage(mission) }}</p>
+              <div class="smart-journal-body">
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.message }}</p>
               </div>
 
-              <em>Automatique</em>
-            </div>
-
-            <div class="smart-journal-item" *ngIf="mission.startedAt">
-              <span>{{ formatDate(mission.startedAt) }}</span>
-              <div>
-                <strong>Mission démarrée</strong>
-                <p>Le chauffeur a commencé la tournée de collecte.</p>
-              </div>
-              <em>Chauffeur</em>
-            </div>
-
-            <div class="smart-journal-item" *ngIf="trafficEnabled()">
-              <span>Trafic</span>
-              <div>
-                <strong>{{ trafficLabel() }}</strong>
-                <p>Durée réelle estimée : {{ estimatedRealDurationMin() ?? '—' }} min.</p>
-              </div>
-              <em>OSRM + TomTom</em>
-            </div>
-
-            <div class="smart-journal-item" *ngIf="mission.completedAt">
-              <span>{{ formatDate(mission.completedAt) }}</span>
-              <div>
-                <strong>Mission terminée</strong>
-                <p>La collecte associée à cette mission est clôturée.</p>
-              </div>
-              <em>Système</em>
+              <em>{{ item.actor }}</em>
             </div>
           </div>
         </div>
@@ -611,7 +642,8 @@
               [missionRouteStops]="missionMapRouteStops()"
               [snappedWaypoints]="snappedWaypoints()"
               [matrixSource]="routeMatrixSource()"
-              [geometrySource]="routeGeometrySource()">
+              [geometrySource]="routeGeometrySource()"
+            >
             </app-fleet-map>
           </div>
         </div>
@@ -670,8 +702,8 @@
                   bin.assignmentStatus === 'REASSIGNED'
                     ? 'Réaffecté'
                     : bin.collected
-                      ? 'Collecté'
-                      : 'À collecter'
+                    ? 'Collecté'
+                    : 'À collecter'
                 }}
               </span>
 
@@ -684,7 +716,8 @@
                     actionLoading() ||
                     mission.status === 'COMPLETED' ||
                     bin.assignmentStatus === 'REASSIGNED'
-                  ">
+                  "
+                >
                   Collecter
                 </button>
               </span>

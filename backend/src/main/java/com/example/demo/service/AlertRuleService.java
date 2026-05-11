@@ -34,15 +34,18 @@ public class AlertRuleService {
     private final BinTelemetryRepository telemetryRepository;
     private final AlertRealtimeService alertRealtimeService;
     private final AlertService alertService;
+    private final WeatherService weatherService;
 
     public AlertRuleService(AlertRepository alertRepo,
                             BinTelemetryRepository telemetryRepository,
                             AlertRealtimeService alertRealtimeService,
-                            AlertService alertService) {
+                            AlertService alertService,
+                            WeatherService weatherService) {
         this.alertRepo = alertRepo;
         this.telemetryRepository = telemetryRepository;
         this.alertRealtimeService = alertRealtimeService;
         this.alertService = alertService;
+        this.weatherService = weatherService;
     }
 
     public void evaluateAndCreateAlerts(Bin bin, BinTelemetry current) {
@@ -98,6 +101,16 @@ public class AlertRuleService {
                     "Batterie du bac " + bin.getBinCode() + " = " + batt + "%.",
                     "Planifier une intervention maintenance capteur.",
                     "INSPECT");
+
+            if (weatherService != null && weatherService.hasInsufficientSunlight(bin.getLat(), bin.getLng())) {
+                createIfNotExists(bin, current,
+                        "BATTERY_SOLAR_LOW", "HIGH",
+                        "Batterie faible sans soleil",
+                        "La batterie du bac " + bin.getBinCode() + " est faible (" + batt
+                                + "%) et les conditions météo ne permettent pas une recharge solaire correcte.",
+                        "Planifier une intervention maintenance et vérifier le panneau solaire ou la batterie.",
+                        "INSPECT");
+            }
         }
 
         if ("ERROR".equals(status) || "OVERFLOW".equals(status)) {

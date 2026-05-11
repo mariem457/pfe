@@ -22,7 +22,7 @@ print("MODÈLE 1 — fill_level_next (t+1)")
 print("=" * 60)
 
 # ─── LOAD ──────────────────────────────────────────────────────
-df = pd.read_csv("final_dataset_paris15_v2.csv")
+df = pd.read_csv("final_dataset_paris15_v4_ameliore.csv")
 df.columns = df.columns.str.strip()
 df["time"] = pd.to_datetime(df["time"])
 df = df.sort_values(["bin_id", "time"]).reset_index(drop=True)

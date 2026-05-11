@@ -37,7 +37,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-
+import com.example.demo.entity.BinPrediction;
+import com.example.demo.entity.BinTelemetry;
+import com.example.demo.entity.BinTimePrediction;
+import com.example.demo.repository.BinPredictionRepository;
+import com.example.demo.repository.BinTimePredictionRepository;
 @Service
 public class MissionServiceImpl implements MissionService {
 
@@ -57,6 +61,8 @@ public class MissionServiceImpl implements MissionService {
     private final FuelStationService fuelStationService;
     private final TruckRepository truckRepository;
     private final BinTelemetryRepository binTelemetryRepository;
+    private final BinPredictionRepository binPredictionRepository;
+    private final BinTimePredictionRepository binTimePredictionRepository;
 
     public MissionServiceImpl(
             MissionRepository missionRepository,
@@ -68,7 +74,9 @@ public class MissionServiceImpl implements MissionService {
             FuelManagementService fuelManagementService,
             FuelStationService fuelStationService,
             TruckRepository truckRepository,
-            BinTelemetryRepository binTelemetryRepository
+            BinTelemetryRepository binTelemetryRepository,
+            BinPredictionRepository binPredictionRepository,
+            BinTimePredictionRepository binTimePredictionRepository
     ) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
@@ -80,6 +88,8 @@ public class MissionServiceImpl implements MissionService {
         this.fuelStationService = fuelStationService;
         this.truckRepository = truckRepository;
         this.binTelemetryRepository = binTelemetryRepository;
+        this.binPredictionRepository = binPredictionRepository;
+        this.binTimePredictionRepository = binTimePredictionRepository;
     }
 
     @Override
@@ -1354,8 +1364,134 @@ public class MissionServiceImpl implements MissionService {
         dto.setPlannedArrival(missionBin.getPlannedArrival());
         dto.setActualArrival(missionBin.getActualArrival());
         dto.setSkippedReason(missionBin.getSkippedReason());
+        
+        if (missionBin.getBin() != null && missionBin.getBin().getId() != null) {
+            Long binId = missionBin.getBin().getId();
+
+            try {
+                if (missionBin.getBin().getZone() != null) {
+                    dto.setZoneName(missionBin.getBin().getZone().getShapeName());
+                }
+            } catch (Exception ignored) {
+            }
+
+            dto.setClusterId(missionBin.getBin().getClusterId());
+
+            BinTelemetry latestTelemetry = binTelemetryRepository
+                    .findTopByBinIdOrderByTimestampDesc(binId)
+                    .orElse(null);
+
+            if (latestTelemetry != null) {
+                dto.setFillLevel((int) latestTelemetry.getFillLevel());
+                dto.setBatteryLevel(latestTelemetry.getBatteryLevel() != null ? latestTelemetry.getBatteryLevel().intValue() : null);
+                dto.setWeightKg(latestTelemetry.getWeightKg() != null ? latestTelemetry.getWeightKg().doubleValue() : null);
+                dto.setStatus(latestTelemetry.getStatus());
+            }
+
+            BinPrediction latestPrediction = binPredictionRepository
+                    .findTopByBinIdOrderByCreatedAtDesc(binId)
+                    .orElse(null);
+
+            if (latestPrediction != null) {
+                dto.setPriorityScore(
+                        latestPrediction.getPriorityScore() != null
+                                ? latestPrediction.getPriorityScore().doubleValue()
+                                : null
+                );
+
+                dto.setPredictedFillLevelNext(
+                        latestPrediction.getPredictedFillNext() != null
+                                ? latestPrediction.getPredictedFillNext().doubleValue()
+                                : null
+                );
+
+                dto.setShouldCollect(latestPrediction.getShouldCollect());
+            }
+
+            BinTimePrediction latestTimePrediction = binTimePredictionRepository
+                    .findTopByBinIdOrderByCreatedAtDesc(binId)
+                    .orElse(null);
+
+            if (latestTimePrediction != null) {
+                dto.setHoursToFull(
+                        latestTimePrediction.getPredictedHours() != null
+                                ? latestTimePrediction.getPredictedHours().doubleValue()
+                                : null
+                );
+
+                dto.setAlertStatus(latestTimePrediction.getAlertStatus());
+            }
+
+            dto.setDecisionReason(buildBinDecisionReason(dto));
+            dto.setScoreExplanation(buildBinScoreExplanation(dto));
+            dto.setUrgencyExplanation(buildBinUrgencyExplanation(dto));
+            dto.setClassificationExplanation(buildBinClassificationExplanation(dto));
+        }
 
         return dto;
+    }
+    private String buildBinDecisionReason(MissionBinResponse dto) {
+        if (dto == null) return null;
+
+        String reason = dto.getAssignedReason() != null ? dto.getAssignedReason() : "MISSION";
+
+        return switch (reason) {
+            case "THRESHOLD" -> "Bac sélectionné car son niveau dépasse le seuil critique de collecte.";
+            case "PREDICTION" -> "Bac sélectionné à partir de la prédiction IA.";
+            case "MANUAL" -> "Bac ajouté manuellement à la mission.";
+            default -> "Bac affecté à cette mission de collecte.";
+        };
+    }
+
+    private String buildBinScoreExplanation(MissionBinResponse dto) {
+        if (dto == null || dto.getPriorityScore() == null) {
+            return null;
+        }
+
+        return "Score IA de priorité = " + round(dto.getPriorityScore())
+                + ". Ce score aide le système à prioriser les bacs dans l’optimisation.";
+    }
+
+    private String buildBinUrgencyExplanation(MissionBinResponse dto) {
+        if (dto == null || dto.getHoursToFull() == null) {
+            return null;
+        }
+
+        double hours = dto.getHoursToFull();
+
+        if (hours <= 6.0) {
+            return "Urgence élevée : le bac peut atteindre le seuil critique dans environ "
+                    + round(hours) + " heure(s).";
+        }
+
+        if (hours <= 24.0) {
+            return "Urgence modérée : le bac peut devenir plein dans moins de 24 heures.";
+        }
+
+        return "Urgence faible : le bac peut attendre environ " + round(hours) + " heure(s) avant remplissage.";
+    }
+
+    private String buildBinClassificationExplanation(MissionBinResponse dto) {
+        if (dto == null || dto.getFillLevel() == null) {
+            return null;
+        }
+
+        int fill = dto.getFillLevel();
+
+        if (fill >= 85) {
+            return "Classification : MANDATORY, car le niveau de remplissage est supérieur ou égal à 85%.";
+        }
+
+        if (fill >= 30) {
+            return "Classification : OPPORTUNISTIC, car le niveau de remplissage est supérieur ou égal à 30% et peut être collecté si l’itinéraire le permet.";
+        }
+
+        return "Classification : REPORTABLE, car le niveau est inférieur à 30% et la collecte peut être reportée.";
+    }
+
+    private double round(Double value) {
+        if (value == null) return 0.0;
+        return Math.round(value * 100.0) / 100.0;
     }
 
     private static class OsrmRouteResult {

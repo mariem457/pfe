@@ -4,7 +4,9 @@ import {
   Input,
   OnChanges,
   OnDestroy,
-  SimpleChanges
+  SimpleChanges,
+  ChangeDetectorRef,
+  NgZone
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -60,6 +62,12 @@ export interface FleetMapMissionBinItem {
   status?: string | null;
   zoneName?: string | null;
   clusterId?: number | null;
+  priorityScore?: number | null;
+  alertStatus?: string | null;
+  shouldCollect?: boolean | null;
+  predictedFillLevelNext?: number | null;
+  hoursToFull?: number | null;
+
 }
 
 export interface FleetMapRouteCoordinate {
@@ -128,10 +136,13 @@ export interface FleetMapSelectedBinDetails extends FleetMapSelectedBinExplainab
   collected?: boolean | null;
   targetFillThreshold?: number | null;
   visitOrder?: number | null;
-  
+
   predictedFillLevelNext?: number | null;
   hoursToFull?: number | null;
   source?: 'bin' | 'mission' | 'planning' | 'dropped' | 'focus' | 'disposal';
+  priorityScore?: number | null;
+  alertStatus?: string | null;
+  shouldCollect?: boolean | null;
 }
 export interface FleetMapInitialTruck {
   id: string;
@@ -161,7 +172,7 @@ export interface FleetMapTruckRoute {
   imports: [CommonModule, FormsModule],
   templateUrl: './fleet-map.component.html',
   styleUrls: ['./fleet-map.component.css']
-  
+
 })
 export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() showTrucks = true;
@@ -173,7 +184,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() title = 'Carte de la flotte en direct';
   @Input() subtitle = 'Localisation et itinéraires des camions en temps réel';
   @Input() reports: FleetMapReportItem[] = [];
- 
+
   @Input() missionBins: FleetMapMissionBinItem[] = [];
   @Input() missionRouteCoordinates: FleetMapRouteCoordinate[] = [];
   @Input() collectionRouteCoordinates: FleetMapRouteCoordinate[] = [];
@@ -186,7 +197,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Input() planningMode = false;
   @Input() planningMissions: FleetMapPlanningMission[] = [];
   @Input() droppedBins: FleetMapDroppedBin[] = [];
- 
+
   @Input() initialTrucks: FleetMapInitialTruck[] = [];
   @Input() truckRoutes: FleetMapTruckRoute[] = [];
   private map?: L.Map;
@@ -256,8 +267,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     private binService: BinService,
     private mapFocusService: MapFocusService,
     private route: ActivatedRoute,
-    private router: Router
-  ) {}
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) { }
 
   ngAfterViewInit(): void {
     setTimeout(() => {
@@ -306,11 +319,11 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['initialTrucks'] && this.map) {
-  this.renderInitialTrucks();
+      this.renderInitialTrucks();
     }
     if (changes['truckRoutes'] && this.map) {
-  this.renderTruckRoutes();
-}
+      this.renderTruckRoutes();
+    }
     if (changes['reports'] && this.map && this.showReports) {
       this.loadReportsOnMap();
 
@@ -793,6 +806,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           feedbackExplanation: bin.feedbackExplanation ?? null,
           postponementExplanation: bin.postponementExplanation ?? null,
           classificationExplanation: bin.classificationExplanation ?? null,
+          priorityScore: (bin as any).priorityScore ?? null,
+
+          alertStatus: (bin as any).alertStatus ?? null,
+          shouldCollect: (bin as any).shouldCollect ?? null,
           source: 'bin'
         });
       });
@@ -908,7 +925,6 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       });
 
       marker.addTo(this.map!).bindPopup(this.buildMissionBinPopup(bin));
-
       marker.on('click', () => {
         this.selectBinDetails({
           id: bin.id,
@@ -918,6 +934,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           lng: bin.lng,
           wasteType: bin.wasteType ?? null,
           clusterId: bin.clusterId ?? null,
+
           fillLevel: bin.fillLevel ?? null,
           batteryLevel: bin.batteryLevel ?? null,
           collected: bin.collected,
@@ -925,12 +942,20 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           visitOrder: bin.visitOrder,
           status: bin.status ?? (bin.collected ? 'COLLECTED' : 'TO_COLLECT'),
           zoneName: bin.zoneName ?? null,
+
+          predictedFillLevelNext: bin.predictedFillLevelNext ?? null,
+          hoursToFull: bin.hoursToFull ?? null,
+          priorityScore: bin.priorityScore ?? null,
+          alertStatus: bin.alertStatus ?? null,
+          shouldCollect: bin.shouldCollect ?? null,
+
           decisionReason: bin.decisionReason ?? null,
           scoreExplanation: bin.scoreExplanation ?? null,
           urgencyExplanation: bin.urgencyExplanation ?? null,
           feedbackExplanation: bin.feedbackExplanation ?? null,
           postponementExplanation: bin.postponementExplanation ?? null,
           classificationExplanation: bin.classificationExplanation ?? null,
+
           source: 'mission'
         });
       });
@@ -945,6 +970,41 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         zIndexOffset: 2500
       }).addTo(this.map!);
 
+
+      orderLabel.on('click', () => {
+        this.selectBinDetails({
+          id: bin.id,
+          binId: bin.binId,
+          binCode: bin.binCode ?? null,
+          lat: bin.lat,
+          lng: bin.lng,
+          wasteType: bin.wasteType ?? null,
+          clusterId: bin.clusterId ?? null,
+
+          fillLevel: bin.fillLevel ?? null,
+          batteryLevel: bin.batteryLevel ?? null,
+          collected: bin.collected,
+          targetFillThreshold: bin.targetFillThreshold ?? null,
+          visitOrder: bin.visitOrder,
+          status: bin.status ?? (bin.collected ? 'COLLECTED' : 'TO_COLLECT'),
+          zoneName: bin.zoneName ?? null,
+
+          predictedFillLevelNext: bin.predictedFillLevelNext ?? null,
+          hoursToFull: bin.hoursToFull ?? null,
+          priorityScore: bin.priorityScore ?? null,
+          alertStatus: bin.alertStatus ?? null,
+          shouldCollect: bin.shouldCollect ?? null,
+
+          decisionReason: bin.decisionReason ?? null,
+          scoreExplanation: bin.scoreExplanation ?? null,
+          urgencyExplanation: bin.urgencyExplanation ?? null,
+          feedbackExplanation: bin.feedbackExplanation ?? null,
+          postponementExplanation: bin.postponementExplanation ?? null,
+          classificationExplanation: bin.classificationExplanation ?? null,
+
+          source: 'mission'
+        });
+      });
       this.missionMarkers.set(bin.id, marker);
       this.missionMarkers.set(bin.id * 100000, orderLabel);
 
@@ -952,6 +1012,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
 
     routeStops.forEach((stop, index) => {
+      if (stop.stopType === 'BIN_PICKUP') {
+        boundsPoints.push([stop.lat, stop.lng]);
+        return;
+      }
       console.log('MISSION ROUTE STOP =>', stop.stopType, stop);
       let color = '#111827';
       let fillColor = '#ffffff';
@@ -974,28 +1038,28 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
         fillColor = '#ffffff';
         radius = 5;
         popupTitle = 'Bac à collecter';
-     } else if (stop.stopType === 'FUEL_STATION') {
-  color = '#f59e0b';
-  fillColor = '#f59e0b';
-  radius = 7;
-  popupTitle = 'Station-service';
-  extraHtml = `<div><b>Station:</b> ${stop.fuelStationName ?? '—'}</div>`;
-} else if (stop.stopType === 'DISPOSAL_SITE') {
-  color = '#065f46';        // border غامق
-  fillColor = '#14b8a6';    // turquoise
-  radius = 14;              // 🔥 أكبر
-  popupTitle = 'Centre de vidage';
+      } else if (stop.stopType === 'FUEL_STATION') {
+        color = '#f59e0b';
+        fillColor = '#f59e0b';
+        radius = 7;
+        popupTitle = 'Station-service';
+        extraHtml = `<div><b>Station:</b> ${stop.fuelStationName ?? '—'}</div>`;
+      } else if (stop.stopType === 'DISPOSAL_SITE') {
+        color = '#065f46';        // border غامق
+        fillColor = '#14b8a6';    // turquoise
+        radius = 14;              // 🔥 أكبر
+        popupTitle = 'Centre de vidage';
 
-  extraHtml = `
+        extraHtml = `
     <div><b>Centre:</b> ${stop.disposalSiteName ?? '—'}</div>
     <div><b>ID:</b> ${stop.disposalSiteId ?? '—'}</div>
   `;
-}
-if (stop.stopType === 'DISPOSAL_SITE') {
-  const marker = L.marker([stop.lat, stop.lng], {
-    icon: L.divIcon({
-      className: '',
-      html: `<div style="
+      }
+      if (stop.stopType === 'DISPOSAL_SITE') {
+        const marker = L.marker([stop.lat, stop.lng], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="
         background:#14b8a6;
         color:white;
         font-weight:900;
@@ -1009,13 +1073,13 @@ if (stop.stopType === 'DISPOSAL_SITE') {
         box-shadow:0 4px 12px rgba(0,0,0,0.45);
         font-size:18px;
       ">V</div>`,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19]  // ✅ مهم باش العلامة تكون متمركزة
-    }),
-    zIndexOffset: 5000
-  }).addTo(this.map!);
+            iconSize: [38, 38],
+            iconAnchor: [19, 19]  // ✅ مهم باش العلامة تكون متمركزة
+          }),
+          zIndexOffset: 5000
+        }).addTo(this.map!);
 
-  marker.bindPopup(`
+        marker.bindPopup(`
     <div style="min-width:220px">
       <div style="font-weight:700; margin-bottom:6px;">Centre de vidage</div>
       <div><b>Order:</b> ${stop.stopOrder}</div>
@@ -1025,9 +1089,9 @@ if (stop.stopType === 'DISPOSAL_SITE') {
     </div>
   `);
 
-  this.missionRouteStopMarkers.set(index, marker);
-  boundsPoints.push([stop.lat, stop.lng]); // ✅ ضروري باش fitBounds يشتغل
-}
+        this.missionRouteStopMarkers.set(index, marker);
+        boundsPoints.push([stop.lat, stop.lng]); // ✅ ضروري باش fitBounds يشتغل
+      }
 
       const marker = L.circleMarker([stop.lat, stop.lng], {
         radius,
@@ -1038,22 +1102,22 @@ if (stop.stopType === 'DISPOSAL_SITE') {
       });
 
       if (
-  stop.stopType === 'DISPOSAL_SITE' ||
-  stop.stopType === 'DISPOSAL' ||
-  stop.stopType === 'DUMP'
-) {
-  const disposalLabel = L.marker([stop.lat, stop.lng], {
-    icon: L.divIcon({
-      className: 'mission-order-icon',
-      html: `<div class="mission-order-badge" style="background:#14b8a6;">V</div>`,
-      iconSize: [26, 26],
-      iconAnchor: [13, 13]
-    }),
-    zIndexOffset: 3000
-  }).addTo(this.map!);
+        stop.stopType === 'DISPOSAL_SITE' ||
+        stop.stopType === 'DISPOSAL' ||
+        stop.stopType === 'DUMP'
+      ) {
+        const disposalLabel = L.marker([stop.lat, stop.lng], {
+          icon: L.divIcon({
+            className: 'mission-order-icon',
+            html: `<div class="mission-order-badge" style="background:#14b8a6;">V</div>`,
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+          }),
+          zIndexOffset: 3000
+        }).addTo(this.map!);
 
-  this.missionRouteStopMarkers.set(index + 100000, disposalLabel);
-}
+        this.missionRouteStopMarkers.set(index + 100000, disposalLabel);
+      }
 
       marker.addTo(this.map!).bindPopup(`
         <div style="min-width:200px">
@@ -1648,7 +1712,19 @@ if (stop.stopType === 'DISPOSAL_SITE') {
   }
 
   private selectBinDetails(details: FleetMapSelectedBinDetails): void {
-    this.selectedBin = details;
+    this.ngZone.run(() => {
+      this.selectedBin = {
+        ...details
+      };
+
+      console.log('SELECTED BIN DETAILS =>', this.selectedBin);
+
+      setTimeout(() => {
+        this.map?.invalidateSize();
+      }, 150);
+
+      this.cdr.detectChanges();
+    });
   }
 
   hasExplainability(bin: FleetMapSelectedBinDetails | null): boolean {
@@ -1706,67 +1782,75 @@ if (stop.stopType === 'DISPOSAL_SITE') {
     return 'Faible';
   }
   private renderInitialTrucks(): void {
-  if (!this.map || !this.showTrucks) return;
-
-  const boundsPoints: L.LatLngExpression[] = [];
-
-  (this.initialTrucks || []).forEach((truck) => {
-    if (truck.lat == null || truck.lng == null) return;
-
-    this.upsertTruckMarker(
-      truck.id,
-      {
-        lat: Number(truck.lat),
-        lng: Number(truck.lng),
-      },
-      truck
-    );
-
-    boundsPoints.push([Number(truck.lat), Number(truck.lng)]);
-  });
-
-  if (boundsPoints.length) {
-    const bounds = L.latLngBounds(boundsPoints);
-    this.map.fitBounds(bounds.pad(0.15), { padding: [30, 30] });
-  }
-}
-private startRealtime(): void {
-  this.realtime.connect({
-    wsUrl: 'ws://localhost:8081/ws',
-    topic: '/topic/truck-locations'
-  });
-
-  this.trucksSub = this.realtime.trucks$.subscribe((trucks) => {
     if (!this.map || !this.showTrucks) return;
 
-    for (const [id, payload] of trucks.entries()) {
-      const pos = this.extractLatLng(payload);
-      if (!pos) continue;
+    const boundsPoints: L.LatLngExpression[] = [];
 
-      const existingInitial = (this.initialTrucks || []).find(t => t.id === id);
+    (this.initialTrucks || []).forEach((truck) => {
+      if (truck.lat == null || truck.lng == null) return;
 
-      // Auto-follow أول camion يوصل live
-      if (!this.followedTruckId) {
-        this.followedTruckId = id;
-        this.autoFollowEnabled = true;
-      }
+      this.upsertTruckMarker(
+        truck.id,
+        {
+          lat: Number(truck.lat),
+          lng: Number(truck.lng),
+        },
+        truck
+      );
 
-      this.upsertTruckMarker(id, pos, {
-        id,
-        truckCode: existingInitial?.truckCode || payload.truckCode || `TRUCK-${id}`,
-        label: existingInitial?.label,
-        lat: pos.lat,
-        lng: pos.lng,
-        progress: existingInitial?.progress,
-        fuelLevel: existingInitial?.fuelLevel,
-        etaMinutes: existingInitial?.etaMinutes,
-        status: existingInitial?.status || 'ON_MISSION',
-        speedKmh: Number(payload.speedKmh ?? payload.speed ?? 0),
-        headingDeg: Number(payload.headingDeg ?? payload.heading ?? 0),
-      });
+      boundsPoints.push([Number(truck.lat), Number(truck.lng)]);
+    });
+
+    if (boundsPoints.length) {
+      const bounds = L.latLngBounds(boundsPoints);
+      this.map.fitBounds(bounds.pad(0.15), { padding: [30, 30] });
     }
-  });
-}
+  }
+  private startRealtime(): void {
+    this.realtime.connect({
+      wsUrl: 'ws://localhost:8081/ws',
+      topic: '/topic/truck-locations'
+    });
+
+    this.trucksSub = this.realtime.trucks$.subscribe((trucks) => {
+      if (!this.map || !this.showTrucks) return;
+
+      for (const [id, payload] of trucks.entries()) {
+        const pos = this.extractLatLng(payload);
+        if (!pos) continue;
+
+        // نمنعو GPS خارج Paris، مثلاً تونس
+        if (!this.isInsideParis(pos.lat, pos.lng)) {
+          console.warn('[FleetMap] Position camion ignorée hors Paris:', payload);
+          continue;
+        }
+
+        const existingInitial = (this.initialTrucks || []).find(t =>
+          String(t.id) === String(id) ||
+          String(t.truckCode) === String(id) ||
+          String(t.truckCode) === String(payload.truckCode)
+        );
+
+        // مهم: نحيّو auto follow باش الخريطة ما تتحركش وحدها
+        this.autoFollowEnabled = false;
+        this.followedTruckId = null;
+
+        this.upsertTruckMarker(id, pos, {
+          id,
+          truckCode: existingInitial?.truckCode || payload.truckCode || `TRUCK-${id}`,
+          label: existingInitial?.label,
+          lat: pos.lat,
+          lng: pos.lng,
+          progress: existingInitial?.progress,
+          fuelLevel: existingInitial?.fuelLevel,
+          etaMinutes: existingInitial?.etaMinutes,
+          status: existingInitial?.status || 'ON_MISSION',
+          speedKmh: Number(payload.speedKmh ?? payload.speed ?? 0),
+          headingDeg: Number(payload.headingDeg ?? payload.heading ?? 0),
+        });
+      }
+    });
+  }
   private extractLatLng(payload: TruckLocationMsg): LatLng | null {
     const lat = (payload as any).lat ?? (payload as any).latitude;
     const lng = (payload as any).lng ?? (payload as any).longitude;
@@ -1796,301 +1880,395 @@ private startRealtime(): void {
 
     return inside;
   }
-private getTruckColor(idOrCode: string): string {
-  const colors = ['#2f80ed', '#10b981', '#8b5cf6', '#f97316', '#ef4444', '#4b5563'];
-  let hash = 0;
+  private getTruckColor(idOrCode: string): string {
+    const colors = ['#2f80ed', '#10b981', '#8b5cf6', '#f97316', '#ef4444', '#4b5563'];
+    let hash = 0;
 
-  for (let i = 0; i < idOrCode.length; i++) {
-    hash = idOrCode.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < idOrCode.length; i++) {
+      hash = idOrCode.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    return colors[Math.abs(hash) % colors.length];
   }
+  private makeTruckIcon(truck?: FleetMapInitialTruck, headingDeg = 0, speedKmh = 0): L.DivIcon {
+    const code = truck?.truckCode || truck?.label || truck?.id || 'TRUCK';
+    const status = (truck?.status || 'ON_MISSION').toUpperCase();
+    const progress = truck?.progress ?? 0;
 
-  return colors[Math.abs(hash) % colors.length];
-}
+    let statusLabel = 'En mission';
+    let color = this.getTruckColor(code);
+    let badgeBg = '#dbeafe';
+    let badgeColor = '#1d4ed8';
 
-private makeTruckIcon(truck?: FleetMapInitialTruck, headingDeg = 0, speedKmh = 0): L.DivIcon {
-  const code = truck?.truckCode || truck?.label || truck?.id || 'TRUCK';
-  const status = truck?.status || 'ON_MISSION';
-  const progress = truck?.progress ?? 0;
-  const color = this.getTruckColor(code);
+    if (status === 'INCIDENT' || status === 'BREAKDOWN') {
+      statusLabel = 'Incident';
+      color = '#ef4444';
+      badgeBg = '#fee2e2';
+      badgeColor = '#b91c1c';
+    } else if (status === 'AVAILABLE') {
+      statusLabel = 'Disponible';
+      color = '#10b981';
+      badgeBg = '#dcfce7';
+      badgeColor = '#047857';
+    } else if (status === 'REFUELING') {
+      statusLabel = 'Carburant';
+      color = '#f59e0b';
+      badgeBg = '#fef3c7';
+      badgeColor = '#92400e';
+    } else if (status === 'MAINTENANCE') {
+      statusLabel = 'Maintenance';
+      color = '#8b5cf6';
+      badgeBg = '#ede9fe';
+      badgeColor = '#6d28d9';
+    } else if (status === 'UNAVAILABLE' || status === 'OUT_OF_SERVICE') {
+      statusLabel = 'Indisponible';
+      color = '#64748b';
+      badgeBg = '#f1f5f9';
+      badgeColor = '#475569';
+    }
 
-  return L.divIcon({
-    className: 'truck-modern-marker',
-    iconSize: [148, 58],
-    iconAnchor: [26, 29],
-    popupAnchor: [0, -26],
-    html: `
+    return L.divIcon({
+      className: 'truck-modern-marker',
+      iconSize: [158, 62],
+      iconAnchor: [28, 31],
+      popupAnchor: [0, -28],
+      html: `
       <div class="truck-modern-wrap">
         <div class="truck-modern-pin" style="background:${color};">
-          <span class="material-icons truck-heading">
-            local_shipping
-          </span>
+          <span class="material-icons truck-heading">local_shipping</span>
         </div>
 
         <div class="truck-modern-label">
           <strong>${code}</strong>
-          <span>En mission</span>
+          <span style="background:${badgeBg}; color:${badgeColor};">${statusLabel}</span>
           <small>${progress}% · ${Math.round(speedKmh)} km/h</small>
         </div>
       </div>
     `
-  });
-}
-private upsertTruckMarker(id: string, pos: LatLng, truck?: FleetMapInitialTruck): void {
-  if (!this.map || !this.showTrucks) return;
-
-  const speedKmh = truck?.speedKmh ?? 0;
-  const headingDeg = truck?.headingDeg ?? 0;
-
-  const existing = this.truckMarkers.get(id);
-
-  let finalPos = pos;
-
-  const route = this.truckRouteCoords.get(id);
-  if (route && route.length > 1) {
-    finalPos = this.snapToRoute(route, pos);
+    });
   }
+  private upsertTruckMarker(id: string, pos: LatLng, truck?: FleetMapInitialTruck): void {
+    if (!this.map || !this.showTrucks) return;
 
-  this.updateTruckRouteProgress(id, finalPos);
+    const speedKmh = truck?.speedKmh ?? 0;
+    const headingDeg = truck?.headingDeg ?? 0;
 
-  if (!existing) {
-    const marker = L.marker([finalPos.lat, finalPos.lng], {
-      icon: this.makeTruckIcon(truck, headingDeg, speedKmh),
-      zIndexOffset: 5000
-    }).addTo(this.map);
+    const existing = this.truckMarkers.get(id);
 
-    marker.bindPopup(`
-      <div style="min-width:170px">
-        <b>${truck?.truckCode || truck?.label || id}</b><br>
-        Status: ${truck?.status || 'ON_MISSION'}<br>
-        Progress: ${truck?.progress ?? 0}%<br>
-        Speed: ${Math.round(speedKmh)} km/h<br>
-        Heading: ${Math.round(headingDeg)}°
+    let finalPos = pos;
+
+    const route = this.truckRouteCoords.get(id);
+    if (route && route.length > 1) {
+      finalPos = this.snapToRoute(route, pos);
+    }
+
+    this.updateTruckRouteProgress(id, finalPos);
+
+    if (!existing) {
+      const marker = L.marker([finalPos.lat, finalPos.lng], {
+        icon: this.makeTruckIcon(truck, headingDeg, speedKmh),
+        zIndexOffset: 5000
+      }).addTo(this.map);
+
+      marker.bindPopup(`
+      <div style="min-width:190px">
+        <div style="font-weight:900; margin-bottom:6px;">
+          ${truck?.truckCode || truck?.label || id}
+        </div>
+        <div><b>Statut:</b> ${truck?.status || 'ON_MISSION'}</div>
+        <div><b>Progression:</b> ${truck?.progress ?? 0}%</div>
+        <div><b>Vitesse:</b> ${Math.round(speedKmh)} km/h</div>
+        <div><b>Direction:</b> ${Math.round(headingDeg)}°</div>
+        ${truck?.status === 'INCIDENT' || truck?.status === 'BREAKDOWN'
+          ? '<div style="margin-top:8px;color:#b91c1c;font-weight:800;">Incident actif détecté</div>'
+          : ''
+        }
       </div>
     `);
 
-    marker.on('click', () => {
-      this.followedTruckId = id;
-      this.autoFollowEnabled = true;
-      this.map?.setView([finalPos.lat, finalPos.lng], 17, { animate: true });
-    });
+      marker.on('click', () => {
+        this.followedTruckId = id;
+        this.autoFollowEnabled = false;
 
-    this.truckMarkers.set(id, marker);
-    this.truckLastPositions.set(id, finalPos);
+        this.highlightTruckRoute(id, truck?.truckCode);
 
-    if (this.autoFollowEnabled && this.followedTruckId === id) {
-      this.map.setView([finalPos.lat, finalPos.lng], 17, { animate: true });
+        this.map?.setView([finalPos.lat, finalPos.lng], 17, { animate: true });
+        marker.openPopup();
+      });
+
+      this.truckMarkers.set(id, marker);
+      this.truckLastPositions.set(id, finalPos);
+
+      // مهم: ما نعملوش setView automatique هنا
+      return;
     }
 
-    return;
+    existing.setIcon(this.makeTruckIcon(truck, headingDeg, speedKmh));
+    this.animateTruckMarker(id, existing, finalPos);
+
+    // مهم: ما نعملوش panTo automatique هنا
   }
 
-  existing.setIcon(this.makeTruckIcon(truck, headingDeg, speedKmh));
-  this.animateTruckMarker(id, existing, finalPos);
 
-  if (this.autoFollowEnabled && this.followedTruckId === id) {
-    this.map.panTo([finalPos.lat, finalPos.lng], {
-      animate: true,
-      duration: 0.6
-    });
+  private highlightTruckRoute(id: string, truckCode?: string): void {
+    const possibleKeys = [
+      String(id),
+      String(truckCode ?? ''),
+    ].filter(Boolean);
+
+    for (const [key, layer] of this.truckRoutePolylines.entries()) {
+      const anyLayer: any = layer;
+
+      if (typeof anyLayer.setStyle === 'function') {
+        const isSelected = possibleKeys.some(k => key === k || key.includes(k));
+
+        anyLayer.setStyle({
+          opacity: isSelected ? 1 : 0.18,
+          weight: isSelected ? 8 : 4
+        });
+
+        if (isSelected && typeof anyLayer.bringToFront === 'function') {
+          anyLayer.bringToFront();
+        }
+      }
+
+      const htmlElement = anyLayer.getElement?.();
+      if (htmlElement) {
+        const isSelected = possibleKeys.some(k => key === k || key.includes(k));
+        htmlElement.style.opacity = isSelected ? '1' : '0.35';
+      }
+    }
   }
-}
-private animateTruckMarker(id: string, marker: L.Marker, next: LatLng): void {
-  const previous = this.truckLastPositions.get(id);
+  private animateTruckMarker(id: string, marker: L.Marker, next: LatLng): void {
+    const previous = this.truckLastPositions.get(id);
 
-  if (!previous) {
-    marker.setLatLng([next.lat, next.lng]);
-    this.truckLastPositions.set(id, next);
-    return;
-  }
-
-  const oldFrame = this.truckAnimationFrames.get(id);
-  if (oldFrame) {
-    cancelAnimationFrame(oldFrame);
-  }
-
-  const duration = 900;
-  const start = performance.now();
-
-  const step = (now: number) => {
-    const t = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - t, 3);
-
-    let lat = previous.lat + (next.lat - previous.lat) * eased;
-let lng = previous.lng + (next.lng - previous.lng) * eased;
-
-const route = this.truckRouteCoords.get(id);
-if (route && route.length > 1) {
-  const snapped = this.snapToRoute(route, { lat, lng });
-  lat = snapped.lat;
-  lng = snapped.lng;
-}
-
-    marker.setLatLng([lat, lng]);
-
-    if (t < 1) {
-      const frame = requestAnimationFrame(step);
-      this.truckAnimationFrames.set(id, frame);
-    } else {
+    if (!previous) {
+      marker.setLatLng([next.lat, next.lng]);
       this.truckLastPositions.set(id, next);
-      this.truckAnimationFrames.delete(id);
+      return;
     }
-  };
 
-  const frame = requestAnimationFrame(step);
-  this.truckAnimationFrames.set(id, frame);
-}
+    const oldFrame = this.truckAnimationFrames.get(id);
+    if (oldFrame) {
+      cancelAnimationFrame(oldFrame);
+    }
 
-private updateTruckTrail(id: string, pos: LatLng): void {
-  if (!this.map) return;
+    const duration = 900;
+    const start = performance.now();
 
-  const points = this.truckTrailPoints.get(id) || [];
-  points.push([pos.lat, pos.lng]);
+    const step = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
 
-  const maxPoints = 30;
-  const limitedPoints = points.slice(-maxPoints);
+      let lat = previous.lat + (next.lat - previous.lat) * eased;
+      let lng = previous.lng + (next.lng - previous.lng) * eased;
 
-  this.truckTrailPoints.set(id, limitedPoints);
+      const route = this.truckRouteCoords.get(id);
+      if (route && route.length > 1) {
+        const snapped = this.snapToRoute(route, { lat, lng });
+        lat = snapped.lat;
+        lng = snapped.lng;
+      }
 
-  let trail = this.truckTrails.get(id);
+      marker.setLatLng([lat, lng]);
 
-  if (!trail) {
-    trail = L.polyline(limitedPoints, {
-      color: '#2563eb',
-      weight: 4,
-      opacity: 0.55,
-      dashArray: '6 8'
-    }).addTo(this.map);
+      if (t < 1) {
+        const frame = requestAnimationFrame(step);
+        this.truckAnimationFrames.set(id, frame);
+      } else {
+        this.truckLastPositions.set(id, next);
+        this.truckAnimationFrames.delete(id);
+      }
+    };
 
-    this.truckTrails.set(id, trail);
-    return;
+    const frame = requestAnimationFrame(step);
+    this.truckAnimationFrames.set(id, frame);
   }
 
-  trail.setLatLngs(limitedPoints);
-}
- private renderTruckRoutes(): void {
-  if (!this.map) return;
+  private updateTruckTrail(id: string, pos: LatLng): void {
+    if (!this.map) return;
 
-  this.clearTruckRoutes();
+    const points = this.truckTrailPoints.get(id) || [];
+    points.push([pos.lat, pos.lng]);
 
-  const colors = ['#2563eb', '#059669', '#7c3aed', '#f97316', '#ef4444', '#0f766e'];
+    const maxPoints = 30;
+    const limitedPoints = points.slice(-maxPoints);
 
-  (this.truckRoutes || []).forEach((route, index) => {
-    const color = colors[index % colors.length];
+    this.truckTrailPoints.set(id, limitedPoints);
 
-    const coords =
-    route.routeCoordinates && route.routeCoordinates.length >= 2
-    ? route.routeCoordinates
-    : route.collectionRouteCoordinates;
+    let trail = this.truckTrails.get(id);
 
-    const validCoords = (coords || []).filter((p) => p?.lat != null && p?.lng != null);
+    if (!trail) {
+      trail = L.polyline(limitedPoints, {
+        color: '#2563eb',
+        weight: 4,
+        opacity: 0.55,
+        dashArray: '6 8'
+      }).addTo(this.map);
 
-    if (validCoords.length < 2) return;
+      this.truckTrails.set(id, trail);
+      return;
+    }
 
-    this.truckRouteCoords.set(route.truckId, validCoords);
+    trail.setLatLngs(limitedPoints);
+  }
+  private renderTruckRoutes(): void {
+    if (!this.map) return;
 
-    const allLatLngs: L.LatLngExpression[] = validCoords.map((p) => [
-      Number(p.lat),
-      Number(p.lng),
-    ]);
+    for (const line of this.truckRoutePolylines.values()) {
+      line.removeFrom(this.map);
+    }
+    this.truckRoutePolylines.clear();
+    this.truckRouteCoords.clear();
 
-    const completedLine = L.polyline([], {
-      color: '#22c55e',
-      weight: 7,
-      opacity: 1,
-    }).addTo(this.map!);
+    const boundsPoints: L.LatLngExpression[] = [];
 
-    const remainingLine = L.polyline(allLatLngs, {
-      color,
-      weight: 6,
-      opacity: 0.85,
-    }).addTo(this.map!);
+    (this.truckRoutes || []).forEach((route) => {
+      const routeKey = String(route.truckId ?? route.truckCode ?? route.missionId);
+      const code = String(route.truckCode ?? routeKey);
 
-    remainingLine.bindPopup(`
+      // نفس function اللي makeTruckIcon تستعملها
+      const color = this.getTruckColor(code);
+
+      const coords = (
+        route.collectionRouteCoordinates?.length
+          ? route.collectionRouteCoordinates
+          : route.routeCoordinates
+          || []).filter((p: any) => p.lat != null && p.lng != null);
+
+      if (coords.length < 2) return;
+
+      this.truckRouteCoords.set(routeKey, coords);
+      this.truckRouteCoords.set(code, coords);
+
+      const latLngs: L.LatLngExpression[] = coords.map((p: any) => [p.lat, p.lng]);
+
+      const polyline = L.polyline(latLngs, {
+        color,
+        weight: 6,
+        opacity: 0.9
+      }).addTo(this.map!);
+
+      polyline.bindPopup(`
       <div style="min-width:180px">
-        <b>${route.truckCode || route.truckId}</b><br>
-        Mission: ${route.missionId}
+        <div style="font-weight:900; margin-bottom:6px;">${code}</div>
+        <div><b>Mission:</b> #${route.missionId}</div>
       </div>
     `);
 
-    this.truckCompletedRoutePolylines.set(route.truckId, completedLine);
-    this.truckRemainingRoutePolylines.set(route.truckId, remainingLine);
-  });
-}
+      const middle = latLngs[Math.floor(latLngs.length / 2)] as [number, number];
 
-private clearTruckRoutes(): void {
-  if (!this.map) return;
+      const label = L.marker(middle, {
+        icon: L.divIcon({
+          className: '',
+          html: `
+          <div style="
+            background:${color};
+            color:white;
+            padding:5px 10px;
+            border-radius:999px;
+            font-size:11px;
+            font-weight:900;
+            box-shadow:0 6px 14px rgba(15,23,42,.22);
+            white-space:nowrap;
+            border:2px solid white;
+          ">
+            ${code}
+          </div>
+        `,
+          iconSize: [95, 26],
+          iconAnchor: [47, 13]
+        }),
+        zIndexOffset: 4500
+      }).addTo(this.map!);
 
-  for (const line of this.truckCompletedRoutePolylines.values()) {
-    line.removeFrom(this.map);
+      this.truckRoutePolylines.set(routeKey, polyline);
+      this.truckRoutePolylines.set(`${routeKey}-label`, label as any);
+
+      boundsPoints.push(...latLngs);
+    });
+
+    if (boundsPoints.length) {
+      this.map.fitBounds(L.latLngBounds(boundsPoints).pad(0.08), {
+        padding: [20, 20]
+      });
+    }
   }
 
-  for (const line of this.truckRemainingRoutePolylines.values()) {
-    line.removeFrom(this.map);
+  private clearTruckRoutes(): void {
+    if (!this.map) return;
+
+    for (const line of this.truckCompletedRoutePolylines.values()) {
+      line.removeFrom(this.map);
+    }
+
+    for (const line of this.truckRemainingRoutePolylines.values()) {
+      line.removeFrom(this.map);
+    }
+
+    this.truckCompletedRoutePolylines.clear();
+    this.truckRemainingRoutePolylines.clear();
+    this.truckRouteCoords.clear();
+  }
+  private updateTruckRouteProgress(truckId: string, pos: LatLng): void {
+    const route = this.truckRouteCoords.get(truckId);
+    if (!route || route.length < 2) return;
+
+    const completedLine = this.truckCompletedRoutePolylines.get(truckId);
+    const remainingLine = this.truckRemainingRoutePolylines.get(truckId);
+
+    if (!completedLine || !remainingLine) return;
+
+    const closestIndex = this.findClosestIndexOnRoute(route, pos);
+
+    const completed = route.slice(0, closestIndex + 1);
+    const remaining = route.slice(closestIndex);
+
+    completedLine.setLatLngs(completed.map((p) => [Number(p.lat), Number(p.lng)]));
+    remainingLine.setLatLngs(remaining.map((p) => [Number(p.lat), Number(p.lng)]));
   }
 
-  this.truckCompletedRoutePolylines.clear();
-  this.truckRemainingRoutePolylines.clear();
-  this.truckRouteCoords.clear();
-}
-private updateTruckRouteProgress(truckId: string, pos: LatLng): void {
-  const route = this.truckRouteCoords.get(truckId);
-  if (!route || route.length < 2) return;
+  private findClosestIndexOnRoute(route: FleetMapRouteCoordinate[], pos: LatLng): number {
+    let minDist = Infinity;
+    let closestIndex = 0;
 
-  const completedLine = this.truckCompletedRoutePolylines.get(truckId);
-  const remainingLine = this.truckRemainingRoutePolylines.get(truckId);
+    route.forEach((p, index) => {
+      const d =
+        Math.pow(Number(p.lat) - pos.lat, 2) +
+        Math.pow(Number(p.lng) - pos.lng, 2);
 
-  if (!completedLine || !remainingLine) return;
+      if (d < minDist) {
+        minDist = d;
+        closestIndex = index;
+      }
+    });
 
-  const closestIndex = this.findClosestIndexOnRoute(route, pos);
+    return closestIndex;
+  }
 
-  const completed = route.slice(0, closestIndex + 1);
-  const remaining = route.slice(closestIndex);
+  private snapToRoute(
+    route: FleetMapRouteCoordinate[],
+    pos: LatLng
+  ): LatLng {
+    let minDist = Infinity;
+    let closest: LatLng = pos;
 
-  completedLine.setLatLngs(completed.map((p) => [Number(p.lat), Number(p.lng)]));
-  remainingLine.setLatLngs(remaining.map((p) => [Number(p.lat), Number(p.lng)]));
-}
+    route.forEach((p) => {
+      const d =
+        Math.pow(Number(p.lat) - pos.lat, 2) +
+        Math.pow(Number(p.lng) - pos.lng, 2);
 
-private findClosestIndexOnRoute(route: FleetMapRouteCoordinate[], pos: LatLng): number {
-  let minDist = Infinity;
-  let closestIndex = 0;
+      if (d < minDist) {
+        minDist = d;
+        closest = {
+          lat: Number(p.lat),
+          lng: Number(p.lng),
+        };
+      }
+    });
 
-  route.forEach((p, index) => {
-    const d =
-      Math.pow(Number(p.lat) - pos.lat, 2) +
-      Math.pow(Number(p.lng) - pos.lng, 2);
-
-    if (d < minDist) {
-      minDist = d;
-      closestIndex = index;
-    }
-  });
-
-  return closestIndex;
-}
-
-private snapToRoute(
-  route: FleetMapRouteCoordinate[],
-  pos: LatLng
-): LatLng {
-  let minDist = Infinity;
-  let closest: LatLng = pos;
-
-  route.forEach((p) => {
-    const d =
-      Math.pow(Number(p.lat) - pos.lat, 2) +
-      Math.pow(Number(p.lng) - pos.lng, 2);
-
-    if (d < minDist) {
-      minDist = d;
-      closest = {
-        lat: Number(p.lat),
-        lng: Number(p.lng),
-      };
-    }
-  });
-
-  return closest;
-}
+    return closest;
+  }
 
 
   private removeOldTrucks(keep: Set<string>): void {
@@ -2104,67 +2282,67 @@ private snapToRoute(
     }
   }
 
- ngOnDestroy(): void {
-  try { this.trucksSub?.unsubscribe(); } catch {}
-  try { this.binsSub?.unsubscribe(); } catch {}
+  ngOnDestroy(): void {
+    try { this.trucksSub?.unsubscribe(); } catch { }
+    try { this.binsSub?.unsubscribe(); } catch { }
 
-  try {
-    if (this.showTrucks) {
-      this.realtime.disconnect();
-    }
-  } catch {}
-
-  for (const frame of this.truckAnimationFrames.values()) {
-    try { cancelAnimationFrame(frame); } catch {}
-  }
-
-  for (const trail of this.truckTrails.values()) {
     try {
-      if (this.map) {
-        trail.removeFrom(this.map);
+      if (this.showTrucks) {
+        this.realtime.disconnect();
       }
-    } catch {}
+    } catch { }
+
+    for (const frame of this.truckAnimationFrames.values()) {
+      try { cancelAnimationFrame(frame); } catch { }
+    }
+
+    for (const trail of this.truckTrails.values()) {
+      try {
+        if (this.map) {
+          trail.removeFrom(this.map);
+        }
+      } catch { }
+    }
+
+    try {
+      if (this.temporaryFocusMarker && this.map) {
+        this.temporaryFocusMarker.removeFrom(this.map);
+      }
+    } catch { }
+
+    try {
+      if (this.pendingAddMarker && this.map) {
+        this.pendingAddMarker.removeFrom(this.map);
+      }
+    } catch { }
+
+    try {
+      this.clearHeatLayer();
+    } catch { }
+    try {
+      this.clearTruckRoutes();
+    } catch { }
+    try { this.map?.remove(); } catch { }
+
+    this.truckMarkers.clear();
+    this.truckTrails.clear();
+    this.truckCompletedRoutePolylines.clear();
+    this.truckRemainingRoutePolylines.clear();
+    this.truckRouteCoords.clear();
+    this.truckTrailPoints.clear();
+    this.truckLastPositions.clear();
+    this.truckAnimationFrames.clear();
+    this.followedTruckId = null;
+    this.truckRoutePolylines.clear();
+
+    this.binMarkers.clear();
+    this.reportMarkers.clear();
+    this.missionMarkers.clear();
+    this.missionRouteStopMarkers.clear();
+    this.snappedWaypointMarkers.clear();
+    this.snappedConnectorLines.clear();
+    this.planningMissionPolylines.clear();
+    this.planningMissionMarkers.clear();
+    this.droppedBinMarkers.clear();
   }
-
-  try {
-    if (this.temporaryFocusMarker && this.map) {
-      this.temporaryFocusMarker.removeFrom(this.map);
-    }
-  } catch {}
-
-  try {
-    if (this.pendingAddMarker && this.map) {
-      this.pendingAddMarker.removeFrom(this.map);
-    }
-  } catch {}
-
-  try {
-    this.clearHeatLayer();
-  } catch {}
-  try {
-  this.clearTruckRoutes();
-} catch {}
-  try { this.map?.remove(); } catch {}
-
-  this.truckMarkers.clear();
-  this.truckTrails.clear();
-  this.truckCompletedRoutePolylines.clear();
-  this.truckRemainingRoutePolylines.clear();
-  this.truckRouteCoords.clear();
-  this.truckTrailPoints.clear();
-  this.truckLastPositions.clear();
-  this.truckAnimationFrames.clear();
-  this.followedTruckId = null;
-  this.truckRoutePolylines.clear();
-
-  this.binMarkers.clear();
-  this.reportMarkers.clear();
-  this.missionMarkers.clear();
-  this.missionRouteStopMarkers.clear();
-  this.snappedWaypointMarkers.clear();
-  this.snappedConnectorLines.clear();
-  this.planningMissionPolylines.clear();
-  this.planningMissionMarkers.clear();
-  this.droppedBinMarkers.clear();
-}
 }

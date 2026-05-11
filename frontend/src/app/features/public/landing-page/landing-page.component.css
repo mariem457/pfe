@@ -610,3 +610,1127 @@
     border-radius: 24px !important;
   }
 }
+
+/* ================= FINAL BOT ================= */
+
+.final-bot{
+  position:fixed !important;
+  right:18px !important;
+  bottom:-48px !important;
+
+  width:240px !important;
+
+  z-index:2147483647 !important;
+
+  cursor:pointer !important;
+
+  animation:botFloat 3s ease-in-out infinite;
+}
+
+.final-bot img{
+  width:100% !important;
+  display:block !important;
+
+  filter:brightness(.88) contrast(1.05) saturate(.95);
+}
+
+.final-bubble{
+  position:absolute !important;
+
+  right:78% !important;
+
+  bottom:150px !important;
+
+  background:white !important;
+
+  color:#0f172a !important;
+
+  padding:10px 14px !important;
+
+  border-radius:16px !important;
+
+  font-weight:800 !important;
+
+  white-space:nowrap !important;
+
+  box-shadow:0 10px 20px rgba(0,0,0,.15) !important;
+}
+
+/* ================= CHAT WINDOW ================= */
+
+.chatbot-window{
+  position:fixed !important;
+
+  right:25px !important;
+
+  bottom:150px !important;
+
+  width:540px !important;
+
+  height:min(690px, calc(100vh - 174px)) !important;
+
+  max-height:calc(100vh - 24px) !important;
+
+  background:white !important;
+
+  border-radius:28px !important;
+
+  overflow:hidden !important;
+
+  border:1px solid #dbeafe !important;
+
+  box-shadow:0 28px 70px rgba(15,23,42,.25) !important;
+
+  z-index:2147483647 !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+/* ================= HEADER ================= */
+
+.chatbot-header{
+  background:linear-gradient(135deg,#10b981,#059669) !important;
+
+  color:white !important;
+
+  padding:18px 22px !important;
+
+  font-weight:900 !important;
+
+  font-size:17px !important;
+
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+
+  flex-shrink:0 !important;
+}
+
+.chatbot-header button{
+  border:none !important;
+  background:transparent !important;
+
+  color:white !important;
+
+  font-size:28px !important;
+
+  cursor:pointer !important;
+}
+
+/* ================= BODY ================= */
+
+.chatbot-body{
+  flex:1 !important;
+
+  overflow-y:auto !important;
+
+  padding:18px !important;
+
+  background:#ffffff !important;
+}
+
+/* ================= MESSAGES ================= */
+
+.chat-msg{
+  margin-bottom:14px !important;
+}
+
+.chat-msg p{
+  margin:0 !important;
+
+  font-size:14px !important;
+
+  line-height:1.6 !important;
+}
+
+.chat-msg.bot p{
+  background:#ecfdf5 !important;
+
+  color:#0f172a !important;
+
+  padding:14px 16px !important;
+
+  border-radius:18px 18px 18px 6px !important;
+}
+
+.chat-msg.user p{
+  background:#10b981 !important;
+
+  color:white !important;
+
+  padding:12px 14px !important;
+
+  border-radius:18px 18px 6px 18px !important;
+
+  text-align:right !important;
+}
+
+/* ================= GPS BUTTON ================= */
+
+.location-actions{
+  display:grid !important;
+
+  grid-template-columns:1fr 1fr !important;
+
+  gap:10px !important;
+
+  margin-top:12px !important;
+}
+
+.gps-btn{
+  width:100% !important;
+
+  border:none !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  font-weight:900 !important;
+
+  padding:13px 15px !important;
+
+  border-radius:16px !important;
+
+  cursor:pointer !important;
+
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:10px !important;
+
+  font-size:14px !important;
+
+  transition:.2s !important;
+}
+
+.map-select-btn{
+  background:#eff6ff !important;
+
+  color:#075985 !important;
+}
+
+.gps-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.map-select-btn:hover{
+  background:#dbeafe !important;
+}
+
+.gps-btn .material-icons{
+  font-size:20px !important;
+}
+
+/* ================= TABLE ================= */
+
+.bins-table{
+  width:100% !important;
+
+  border-collapse:collapse !important;
+
+  margin-top:12px !important;
+
+  border-radius:16px !important;
+
+  overflow:hidden !important;
+
+  font-size:13px !important;
+
+  box-shadow:0 8px 20px rgba(15,23,42,.08) !important;
+}
+
+.bins-table th{
+  background:#10b981 !important;
+
+  color:white !important;
+
+  padding:12px !important;
+
+  text-align:left !important;
+}
+
+.bins-table td{
+  padding:12px !important;
+
+  border-bottom:1px solid #e5e7eb !important;
+
+  color:#0f172a !important;
+}
+
+.bin-gps-btn{
+  width:30px !important;
+  height:30px !important;
+
+  border:none !important;
+
+  border-radius:50% !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  cursor:pointer !important;
+}
+
+.bin-gps-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.bin-gps-btn .material-icons{
+  font-size:18px !important;
+}
+
+.see-more-btn{
+  width:auto !important;
+
+  border:none !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  border-radius:999px !important;
+
+  padding:7px 14px !important;
+
+  margin:6px auto 0 !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+
+  display:block !important;
+
+  font-size:12px !important;
+}
+
+.see-more-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.chat-followup{
+  margin:12px 2px 0 !important;
+
+  background:transparent !important;
+
+  color:#475569 !important;
+
+  padding:0 !important;
+
+  border-radius:0 !important;
+
+  font-size:12px !important;
+
+  line-height:1.5 !important;
+}
+
+/* ================= MAP PICKER ================= */
+
+.map-picker{
+  border-top:1px solid #e5e7eb !important;
+
+  background:#f8fafc !important;
+
+  padding:14px !important;
+
+  flex-shrink:0 !important;
+}
+
+.map-picker-header{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+
+  color:#0f172a !important;
+
+  font-size:14px !important;
+  font-weight:900 !important;
+
+  margin-bottom:8px !important;
+}
+
+.map-picker-header button{
+  border:none !important;
+
+  background:#e2e8f0 !important;
+
+  color:#0f172a !important;
+
+  width:28px !important;
+  height:28px !important;
+
+  border-radius:50% !important;
+
+  cursor:pointer !important;
+
+  font-size:18px !important;
+  line-height:1 !important;
+}
+
+.map-picker-help{
+  color:#64748b !important;
+
+  font-size:12px !important;
+
+  margin-bottom:10px !important;
+}
+
+.chatbot-map{
+  width:100% !important;
+
+  height:260px !important;
+
+  border-radius:16px !important;
+
+  overflow:hidden !important;
+
+  border:1px solid #dbeafe !important;
+}
+
+/* ================= WASTE ================= */
+
+.waste-choice{
+  padding:16px !important;
+
+  background:#f8fafc !important;
+
+  border-top:1px solid #e5e7eb !important;
+
+  display:grid !important;
+
+  grid-template-columns:repeat(2,1fr) !important;
+
+  gap:10px !important;
+
+  flex-shrink:0 !important;
+}
+
+.waste-item{
+  background:white !important;
+
+  border:1px solid #dbeafe !important;
+
+  border-radius:15px !important;
+
+  padding:12px !important;
+
+  display:flex !important;
+  align-items:center !important;
+
+  gap:8px !important;
+
+  font-size:13px !important;
+
+  font-weight:800 !important;
+}
+
+.waste-item input{
+  width:16px !important;
+  height:16px !important;
+
+  accent-color:#10b981 !important;
+}
+
+/* ================= SEARCH BTN ================= */
+
+.search-btn{
+  grid-column:1 / -1 !important;
+
+  border:none !important;
+
+  background:#10b981 !important;
+
+  color:white !important;
+
+  border-radius:15px !important;
+
+  padding:13px !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+}
+
+.search-btn:disabled{
+  opacity:.5 !important;
+}
+
+/* ================= INPUT ================= */
+
+.chatbot-input{
+  display:flex !important;
+
+  gap:10px !important;
+
+  padding:15px !important;
+
+  border-top:1px solid #e5e7eb !important;
+
+  background:white !important;
+
+  flex-shrink:0 !important;
+}
+
+.chatbot-input input{
+  flex:1 !important;
+
+  border:1px solid #dbeafe !important;
+
+  border-radius:16px !important;
+
+  padding:13px !important;
+
+  outline:none !important;
+
+  font-size:14px !important;
+}
+
+.chatbot-input input:focus{
+  border-color:#10b981 !important;
+}
+
+.chatbot-input input:disabled{
+  background:#f8fafc !important;
+
+  color:#94a3b8 !important;
+
+  cursor:not-allowed !important;
+}
+
+.chatbot-input button{
+  border:none !important;
+
+  background:#10b981 !important;
+
+  color:white !important;
+
+  border-radius:16px !important;
+
+  padding:0 20px !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+}
+
+/* ================= FLOAT ================= */
+
+@keyframes botFloat{
+
+  0%,100%{
+    transform:translateY(0);
+
+    filter:drop-shadow(0 10px 10px rgba(0,0,0,.08));
+  }
+
+  50%{
+    transform:translateY(-10px);
+
+    filter:drop-shadow(0 22px 18px rgba(0,0,0,.18));
+  }
+}
+
+/* ================= MOBILE ================= */
+
+@media(max-width:768px){
+
+  .chatbot-window{
+    width:calc(100vw - 20px) !important;
+
+    right:10px !important;
+
+    bottom:120px !important;
+
+    height:calc(100vh - 140px) !important;
+  }
+
+  .location-actions{
+    grid-template-columns:1fr !important;
+  }
+
+  .chatbot-map{
+    height:220px !important;
+  }
+
+  .final-bot{
+    width:170px !important;
+  }
+
+  .final-bubble{
+    display:none !important;
+  }
+}
+
+/* ================= FINAL BOT ================= */
+
+.final-bot{
+  position:fixed !important;
+  right:18px !important;
+  bottom:-48px !important;
+
+  width:240px !important;
+
+  z-index:2147483647 !important;
+
+  cursor:pointer !important;
+
+  animation:botFloat 3s ease-in-out infinite;
+}
+
+.final-bot img{
+  width:100% !important;
+  display:block !important;
+
+  filter:brightness(.88) contrast(1.05) saturate(.95);
+}
+
+.final-bubble{
+  position:absolute !important;
+
+  right:78% !important;
+
+  bottom:150px !important;
+
+  background:white !important;
+
+  color:#0f172a !important;
+
+  padding:10px 14px !important;
+
+  border-radius:16px !important;
+
+  font-weight:800 !important;
+
+  white-space:nowrap !important;
+
+  box-shadow:0 10px 20px rgba(0,0,0,.15) !important;
+}
+
+/* ================= CHAT WINDOW ================= */
+
+.chatbot-window{
+  position:fixed !important;
+
+  right:25px !important;
+
+  bottom:150px !important;
+
+  width:540px !important;
+
+  height:min(690px, calc(100vh - 174px)) !important;
+
+  max-height:calc(100vh - 24px) !important;
+
+  background:white !important;
+
+  border-radius:28px !important;
+
+  overflow:hidden !important;
+
+  border:1px solid #dbeafe !important;
+
+  box-shadow:0 28px 70px rgba(15,23,42,.25) !important;
+
+  z-index:2147483647 !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+/* ================= HEADER ================= */
+
+.chatbot-header{
+  background:linear-gradient(135deg,#10b981,#059669) !important;
+
+  color:white !important;
+
+  padding:18px 22px !important;
+
+  font-weight:900 !important;
+
+  font-size:17px !important;
+
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+
+  flex-shrink:0 !important;
+}
+
+.chatbot-header button{
+  border:none !important;
+  background:transparent !important;
+
+  color:white !important;
+
+  font-size:28px !important;
+
+  cursor:pointer !important;
+}
+
+/* ================= BODY ================= */
+
+.chatbot-body{
+  flex:1 !important;
+
+  overflow-y:auto !important;
+
+  padding:18px !important;
+
+  background:#ffffff !important;
+}
+
+/* ================= MESSAGES ================= */
+
+.chat-msg{
+  margin-bottom:14px !important;
+}
+
+.chat-msg p{
+  margin:0 !important;
+
+  font-size:14px !important;
+
+  line-height:1.6 !important;
+}
+
+.chat-msg.bot p{
+  background:#ecfdf5 !important;
+
+  color:#0f172a !important;
+
+  padding:14px 16px !important;
+
+  border-radius:18px 18px 18px 6px !important;
+}
+
+.chat-msg.user p{
+  background:#10b981 !important;
+
+  color:white !important;
+
+  padding:12px 14px !important;
+
+  border-radius:18px 18px 6px 18px !important;
+
+  text-align:right !important;
+}
+
+/* ================= GPS BUTTON ================= */
+
+.location-actions{
+  display:grid !important;
+
+  grid-template-columns:1fr 1fr !important;
+
+  gap:10px !important;
+
+  margin-top:12px !important;
+}
+
+.gps-btn{
+  width:100% !important;
+
+  border:none !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  font-weight:900 !important;
+
+  padding:13px 15px !important;
+
+  border-radius:16px !important;
+
+  cursor:pointer !important;
+
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:10px !important;
+
+  font-size:14px !important;
+
+  transition:.2s !important;
+}
+
+.map-select-btn{
+  background:#eff6ff !important;
+
+  color:#075985 !important;
+}
+
+.gps-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.map-select-btn:hover{
+  background:#dbeafe !important;
+}
+
+.gps-btn .material-icons{
+  font-size:20px !important;
+}
+
+/* ================= TABLE ================= */
+
+.bins-table{
+  width:100% !important;
+
+  border-collapse:collapse !important;
+
+  margin-top:12px !important;
+
+  border-radius:16px !important;
+
+  overflow:hidden !important;
+
+  font-size:13px !important;
+
+  box-shadow:0 8px 20px rgba(15,23,42,.08) !important;
+}
+
+.bins-table th{
+  background:#10b981 !important;
+
+  color:white !important;
+
+  padding:12px !important;
+
+  text-align:left !important;
+}
+
+.bins-table td{
+  padding:12px !important;
+
+  border-bottom:1px solid #e5e7eb !important;
+
+  color:#0f172a !important;
+}
+
+.bin-gps-btn{
+  width:30px !important;
+  height:30px !important;
+
+  border:none !important;
+
+  border-radius:50% !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  cursor:pointer !important;
+}
+
+.chatbot-input button:disabled{
+  opacity:.55 !important;
+
+  cursor:not-allowed !important;
+}
+
+.bin-gps-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.bin-gps-btn .material-icons{
+  font-size:18px !important;
+}
+
+.see-more-btn{
+  width:auto !important;
+
+  border:none !important;
+
+  background:#ecfdf5 !important;
+
+  color:#047857 !important;
+
+  border-radius:999px !important;
+
+  padding:7px 14px !important;
+
+  margin:6px auto 0 !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+
+  display:block !important;
+
+  font-size:12px !important;
+}
+
+.see-more-btn:hover{
+  background:#d1fae5 !important;
+}
+
+.chat-followup{
+  margin:12px 2px 0 !important;
+
+  background:transparent !important;
+
+  color:#475569 !important;
+
+  padding:0 !important;
+
+  border-radius:0 !important;
+
+  font-size:12px !important;
+
+  line-height:1.5 !important;
+}
+
+/* ================= MAP PICKER ================= */
+
+.map-picker{
+  border-top:1px solid #e5e7eb !important;
+
+  background:#f8fafc !important;
+
+  padding:14px !important;
+
+  flex-shrink:0 !important;
+}
+
+.map-picker-header{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+
+  color:#0f172a !important;
+
+  font-size:14px !important;
+  font-weight:900 !important;
+
+  margin-bottom:8px !important;
+}
+
+.map-picker-header button{
+  border:none !important;
+
+  background:#e2e8f0 !important;
+
+  color:#0f172a !important;
+
+  width:28px !important;
+  height:28px !important;
+
+  border-radius:50% !important;
+
+  cursor:pointer !important;
+
+  font-size:18px !important;
+  line-height:1 !important;
+}
+
+.map-picker-help{
+  color:#64748b !important;
+
+  font-size:12px !important;
+
+  margin-bottom:10px !important;
+}
+
+.chatbot-map{
+  width:100% !important;
+
+  height:260px !important;
+
+  border-radius:16px !important;
+
+  overflow:hidden !important;
+
+  border:1px solid #dbeafe !important;
+}
+
+/* ================= WASTE ================= */
+
+.waste-choice{
+  padding:16px !important;
+
+  background:#f8fafc !important;
+
+  border-top:1px solid #e5e7eb !important;
+
+  display:grid !important;
+
+  grid-template-columns:repeat(2,1fr) !important;
+
+  gap:10px !important;
+
+  flex-shrink:0 !important;
+}
+
+.waste-item{
+  background:white !important;
+
+  border:1px solid #dbeafe !important;
+
+  border-radius:15px !important;
+
+  padding:12px !important;
+
+  display:flex !important;
+  align-items:center !important;
+
+  gap:8px !important;
+
+  font-size:13px !important;
+
+  font-weight:800 !important;
+}
+
+.waste-item input{
+  width:16px !important;
+  height:16px !important;
+
+  accent-color:#10b981 !important;
+}
+
+/* ================= SEARCH BTN ================= */
+
+.search-btn{
+  grid-column:1 / -1 !important;
+
+  border:none !important;
+
+  background:#10b981 !important;
+
+  color:white !important;
+
+  border-radius:15px !important;
+
+  padding:13px !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+}
+
+.search-btn:disabled{
+  opacity:.5 !important;
+}
+
+/* ================= INPUT ================= */
+
+.chatbot-input{
+  display:flex !important;
+
+  gap:10px !important;
+
+  padding:15px !important;
+
+  border-top:1px solid #e5e7eb !important;
+
+  background:white !important;
+
+  flex-shrink:0 !important;
+}
+
+.chatbot-input input{
+  flex:1 !important;
+
+  border:1px solid #dbeafe !important;
+
+  border-radius:16px !important;
+
+  padding:13px !important;
+
+  outline:none !important;
+
+  font-size:14px !important;
+}
+
+.chatbot-input input:focus{
+  border-color:#10b981 !important;
+}
+
+.chatbot-input input:disabled{
+  background:#f8fafc !important;
+
+  color:#94a3b8 !important;
+
+  cursor:not-allowed !important;
+}
+
+.chatbot-input button{
+  border:none !important;
+
+  background:#10b981 !important;
+
+  color:white !important;
+
+  border-radius:16px !important;
+
+  padding:0 20px !important;
+
+  font-weight:900 !important;
+
+  cursor:pointer !important;
+}
+
+.chatbot-input button:disabled{
+  opacity:.55 !important;
+
+  cursor:not-allowed !important;
+}
+
+/* ================= FLOAT ================= */
+
+@keyframes botFloat{
+
+  0%,100%{
+    transform:translateY(0);
+
+    filter:drop-shadow(0 10px 10px rgba(0,0,0,.08));
+  }
+
+  50%{
+    transform:translateY(-10px);
+
+    filter:drop-shadow(0 22px 18px rgba(0,0,0,.18));
+  }
+}
+
+/* ================= MOBILE ================= */
+
+@media(max-width:768px){
+
+  .chatbot-window{
+    width:calc(100vw - 20px) !important;
+
+    right:10px !important;
+
+    bottom:120px !important;
+
+    height:calc(100vh - 140px) !important;
+  }
+
+  .location-actions{
+    grid-template-columns:1fr !important;
+  }
+
+  .chatbot-map{
+    height:220px !important;
+  }
+
+  .final-bot{
+    width:170px !important;
+  }
+
+  .final-bubble{
+    display:none !important;
+  }
+}

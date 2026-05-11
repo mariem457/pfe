@@ -46,7 +46,7 @@ LABELS = {0: "Pas urgent (>48h)", 1: "Demain (24-48h)", 2: "URGENT (<24h)"}
 LABELS_SHORT = {0: "Pas urgent", 1: "Demain", 2: "URGENT"}
 
 # ─── LOAD ──────────────────────────────────────────────────────
-df = pd.read_csv("final_dataset_paris15_v2.csv")
+df = pd.read_csv("final_dataset_paris15_v4_ameliore.csv")
 df.columns = df.columns.str.strip()
 df["time"] = pd.to_datetime(df["time"])
 df = df.sort_values(["bin_id", "time"]).reset_index(drop=True)

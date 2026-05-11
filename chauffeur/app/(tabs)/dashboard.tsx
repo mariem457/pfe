@@ -5,11 +5,9 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
@@ -46,40 +44,55 @@ type DriverNotification = {
   read: boolean;
 };
 
+type RouteStats = {
+  totalDistanceKm: number | null;
+  estimatedDurationMin: number | null;
+};
+
 const paris15: any = {
   type: "FeatureCollection",
   features: [],
 };
 
-const BASE_URL = "http://10.221.127.114:8081";
+const BASE_URL = "http://192.168.0.13:8081";
+
+function formatTruckLabel(value: string) {
+  return value.replace(/^TRUCK/i, "CAMION");
+}
+
+function formatDuration(minutes: number | null) {
+  if (minutes == null) return "--";
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+
+  return rest > 0 ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+function formatDistance(km: number | null) {
+  if (km == null) return "--";
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
 
 export default function Dashboard() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const [driverName, setDriverName] = useState("Driver");
-  const [truckId, setTruckId] = useState("Not assigned");
+  const [driverName, setDriverName] = useState("Chauffeur");
+  const [truckId, setTruckId] = useState("Non assigné");
   const [bins, setBins] = useState<DriverBin[]>([]);
   const [loadingBins, setLoadingBins] = useState(true);
+  const [routeStats, setRouteStats] = useState<RouteStats>({
+    totalDistanceKm: null,
+    estimatedDurationMin: null,
+  });
 
   const [toast, setToast] = useState<DriverNotification | null>(null);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const lastNotificationIdRef = useRef<number | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [incidentModalVisible, setIncidentModalVisible] = useState(false);
-  const [selectedBin, setSelectedBin] = useState<DriverBin | null>(null);
-  const [selectedIncidentType, setSelectedIncidentType] = useState("");
-  const [incidentComment, setIncidentComment] = useState("");
-
-  const incidentTypes = [
-    "Panne capteur",
-    "Poubelle bloquée",
-    "Poubelle endommagée",
-    "Accès impossible",
-    "QR code illisible",
-    "Autre",
-  ];
 
   const loadDashboardHeader = useCallback(async () => {
     try {
@@ -90,8 +103,8 @@ export default function Dashboard() {
       console.log("TOKEN EXISTS:", !!token);
 
       if (!token || !userId) {
-        setDriverName("Driver");
-        setTruckId("Not assigned");
+        setDriverName("Chauffeur");
+        setTruckId("Non assigné");
         return;
       }
 
@@ -116,8 +129,8 @@ export default function Dashboard() {
       console.log("ASSIGNED TRUCK:", data.assignedTruck);
       console.log("ASSIGNED TRUCK ID:", data.assignedTruckId);
 
-      setDriverName(data.fullName || "Driver");
-      setTruckId(data.assignedTruck || "Not assigned");
+      setDriverName(data.fullName || "Chauffeur");
+      setTruckId(data.assignedTruck || "Non assigné");
 
       if (data.assignedTruckId) {
         await saveTruckId(data.assignedTruckId);
@@ -127,8 +140,8 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.log("Erreur header:", error);
-      setDriverName("Driver");
-      setTruckId("Not assigned");
+      setDriverName("Chauffeur");
+      setTruckId("Non assigné");
     }
   }, []);
 
@@ -159,10 +172,47 @@ export default function Dashboard() {
       }
 
       const data = text ? JSON.parse(text) : [];
-      setBins(Array.isArray(data) ? data : []);
+      const list: DriverBin[] = Array.isArray(data) ? data : [];
+      setBins(list);
+
+      const missionId = list.find((bin) => !!bin.missionId)?.missionId;
+
+      if (!missionId) {
+        setRouteStats({ totalDistanceKm: null, estimatedDurationMin: null });
+        return;
+      }
+
+      const routeResponse = await fetch(`${BASE_URL}/api/missions/${missionId}/route`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const routeText = await routeResponse.text();
+
+      if (!routeResponse.ok) {
+        console.log("Erreur route mission:", routeText);
+        setRouteStats({ totalDistanceKm: null, estimatedDurationMin: null });
+        return;
+      }
+
+      const routeData = routeText ? JSON.parse(routeText) : {};
+      setRouteStats({
+        totalDistanceKm:
+          typeof routeData.totalDistanceKm === "number"
+            ? routeData.totalDistanceKm
+            : null,
+        estimatedDurationMin:
+          typeof routeData.estimatedDurationMin === "number"
+            ? routeData.estimatedDurationMin
+            : null,
+      });
     } catch (error) {
       console.log("Erreur bins:", error);
       setBins([]);
+      setRouteStats({ totalDistanceKm: null, estimatedDurationMin: null });
     } finally {
       setLoadingBins(false);
     }
@@ -350,50 +400,12 @@ export default function Dashboard() {
   const mapLatitude = bins[0]?.lat || 48.8414;
   const mapLongitude = bins[0]?.lng || 2.3003;
   const toastUI = toast ? getToastStyle(toast.type) : null;
-
-  function openIncidentModal(bin: DriverBin) {
-    setSelectedBin(bin);
-    setSelectedIncidentType("");
-    setIncidentComment("");
-    setIncidentModalVisible(true);
-  }
-
-  async function submitBinIncident() {
-    if (!selectedBin) return;
-
-    if (!selectedIncidentType) {
-      Alert.alert("Erreur", "Veuillez sélectionner le type de panne.");
-      return;
-    }
-
-    try {
-      const token = await getToken();
-
-      if (!token) {
-        Alert.alert("Erreur", "Session expirée.");
-        return;
-      }
-
-      const payload = {
-        missionBinId: selectedBin.missionBinId,
-        binId: selectedBin.binId,
-        binCode: selectedBin.binCode,
-        type: selectedIncidentType,
-        description: incidentComment,
-        latitude: selectedBin.lat,
-        longitude: selectedBin.lng,
-        createdAt: new Date().toISOString(),
-      };
-
-      console.log("BIN INCIDENT:", payload);
-
-      Alert.alert("Succès", "Panne déclarée avec succès.");
-      setIncidentModalVisible(false);
-    } catch (error) {
-      console.log("Erreur déclaration panne bin:", error);
-      Alert.alert("Erreur", "Impossible de déclarer la panne.");
-    }
-  }
+  const estimatedTimeText = loadingBins
+    ? "--"
+    : formatDuration(routeStats.estimatedDurationMin);
+  const totalDistanceText = loadingBins
+    ? "--"
+    : formatDistance(routeStats.totalDistanceKm);
 
   async function startCurrentMissionAndOpenRoute() {
     try {
@@ -479,8 +491,8 @@ export default function Dashboard() {
           </View>
 
           <View style={styles.truckTextWrap}>
-            <Text style={styles.truckLabel}>Truck ID</Text>
-            <Text style={styles.truckId}>{truckId}</Text>
+            <Text style={styles.truckLabel}>ID camion</Text>
+            <Text style={styles.truckId}>{formatTruckLabel(truckId)}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -521,11 +533,11 @@ export default function Dashboard() {
         <View style={styles.diagramHeader}>
           <View style={styles.topCenterBadgeMini}>
             <View style={styles.badgeDot} />
-            <Text style={styles.topCenterBadgeText}>Active Route</Text>
+            <Text style={styles.topCenterBadgeText}>Tournée active</Text>
           </View>
 
           <TouchableOpacity style={styles.progressButtonMini}>
-            <Text style={styles.progressButtonText}>Progress</Text>
+            <Text style={styles.progressButtonText}>Progression</Text>
           </TouchableOpacity>
         </View>
 
@@ -551,8 +563,8 @@ export default function Dashboard() {
                 latitude: mapLatitude,
                 longitude: mapLongitude,
               }}
-              title={truckId}
-              description="Truck position"
+              title={formatTruckLabel(truckId)}
+              description="Position du camion"
               pinColor="blue"
             />
 
@@ -565,7 +577,7 @@ export default function Dashboard() {
                     longitude: bin.lng,
                   }}
                   title={bin.binCode || `Bin ${index + 1}`}
-                  description={bin.collected ? "Collected" : "Pending"}
+                  description={bin.collected ? "Collectée" : "En attente"}
                   pinColor={bin.collected ? "green" : "red"}
                 />
               ) : null
@@ -591,7 +603,7 @@ export default function Dashboard() {
           <View style={styles.progressHeader}>
             <View>
               <Text style={[styles.progressLabel, { color: colors.subtext }]}>
-                Route Progress
+                Progression de la tournée
               </Text>
               <Text style={[styles.progressValue, { color: colors.text }]}>
                 {collectedBins} / {totalBins}
@@ -601,7 +613,7 @@ export default function Dashboard() {
             <View style={styles.progressRight}>
               <Text style={styles.progressPercent}>{progressPercent}%</Text>
               <Text style={[styles.progressSubText, { color: colors.subtext }]}>
-                Completed
+                Terminée
               </Text>
             </View>
           </View>
@@ -623,7 +635,7 @@ export default function Dashboard() {
             </View>
             <View>
               <Text style={[styles.infoTitle, { color: colors.subtext }]}>
-                Total Bins
+                Total des bacs
               </Text>
               <Text style={[styles.infoNumber, { color: colors.text }]}>
                 {totalBins}
@@ -633,7 +645,7 @@ export default function Dashboard() {
 
           <View style={styles.infoRight}>
             <Text style={[styles.infoTitle, { color: colors.subtext }]}>
-              Collected
+              Collectées
             </Text>
             <Text style={[styles.infoNumber, { color: colors.text }]}>
               {collectedBins}
@@ -648,9 +660,11 @@ export default function Dashboard() {
             </View>
             <View>
               <Text style={[styles.infoTitle, { color: colors.subtext }]}>
-                Estimated Time
+                Temps estimé
               </Text>
-              <Text style={[styles.infoNumber, { color: colors.text }]}>--</Text>
+              <Text style={[styles.infoNumber, { color: colors.text }]}>
+                {estimatedTimeText}
+              </Text>
             </View>
           </View>
         </View>
@@ -662,9 +676,11 @@ export default function Dashboard() {
             </View>
             <View>
               <Text style={[styles.infoTitle, { color: colors.subtext }]}>
-                Total Distance
+                Distance totale
               </Text>
-              <Text style={[styles.infoNumber, { color: colors.text }]}>--</Text>
+              <Text style={[styles.infoNumber, { color: colors.text }]}>
+                {totalDistanceText}
+              </Text>
             </View>
           </View>
         </View>
@@ -681,17 +697,17 @@ export default function Dashboard() {
           <View style={styles.statusLeft}>
             <View style={styles.statusDot} />
             <Text style={[styles.statusText, { color: colors.text }]}>
-              Route Status
+              Statut de la tournée
             </Text>
           </View>
           <Text style={styles.statusReady}>
             {loadingBins
-              ? "Loading..."
+              ? "Chargement..."
               : totalBins === 0
-                ? "No Bins Assigned"
+                ? "Aucun bac assigné"
                 : collectedBins === totalBins
-                  ? "Completed"
-                  : "Ready To Start"}
+                  ? "Terminée"
+                  : "Prête à démarrer"}
           </Text>
         </View>
 
@@ -702,7 +718,7 @@ export default function Dashboard() {
           disabled={loadingBins || totalBins === 0 || collectedBins === totalBins}
         >
           <Ionicons name="play-outline" size={18} color="white" />
-          <Text style={styles.startText}>Start Route</Text>
+          <Text style={styles.startText}>Démarrer la tournée</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -714,11 +730,16 @@ export default function Dashboard() {
             },
           ]}
           activeOpacity={0.85}
-          onPress={() => router.push("/declare-breakdown")}
+          onPress={() =>
+            router.push({
+              pathname: "/declare-breakdown",
+              params: { context: "truck" },
+            })
+          }
         >
           <Ionicons name="warning-outline" size={18} color="#EF4444" />
           <Text style={[styles.mapText, { color: colors.text }]}>
-            Déclarer une panne
+            Signaler problème camion
           </Text>
         </TouchableOpacity>
       </View>
@@ -726,11 +747,8 @@ export default function Dashboard() {
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <View style={styles.rowBetween}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Next Bins
+            Prochains bacs
           </Text>
-          <TouchableOpacity activeOpacity={0.8}>
-            <Text style={styles.viewAll}>View All</Text>
-          </TouchableOpacity>
         </View>
 
         {loadingBins ? (
@@ -739,7 +757,7 @@ export default function Dashboard() {
           </Text>
         ) : pendingBins.length === 0 ? (
           <Text style={[styles.binAddress, { color: colors.subtext }]}>
-            Aucune bins assignée aujourd’hui
+            Aucun bac assigné aujourd’hui
           </Text>
         ) : (
           pendingBins.map((bin, index) => {
@@ -785,42 +803,17 @@ export default function Dashboard() {
                     </Text>
 
                     <Text style={[styles.binAddress, { color: colors.subtext }]}>
-                      {bin.wasteType ? `Waste: ${bin.wasteType}` : "Bin assigné"}
+                      {bin.wasteType ? `Déchet: ${bin.wasteType}` : "Bac assigné"}
                     </Text>
 
                     <View style={styles.binMetaRow}>
                       <Text style={[styles.binMetaGreen, { color: colors.orangeText }]}>
-                        Planned
+                        Planifiée
                       </Text>
                     </View>
                   </View>
                 </View>
 
-                <View style={styles.binActions}>
-                  <TouchableOpacity
-                    style={styles.collectButton}
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/scan",
-                        params: {
-                          expectedBinCode: bin.binCode || "",
-                          missionBinId: String(bin.missionBinId || ""),
-                        },
-                      })
-                    }
-                  >
-                    <Text style={styles.collectButtonText}>Collecter</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.reportBinButton}
-                    activeOpacity={0.85}
-                    onPress={() => openIncidentModal(bin)}
-                  >
-                    <Ionicons name="alert-circle-outline" size={19} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
               </View>
             );
           })
@@ -830,11 +823,11 @@ export default function Dashboard() {
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.statTitle, { color: colors.subtext }]}>
-            This Week
+            Cette semaine
           </Text>
           <Text style={styles.statValue}>{collectedBins}</Text>
           <Text style={[styles.statSub, { color: colors.subtext }]}>
-            Bins Collected
+            Bacs collectés
           </Text>
         </View>
 
@@ -846,95 +839,15 @@ export default function Dashboard() {
           ]}
         >
           <Text style={[styles.statTitle, { color: colors.subtext }]}>
-            Efficiency
+            Efficacité
           </Text>
           <Text style={styles.statValue}>{progressPercent}%</Text>
           <Text style={[styles.statSub, { color: colors.subtext }]}>
-            Completion Rate
+            Taux de réalisation
           </Text>
         </View>
       </View>
 
-      <Modal
-        visible={incidentModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIncidentModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Déclarer une panne
-            </Text>
-
-            <Text style={[styles.modalSubtitle, { color: colors.subtext }]}>
-              Bin: #{selectedBin?.binCode || "BIN"}
-            </Text>
-
-            {incidentTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.incidentOption,
-                  {
-                    backgroundColor:
-                      selectedIncidentType === type ? "#EF4444" : colors.softCard,
-                    borderColor:
-                      selectedIncidentType === type
-                        ? "#EF4444"
-                        : colors.whiteBorder,
-                  },
-                ]}
-                onPress={() => setSelectedIncidentType(type)}
-              >
-                <Text
-                  style={[
-                    styles.incidentOptionText,
-                    {
-                      color:
-                        selectedIncidentType === type ? "#FFFFFF" : colors.text,
-                    },
-                  ]}
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TextInput
-              value={incidentComment}
-              onChangeText={setIncidentComment}
-              placeholder="Description optionnelle..."
-              placeholderTextColor={colors.subtext}
-              multiline
-              style={[
-                styles.commentInput,
-                {
-                  backgroundColor: colors.softCard,
-                  borderColor: colors.whiteBorder,
-                  color: colors.text,
-                },
-              ]}
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setIncidentModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Annuler</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.submitIncidentButton}
-                onPress={submitBinIncident}
-              >
-                <Text style={styles.submitIncidentText}>Envoyer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -1329,31 +1242,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
-  binActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  reportBinButton: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
-    backgroundColor: "#EF4444",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  collectButton: {
-    backgroundColor: "#19C37D",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  collectButtonText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 13,
-  },
-
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 16,
@@ -1379,75 +1267,4 @@ const styles = StyleSheet.create({
   },
   statSub: { fontSize: 12 },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalCard: {
-    width: "100%",
-    borderRadius: 22,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 6,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  incidentOption: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-  },
-  incidentOptionText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  commentInput: {
-    minHeight: 86,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-    textAlignVertical: "top",
-    fontSize: 14,
-    marginTop: 4,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
-    gap: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "#64748B",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  submitIncidentButton: {
-    flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "#EF4444",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submitIncidentText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-  },
 });

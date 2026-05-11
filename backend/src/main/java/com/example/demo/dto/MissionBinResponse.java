@@ -29,13 +29,26 @@ public class MissionBinResponse {
     private String skippedReason;
     private String wasteType;
 
-    public String getWasteType() {
-		return wasteType;
-	}
-	public void setWasteType(String wasteType) {
-		this.wasteType = wasteType;
-	}
-	public Long getId() { return id; }
+    // ===== Map details / IA details =====
+    private Integer fillLevel;
+    private Integer batteryLevel;
+    private Double weightKg;
+    private String status;
+    private String zoneName;
+    private Integer clusterId;
+
+    private Double priorityScore;
+    private Double predictedFillLevelNext;
+    private Double hoursToFull;
+    private String alertStatus;
+    private Boolean shouldCollect;
+
+    private String decisionReason;
+    private String scoreExplanation;
+    private String urgencyExplanation;
+    private String classificationExplanation;
+
+    public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public Long getMissionId() { return missionId; }
@@ -100,4 +113,52 @@ public class MissionBinResponse {
 
     public String getSkippedReason() { return skippedReason; }
     public void setSkippedReason(String skippedReason) { this.skippedReason = skippedReason; }
+
+    public String getWasteType() { return wasteType; }
+    public void setWasteType(String wasteType) { this.wasteType = wasteType; }
+
+    public Integer getFillLevel() { return fillLevel; }
+    public void setFillLevel(Integer fillLevel) { this.fillLevel = fillLevel; }
+
+    public Integer getBatteryLevel() { return batteryLevel; }
+    public void setBatteryLevel(Integer batteryLevel) { this.batteryLevel = batteryLevel; }
+
+    public Double getWeightKg() { return weightKg; }
+    public void setWeightKg(Double weightKg) { this.weightKg = weightKg; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getZoneName() { return zoneName; }
+    public void setZoneName(String zoneName) { this.zoneName = zoneName; }
+
+    public Integer getClusterId() { return clusterId; }
+    public void setClusterId(Integer clusterId) { this.clusterId = clusterId; }
+
+    public Double getPriorityScore() { return priorityScore; }
+    public void setPriorityScore(Double priorityScore) { this.priorityScore = priorityScore; }
+
+    public Double getPredictedFillLevelNext() { return predictedFillLevelNext; }
+    public void setPredictedFillLevelNext(Double predictedFillLevelNext) { this.predictedFillLevelNext = predictedFillLevelNext; }
+
+    public Double getHoursToFull() { return hoursToFull; }
+    public void setHoursToFull(Double hoursToFull) { this.hoursToFull = hoursToFull; }
+
+    public String getAlertStatus() { return alertStatus; }
+    public void setAlertStatus(String alertStatus) { this.alertStatus = alertStatus; }
+
+    public Boolean getShouldCollect() { return shouldCollect; }
+    public void setShouldCollect(Boolean shouldCollect) { this.shouldCollect = shouldCollect; }
+
+    public String getDecisionReason() { return decisionReason; }
+    public void setDecisionReason(String decisionReason) { this.decisionReason = decisionReason; }
+
+    public String getScoreExplanation() { return scoreExplanation; }
+    public void setScoreExplanation(String scoreExplanation) { this.scoreExplanation = scoreExplanation; }
+
+    public String getUrgencyExplanation() { return urgencyExplanation; }
+    public void setUrgencyExplanation(String urgencyExplanation) { this.urgencyExplanation = urgencyExplanation; }
+
+    public String getClassificationExplanation() { return classificationExplanation; }
+    public void setClassificationExplanation(String classificationExplanation) { this.classificationExplanation = classificationExplanation; }
 }

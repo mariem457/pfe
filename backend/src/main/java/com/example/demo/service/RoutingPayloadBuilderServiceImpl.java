@@ -54,7 +54,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private static final double MANDATORY_HOURS_THRESHOLD = 6.0;
 
     private static final double OPPORTUNISTIC_PRIORITY_THRESHOLD = 0.85;
-    private static final double OPPORTUNISTIC_FILL_THRESHOLD = 65.0;
+    private static final double OPPORTUNISTIC_FILL_THRESHOLD = 30.0;
     private static final double OPPORTUNISTIC_HOURS_THRESHOLD = 24.0;
     private static final double OPPORTUNISTIC_FEEDBACK_THRESHOLD = 3.0;
     private static final double OPPORTUNISTIC_BUFFER_HOURS = 6.0;
@@ -921,14 +921,14 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                         && predictedHours > hoursUntilNextRun
                         && predictedHours <= (hoursUntilNextRun + OPPORTUNISTIC_BUFFER_HOURS);
 
-        boolean opportunistic =
-                opportunisticByRunWindow
-                        || (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD
-                        && (fillLevel >= 60.0 || (predictedHours != null && predictedHours <= 48.0)))
-                        || fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD
-                        || (predictedHours != null && predictedHours <= OPPORTUNISTIC_HOURS_THRESHOLD)
-                        || feedbackScore >= OPPORTUNISTIC_FEEDBACK_THRESHOLD
-                        || postponementCount >= 1;
+                        boolean opportunistic =
+                                opportunisticByRunWindow
+                                        || (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD
+                                        && (fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD || (predictedHours != null && predictedHours <= 48.0)))
+                                        || fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD
+                                        || (predictedHours != null && predictedHours <= OPPORTUNISTIC_HOURS_THRESHOLD)
+                                        || feedbackScore >= OPPORTUNISTIC_FEEDBACK_THRESHOLD
+                                        || postponementCount >= 1;
 
         if (opportunistic) {
             double opportunisticScore = computeOpportunisticScore(

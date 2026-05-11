@@ -8,6 +8,7 @@ public class BinSensorDataDto {
     private boolean fireDetected;
     private String status;
     private double voltage;
+    private Double weightKg;
 
     public BinSensorDataDto() {
     }
@@ -58,5 +59,13 @@ public class BinSensorDataDto {
 
     public void setVoltage(double voltage) {
         this.voltage = voltage;
+    }
+
+    public Double getWeightKg() {
+        return weightKg;
+    }
+
+    public void setWeightKg(Double weightKg) {
+        this.weightKg = weightKg;
     }
 }

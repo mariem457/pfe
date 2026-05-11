@@ -124,10 +124,13 @@ public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionServ
                 + ", opportunisticNow=" + opportunisticNowCount);
 
         if (mandatoryNowCount >= CURRENT_RUN_MANDATORY_THRESHOLD) {
-            return RoutingDecision.mandatoryOnly(
-                    "Le cycle courant contient déjà un volume élevé de bacs obligatoires ("
+            return RoutingDecision.fullOptimization(
+                    "Le cycle courant contient un volume élevé de bacs obligatoires ("
                             + mandatoryNowCount
-                            + "). La décision retenue est donc MANDATORY_ONLY."
+                            + "), mais le système autorise aussi les bacs opportunistes. "
+                            + "Le moteur applique une optimisation en deux passes : "
+                            + "PASS 1 sur les bacs obligatoires, puis PASS 2 avec les bacs opportunistes, "
+                            + "et conserve la solution qui ne dégrade pas la couverture des bacs critiques."
             );
         }
 

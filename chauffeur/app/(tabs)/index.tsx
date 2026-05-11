@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef } from "react";
@@ -6,6 +5,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
   StatusBar,
   StyleSheet,
   Text,
@@ -234,20 +234,18 @@ export default function HomeScreen() {
 
       <View style={styles.content}>
         <Animated.View style={{ transform: [{ scale: logoScale }] }}>
-          <LinearGradient
-            colors={["#0F8E63", "#1CC97F"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoBox}
-          >
-            <Ionicons name="trash-outline" size={42} color="#FFFFFF" />
-          </LinearGradient>
+          <View style={styles.logoCrop}>
+            <Image
+              source={require("../../assets/images/wise_trash_home.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
         </Animated.View>
 
         <Animated.View style={[styles.textWrapper, { opacity: textOpacity }]}>
-          <Text style={[styles.title, { color: theme.title }]}>Intello Trash</Text>
           <Text style={[styles.subtitle, { color: theme.subtitle }]}>
-            Smart Waste Collection
+            gestion intelligente des déchets
           </Text>
         </Animated.View>
 
@@ -268,7 +266,7 @@ export default function HomeScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.button}
             >
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={styles.buttonText}>se connecter</Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -343,26 +341,19 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
 
-  logoBox: {
-    width: 98,
-    height: 98,
-    borderRadius: 26,
-    justifyContent: "center",
+  logoCrop: {
+    width: 205,
+    height: 195,
+    marginBottom: 10,
     alignItems: "center",
-    marginBottom: 24,
-    shadowColor: "#11925F",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
-    elevation: 10,
+    justifyContent: "center",
   },
 
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    marginBottom: 8,
-    letterSpacing: 0.3,
+  logoImage: {
+    width: 205,
+    height: 195,
   },
+
 
   subtitle: {
     fontSize: 16,
@@ -394,3 +385,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
+

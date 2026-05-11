@@ -1,0 +1,2 @@
+ALTER TABLE bin_sensor_data
+ADD COLUMN IF NOT EXISTS weight_kg DOUBLE PRECISION;

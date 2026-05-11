@@ -116,7 +116,7 @@ export default function VerifyCodeScreen() {
           <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={colors.backText} />
             <Text style={[styles.backText, { color: colors.backText }]}>
-              Back
+              Retour
             </Text>
           </TouchableOpacity>
 

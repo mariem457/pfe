@@ -1,30 +1,30 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.BinRequest;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import com.example.demo.dto.BinResponse;
 import com.example.demo.dto.BinTelemetryDTO;
 import com.example.demo.entity.Bin;
+import com.example.demo.entity.BinPrediction;
 import com.example.demo.entity.BinTelemetry;
+import com.example.demo.entity.BinTimePrediction;
 import com.example.demo.entity.Zone;
 import com.example.demo.repository.BinPredictionRepository;
 import com.example.demo.repository.BinRepository;
 import com.example.demo.repository.BinTelemetryRepository;
 import com.example.demo.repository.BinTimePredictionRepository;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.demo.entity.BinPrediction;
-import com.example.demo.entity.BinTimePrediction;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class BinService {
@@ -59,6 +59,7 @@ public class BinService {
     public List<BinResponse> findAll() {
         return binRepository.findAll().stream().map(this::toResponse).toList();
     }
+
     @Transactional(readOnly = true)
     public List<BinResponse> findAllFast() {
         List<Bin> bins = binRepository.findAll();
@@ -383,6 +384,17 @@ public class BinService {
     }
 
     private String generateNextBinCode() {
+        String maxCode = binRepository.findMaxPvpCode();
+
+        if (maxCode != null) {
+            try {
+                int num = Integer.parseInt(maxCode.substring(7));
+                return String.format("PVP-15-%05d", num + 1);
+            } catch (Exception e) {
+                return "PVP-15-00001";
+            }
+        }
+
         int max = 0;
 
         List<Bin> bins = binRepository.findAll();
@@ -404,17 +416,18 @@ public class BinService {
             }
         }
 
-        return String.format("BIN-%03d", max + 1);
+        if (max > 0) {
+            return String.format("BIN-%03d", max + 1);
+        }
+
+        return "PVP-15-00001";
     }
 
     private Bin getOrThrow(Long id) {
         return binRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("bin not found"));
     }
-    
-   
 
-    
     private BinResponse toFastResponse(
             Bin b,
             BinTelemetry latest,
@@ -472,13 +485,12 @@ public class BinService {
         return r;
     }
 
- 
     private BinResponse toResponse(Bin b) {
         BinResponse r = new BinResponse();
 
         r.id = b.getId();
         r.binCode = b.getBinCode();
-        r.type = b.getType().name();
+        r.type = b.getType() != null ? b.getType().name() : null;
         r.wasteType = b.getWasteType() != null ? b.getWasteType().name() : null;
         r.zoneId = (b.getZone() != null) ? b.getZone().getId() : null;
         r.zoneName = (b.getZone() != null) ? b.getZone().getShapeName() : null;
@@ -500,7 +512,7 @@ public class BinService {
 
             r.fillLevel = (int) latest.getFillLevel();
             r.batteryLevel = latest.getBatteryLevel() != null ? (int) latest.getBatteryLevel() : 0;
-            r.status = latest.getStatus();
+            r.status = latest.getStatus() != null ? latest.getStatus() : "OK";
             r.lastTelemetryAt = latest.getTimestamp() != null
                     ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
                     : null;
@@ -510,23 +522,6 @@ public class BinService {
             r.status = "OK";
             r.lastTelemetryAt = null;
         }
-        if (latestTelemetryOpt.isPresent()) {
-            BinTelemetry latest = latestTelemetryOpt.get();
-
-            r.fillLevel = (int) latest.getFillLevel();
-            r.batteryLevel = latest.getBatteryLevel() != null ? (int) latest.getBatteryLevel() : 0;
-            r.status = latest.getStatus();
-            r.lastTelemetryAt = latest.getTimestamp() != null
-                    ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
-                    : null;
-        } else {
-            r.fillLevel = 0;
-            r.batteryLevel = 0;
-            r.status = "OK";
-            r.lastTelemetryAt = null;
-        }
-
-        // ===== AI PREDICTIONS =====
 
         binPredictionRepository.findTopByBinIdOrderByCreatedAtDesc(b.getId())
                 .ifPresent(p -> {
@@ -544,7 +539,4 @@ public class BinService {
 
         return r;
     }
-
-     
-   
 }

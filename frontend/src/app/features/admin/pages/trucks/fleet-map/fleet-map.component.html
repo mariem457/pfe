@@ -122,6 +122,27 @@
           <span *ngIf="bin.hoursToFull != null"> h</span>
         </div>
 
+                <div>
+          <strong>Score IA :</strong>
+          {{ bin.priorityScore ?? '—' }}
+        </div>
+
+        <div>
+          <strong>Statut IA :</strong>
+          {{ bin.alertStatus || '—' }}
+        </div>
+
+        <div>
+          <strong>Collecte recommandée :</strong>
+          {{
+            bin.shouldCollect === true
+              ? 'Oui'
+              : bin.shouldCollect === false
+                ? 'Non'
+                : '—'
+          }}
+        </div>
+
         <div><strong>Statut :</strong> {{ bin.status || '—' }}</div>
         <div><strong>Zone :</strong> {{ bin.zoneName || '—' }}</div>
         

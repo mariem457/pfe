@@ -655,3 +655,436 @@
     max-height: none;
   }
 }
+
+
+
+
+/* =========================================================
+   INCIDENTS RICH DISPLAY
+========================================================= */
+
+.it-incidentItem--rich {
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.it-incidentStatusPill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 9px;
+  font-weight: 950;
+  vertical-align: middle;
+}
+
+.it-incidentMeta--chips {
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.it-incidentMeta--chips span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.it-replanInfo {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.it-replanInfo .material-icons {
+  font-size: 19px;
+  color: #f97316;
+  flex: 0 0 auto;
+}
+
+.it-replanInfo strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 950;
+  color: #9a3412;
+}
+
+.it-replanInfo p {
+  margin: 4px 0 0;
+  color: #c2410c;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.it-replanBtn--secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.it-replanBtn--secondary:hover {
+  background: #e2e8f0;
+}
+
+.it-incidentActions {
+  flex-wrap: wrap;
+}
+
+.it-resolveBtn {
+  min-width: 128px;
+}
+
+.it-replanBtn {
+  min-width: 112px;
+}
+
+
+
+
+/* =========================================================
+   FLEET CARDS IMPROVED
+========================================================= */
+
+.it-sectionFleet {
+  padding-bottom: 8px;
+}
+
+.it-trkMissionCard,
+.it-offTruckCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 16px;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
+}
+
+.it-trkMissionCard.has-incident,
+.it-offTruckCard.has-incident {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #fff1f2, #ffffff);
+}
+
+.it-trkMissionTop {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.it-trkAvatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.it-trkAvatar .material-icons {
+  font-size: 24px;
+}
+
+.it-trkMissionMain {
+  min-width: 0;
+}
+
+.it-trkMissionTitle {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.it-trkMissionSub {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.it-percentBig {
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.it-trkMissionMeta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.it-trkMissionMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.it-trkMissionMeta .material-icons {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.it-progBarBig {
+  margin-left: 0;
+  height: 8px;
+  margin-top: 14px;
+}
+
+.it-offTruckCard {
+  opacity: 1;
+}
+
+.it-offTruckCard.has-incident {
+  border-left: 5px solid #ef4444;
+}
+
+.it-offLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.it-offIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.it-offIcon .material-icons {
+  color: #059669;
+  font-size: 22px;
+}
+
+.it-offTruckCard.has-incident .it-offIcon {
+  background: #fee2e2;
+}
+
+.it-offTruckCard.has-incident .it-offIcon .material-icons {
+  color: #dc2626;
+}
+
+.it-offBadge--incident {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+
+.it-trkList--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-height: none;
+}
+
+.it-trkList--off {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .it-trkList--grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   EMPTY STATES - INCIDENTS / ALERTES
+========================================================= */
+
+.it-incidentEmpty,
+.it-alertEmpty {
+  min-height: 92px;
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px dashed #cbd5e1;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.10), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #475569;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.it-incidentEmptyIcon,
+.it-alertEmptyIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.it-incidentEmptyIcon {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.it-alertEmptyIcon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.it-incidentEmptyIcon .material-icons,
+.it-alertEmptyIcon .material-icons {
+  font-size: 23px;
+}
+
+.it-incidentEmpty strong,
+.it-alertEmpty strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.it-incidentEmpty p,
+.it-alertEmpty p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+  max-width: 520px;
+}
+
+.it-incidentList--grid .it-incidentEmpty {
+  grid-column: 1 / -1;
+}
+
+.it-alertPanel .it-alertEmpty {
+  min-height: 120px;
+  flex-direction: column;
+  text-align: center;
+}
+
+
+/* =========================================================
+   FLEET ALERTS CLEAN DESIGN
+========================================================= */
+
+.it-alertPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.it-alertPanel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.it-alertPanel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.it-fleetAlert {
+  position: relative;
+  display: block;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border: 1px solid #e5e7eb;
+  border-left: 5px solid #f59e0b;
+  border-radius: 18px;
+  padding: 15px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.it-fleetAlert.sev-low {
+  border-left-color: #22c55e;
+}
+
+.it-fleetAlert.sev-medium {
+  border-left-color: #f59e0b;
+}
+
+.it-fleetAlert.sev-high {
+  border-left-color: #f97316;
+}
+
+.it-fleetAlert.sev-critical {
+  border-left-color: #ef4444;
+}
+
+.it-fleetAlertTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.it-fleetAlertCode {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+.it-fleetAlertTitle {
+  margin-top: 5px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.it-fleetAlertSeverity {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 950;
+  background: #fee2e2;
+  color: #b91c1c;
+  white-space: nowrap;
+}
+
+.it-fleetAlertMsg {
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.it-autoResolveInfo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 11px;
+  font-weight: 900;
+}

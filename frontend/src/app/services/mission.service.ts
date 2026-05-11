@@ -35,6 +35,23 @@ export interface MissionBinResponse {
   visitOrder: number;
   targetFillThreshold: number | null;
   wasteType?: string | null;
+    fillLevel?: number | null;
+  batteryLevel?: number | null;
+  weightKg?: number | null;
+  status?: string | null;
+  zoneName?: string | null;
+  clusterId?: number | null;
+
+  priorityScore?: number | null;
+  predictedFillLevelNext?: number | null;
+  hoursToFull?: number | null;
+  alertStatus?: string | null;
+  shouldCollect?: boolean | null;
+
+  decisionReason?: string | null;
+  scoreExplanation?: string | null;
+  urgencyExplanation?: string | null;
+  classificationExplanation?: string | null;
   assignedReason: string | null;
   collected: boolean;
   collectedAt: string | null;
@@ -50,6 +67,20 @@ export interface MissionBinResponse {
   plannedArrival: string | null;
   actualArrival: string | null;
   skippedReason: string | null;
+}
+
+
+
+export interface MissionReassignmentResponse {
+  id: number;
+  originalMissionId: number | null;
+  sourceTruckId: number | null;
+  targetTruckId: number | null;
+  binId: number | null;
+  reason: string | null;
+  reassignedAt: string | null;
+  algorithmVersion: string | null;
+  notes: string | null;
 }
 
 export interface RouteCoordinate {
@@ -151,6 +182,14 @@ export class MissionService {
   return this.http.post<MissionResponse[]>(
     'http://localhost:8081/api/routing/plan-and-save',
     {}
+  );
+}
+
+
+
+getMissionReassignments(missionId: number): Observable<MissionReassignmentResponse[]> {
+  return this.http.get<MissionReassignmentResponse[]>(
+    `http://localhost:8081/api/mission-reassignments/mission/${missionId}`
   );
 }
 }

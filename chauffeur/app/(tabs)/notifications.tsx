@@ -90,7 +90,7 @@ export default function NotificationsScreen() {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || "Failed to load notifications");
+        throw new Error(text || "Impossible de charger les notifications");
       }
 
       const data = await response.json();
@@ -123,10 +123,10 @@ export default function NotificationsScreen() {
     const hours = Math.floor(diffMs / 3600000);
     const days = Math.floor(diffMs / 86400000);
 
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes} min ago`;
-    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-    return `${days} day${days > 1 ? "s" : ""} ago`;
+    if (minutes < 1) return "À l’instant";
+    if (minutes < 60) return `Il y a ${minutes} min`;
+    if (hours < 24) return `Il y a ${hours} h`;
+    return `Il y a ${days} j`;
   }
 
   function getNotificationUI(type: DriverNotificationType) {
@@ -180,10 +180,10 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Alerts</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Alertes</Text>
 
         <TouchableOpacity activeOpacity={0.8} onPress={onRefresh}>
-          <Text style={[styles.refreshText, { color: colors.green }]}>Refresh</Text>
+          <Text style={[styles.refreshText, { color: colors.green }]}>Actualiser</Text>
         </TouchableOpacity>
       </View>
 
@@ -191,7 +191,7 @@ export default function NotificationsScreen() {
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color="#12905C" />
           <Text style={[styles.loaderText, { color: colors.softText }]}>
-            Loading alerts...
+            chargement alertes...
           </Text>
         </View>
       ) : (
@@ -203,9 +203,9 @@ export default function NotificationsScreen() {
           {notifications.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
               <Ionicons name="checkmark-circle-outline" size={44} color="#10B981" />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No alerts</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucune alerte</Text>
               <Text style={[styles.emptyDesc, { color: colors.subtext }]}>
-                No driver notifications for now.
+                Pas d&apos;alertes pour le moment.
               </Text>
             </View>
           ) : (

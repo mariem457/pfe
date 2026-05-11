@@ -21,6 +21,9 @@ public class BinSensorData {
 
     private String status;
 
+    @Column(name = "weight_kg")
+    private Double weightKg;
+
     private LocalDateTime createdAt;
 
     public BinSensorData() {
@@ -73,6 +76,14 @@ public class BinSensorData {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Double getWeightKg() {
+        return weightKg;
+    }
+
+    public void setWeightKg(Double weightKg) {
+        this.weightKg = weightKg;
     }
 
     public LocalDateTime getCreatedAt() {

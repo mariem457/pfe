@@ -10,7 +10,7 @@ export async function getDriverNotifications() {
     },
   });
 
-  if (!res.ok) throw new Error("Failed to load notifications");
+  if (!res.ok) throw new Error("Impossible de charger les notifications");
 
   return res.json();
 }

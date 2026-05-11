@@ -1,66 +1,54 @@
-<aside class="sidebar">
+﻿<aside class="sidebar">
 
-  <div class="brand">
-    <div class="brand__icon">
-      <mat-icon>delete</mat-icon>
+  <div class="brand centered">
+    <div class="brand__logo-wrap">
+      <img class="brand__logo" src="/images/logo.png" alt="WiseTrash logo">
     </div>
-
-    <div class="brand__text">
-      <div class="brand__name">Intello Trash</div>
-      <div class="brand__tag">Smart Waste Management</div>
-    </div>
+    <div class="brand__tag">Gestion intelligente des déchets</div>
   </div>
 
   <nav class="nav">
+
     <a
       [routerLink]="['/maintenance']"
       routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-    >
-      <mat-icon>grid_view</mat-icon>
-      <span>Table de bord</span>
+      [routerLinkActiveOptions]="{ exact: true }">
+      <span class="material-icons nav-icon">dashboard</span>
+      <span class="nav-label">Dashboard</span>
     </a>
 
     <a
-      [routerLink]="['/maintenance/battery-captures']"
-      routerLinkActive="active"
-    >
-      <mat-icon>battery_alert</mat-icon>
-      <span>Batterie Capteurs</span>
+      [routerLink]="['/maintenance/batteries']"
+      routerLinkActive="active">
+      <span class="material-icons nav-icon">battery_alert</span>
+      <span class="nav-label">État Batteries</span>
     </a>
 
     <a
-      [routerLink]="['/maintenance/interventions']"
-      routerLinkActive="active"
-    >
-      <mat-icon>build</mat-icon>
-      <span>Interventions</span>
+      [routerLink]="['/maintenance/capteurs']"
+      routerLinkActive="active">
+      <span class="material-icons nav-icon">sensors</span>
+      <span class="nav-label">État Capteurs</span>
     </a>
 
-    <a
-      [routerLink]="['/maintenance/technician-alerts']"
-      routerLinkActive="active"
-    >
-      <mat-icon>notifications</mat-icon>
-      <span>Alert techniques</span>
-    </a>
   </nav>
 
   <div class="sidebar-footer">
     <div class="divider"></div>
 
     <div class="user">
-      <div class="avatar">AD</div>
+      <div class="avatar">MT</div>
+
       <div class="user__meta">
-        <div class="user__name">Admin User</div>
-        <div class="user__email">admincity.gov</div>
+        <div class="user__name">Maintenance</div>
+        <div class="user__email">maintenance&#64;ville.gov</div>
       </div>
     </div>
 
-    <a class="logout" href="#">
-      <mat-icon>logout</mat-icon>
-      <span>Log Out</span>
+    <a class="logout" href="javascript:void(0)" (click)="logout()">
+      <span class="material-icons logout-icon">logout</span>
+      <span>Déconnexion</span>
     </a>
   </div>
 
-</aside>
+</aside> 

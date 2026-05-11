@@ -130,7 +130,9 @@ export class LoginPageComponent {
 
         setTimeout(() => {
           navigateAfterToast();
+
         }, 10000);
+
       },
       error: (err) => {
         this.isLoading = false;

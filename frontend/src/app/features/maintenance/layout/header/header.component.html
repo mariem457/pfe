@@ -1,1 +1,48 @@
-<p>header works!</p>
+<div class="maintenance-topbar">
+  <div class="topbar-left">
+    <div class="topbar-icon">
+      <span class="material-icons">engineering</span>
+    </div>
+
+    <div class="topbar-text">
+      <h1>Espace Maintenance</h1>
+      
+    </div>
+  </div>
+
+  <div class="topbar-actions">
+    <button class="icon-btn" type="button" (click)="toggleTheme()" aria-label="Changer le thème">
+      <span class="material-icons">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+    </button>
+
+  
+    <div class="alerts-menu">
+      <button
+        type="button"
+        class="icon-btn notify-btn"
+        aria-label="Alertes techniques"
+        (click)="toggleAlerts()">
+        <span class="material-icons">notifications</span>
+        <span class="notif-dot" *ngIf="alertCount > 0"></span>
+      </button>
+
+      <div class="alerts-dropdown" *ngIf="alertsOpen">
+        <div class="alerts-dropdown__head">
+          <strong>Dernières alertes</strong>
+        </div>
+
+        <div class="alerts-empty" *ngIf="latestAlerts.length === 0">
+          Aucune alerte ouverte
+        </div>
+
+        <div class="alert-preview" *ngFor="let alert of latestAlerts">
+          <div>
+            <strong>{{ getAlertTitle(alert) }}</strong>
+            <p>{{ getAlertMessage(alert) }}</p>
+          </div>
+          <span>{{ getAlertSeverity(alert) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

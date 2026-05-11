@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        .requestMatchers("/api/auth/**", "/api/chatbot/**").permitAll()
+                        .requestMatchers("/api/maintenance/**").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/auth/register-driver").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
@@ -73,9 +76,10 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+
+                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
-                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
 
                         .requestMatchers(HttpMethod.GET, "/api/bins/*/qrcode").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers(HttpMethod.GET, "/api/bins/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
@@ -86,12 +90,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/missions/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
                         .requestMatchers("/api/trucks/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
                         .requestMatchers("/api/truck-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE", "DRIVER")
+                        .requestMatchers("/api/auto-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
+
                         .requestMatchers(HttpMethod.GET, "/api/drivers/*/profile").authenticated()
                         .requestMatchers("/api/drivers/*/my-bins").hasAnyRole("DRIVER", "ADMIN")
                         .requestMatchers("/api/drivers/me/truck").hasAnyRole("DRIVER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/drivers/bin-scan").hasRole("DRIVER")
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/auto-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
 
                         .anyRequest().authenticated()
                 )

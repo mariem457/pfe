@@ -29,6 +29,11 @@ export default function ScanScreen() {
     }
   }, [permission, requestPermission]);
 
+  function rescan() {
+    setScanned(false);
+    setLastCode(null);
+  }
+
   const handleScan = async ({ data }: { data: string }) => {
     if (scanned || loading) return;
 
@@ -36,8 +41,20 @@ export default function ScanScreen() {
     setLastCode(data);
 
     try {
-      if (expectedBinCode && data !== expectedBinCode) {
-        throw new Error(`QR incorrect. Attendu: ${expectedBinCode}`);
+      if (expectedBinCode && data.trim() !== expectedBinCode.trim()) {
+        Alert.alert(
+          "QR code invalide",
+          `Ce QR code ne correspond pas à cette poubelle.\n\nPoubelle attendue: ${expectedBinCode}`,
+          [
+            {
+              text: "Quitter",
+              style: "cancel",
+              onPress: () => router.replace("/(tabs)/dashboard"),
+            },
+            { text: "Rescanner", onPress: rescan },
+          ]
+        );
+        return;
       }
 
       setLoading(true);
@@ -63,7 +80,6 @@ export default function ScanScreen() {
       });
 
       const rawText = await res.text();
-
       let result: any = null;
 
       try {
@@ -81,23 +97,37 @@ export default function ScanScreen() {
         result?.message || `Poubelle ${result?.binCode || data} collectée avec succès`,
         [
           {
-            text: "OK",
-            onPress: () => router.replace("/(tabs)/dashboard"),
+            text: "Continuer route",
+            onPress: () => {
+              if (missionBinId) {
+                router.replace({
+                  pathname: "/route-map",
+                  params: {
+                    actionDone: "collect",
+                    collectedBinId: missionBinId,
+                  },
+                });
+                return;
+              }
+
+              router.replace("/(tabs)/dashboard");
+            },
           },
         ]
       );
     } catch (err: any) {
-      Alert.alert("Erreur", err.message || "Une erreur est survenue");
-      setScanned(false);
-      setLastCode(null);
+      Alert.alert("Erreur", err.message || "Une erreur est survenue", [
+        {
+          text: "Quitter",
+          style: "cancel",
+          onPress: () => router.replace("/(tabs)/dashboard"),
+        },
+        { text: "Rescanner", onPress: rescan },
+      ]);
+      rescan();
     } finally {
       setLoading(false);
     }
-  };
-
-  const resetScan = () => {
-    setScanned(false);
-    setLastCode(null);
   };
 
   if (!permission) {
@@ -131,19 +161,13 @@ export default function ScanScreen() {
         <Text style={styles.title}>Scanner QR Code</Text>
 
         {expectedBinCode ? (
-          <Text style={styles.codeText}>Bin attendu: {expectedBinCode}</Text>
+          <Text style={styles.codeText}>Poubelle attendue: {expectedBinCode}</Text>
         ) : null}
 
         {loading && <ActivityIndicator color="#fff" size="large" />}
 
         {lastCode && (
           <Text style={styles.codeText}>Code détecté: {lastCode}</Text>
-        )}
-
-        {scanned && !loading && (
-          <TouchableOpacity style={styles.button} onPress={resetScan}>
-            <Text style={styles.buttonText}>Scanner à nouveau</Text>
-          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -159,15 +183,15 @@ const styles = StyleSheet.create({
     bottom: 40,
     left: 20,
     right: 20,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: "rgba(15,23,42,0.82)",
+    borderRadius: 24,
+    padding: 22,
     alignItems: "center",
   },
   title: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "900",
     marginBottom: 12,
     textAlign: "center",
   },
@@ -177,17 +201,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 12,
     textAlign: "center",
+    fontWeight: "700",
   },
   button: {
-    backgroundColor: "#1E88E5",
+    backgroundColor: "#19C37D",
     paddingVertical: 12,
     paddingHorizontal: 18,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 10,
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "800",
   },
   center: {
     flex: 1,

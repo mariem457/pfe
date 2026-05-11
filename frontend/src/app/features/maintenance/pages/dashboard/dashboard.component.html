@@ -1,152 +1,257 @@
-<div class="maintenance-page">
-  <div class="page-header">
-    <div>
-      <div class="breadcrumb">Dashboard</div>
-      <h1 class="page-title">Dashboard Maintenance</h1>
-      <p class="page-subtitle">
-        Vue d'ensemble du système de maintenance et des équipements
-      </p>
-    </div>
+﻿<div class="dashboard">
+
+  <div *ngIf="loading" class="loading-box">
+    Données en chargement...
   </div>
 
-  <div class="stats-grid">
-    <div class="stat-card" *ngFor="let stat of stats">
-      <div class="stat-top">
-        <div class="stat-icon" [ngClass]="stat.iconClass">
-          {{ stat.icon }}
-        </div>
-        <span class="stat-badge" [ngClass]="stat.badgeClass">
-          {{ stat.badge }}
-        </span>
-      </div>
+  <section class="middle-grid">
 
-      <h2>{{ stat.value }}</h2>
-      <p>{{ stat.label }}</p>
-    </div>
-  </div>
+    <!-- MÉTÉO -->
+    <div class="panel weather-panel">
 
-  <div class="charts-grid">
-    <div class="dashboard-card">
-      <h3>Interventions (7 derniers jours)</h3>
+      <div class="weather-top">
+        <div class="weather-left">
 
-      <div class="fake-chart bars">
-        <div
-          class="bar"
-          *ngFor="let height of interventionBars"
-          [style.height.%]="height"
-        ></div>
-      </div>
+          <div class="weather-icon-wrapper">
+            <div class="sun-core"></div>
 
-      <div class="chart-labels">
-        <span *ngFor="let day of interventionLabels">{{ day }}</span>
-      </div>
-    </div>
+            <div class="ray ray-1"></div>
+            <div class="ray ray-2"></div>
+            <div class="ray ray-3"></div>
+            <div class="ray ray-4"></div>
 
-    <div class="dashboard-card">
-      <h3>Statut des Incidents</h3>
-
-      <div class="circle-wrap">
-        <div class="donut donut-incidents"></div>
-      </div>
-
-      <div class="legend">
-        <div>
-          <span><span class="dot red"></span>Ouvert</span>
-          <strong>12</strong>
-        </div>
-        <div>
-          <span><span class="dot orange"></span>En cours</span>
-          <strong>8</strong>
-        </div>
-        <div>
-          <span><span class="dot green"></span>Résolu</span>
-          <strong>34</strong>
-        </div>
-      </div>
-    </div>
-
-    <div class="dashboard-card">
-      <h3>État Batteries Capteurs</h3>
-
-      <div class="circle-wrap">
-        <div class="donut donut-battery"></div>
-      </div>
-
-      <div class="legend">
-        <div>
-          <span><span class="dot green"></span>Normal (&gt;60%)</span>
-          <strong>1087</strong>
-        </div>
-        <div>
-          <span><span class="dot orange"></span>Faible (20-60%)</span>
-          <strong>23</strong>
-        </div>
-        <div>
-          <span><span class="dot red"></span>Critique (&lt;20%)</span>
-          <strong>7</strong>
-        </div>
-        <div>
-          <span><span class="dot gray"></span>Hors service</span>
-          <strong>4</strong>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="bottom-grid">
-    <div class="dashboard-card">
-      <div class="card-head">
-        <h3>Alertes Récentes</h3>
-        <a href="javascript:void(0)">Voir tout</a>
-      </div>
-
-      <div class="alert-list">
-        <div class="alert-item" *ngFor="let alert of recentAlerts">
-          <div class="alert-item-top">
-            <span class="alert-chip" [ngClass]="alert.chipClass">
-              {{ alert.type }}
-            </span>
-
-            <span [ngClass]="alert.rightClass">
-              {{ alert.rightLabel }}
-            </span>
+            <div class="cloud-main"></div>
+            <div class="cloud-small"></div>
           </div>
 
-          <h4>{{ alert.title }}</h4>
-          <p>{{ alert.location }}</p>
-          <small>{{ alert.time }}</small>
+          <div class="weather-temp-block">
+            <div class="temp">{{ weather.temp }}°</div>
+            <div class="city">{{ weather.city }}</div>
+          </div>
+
+        </div>
+
+        <div class="weather-right">
+          <h4>Météo</h4>
+          <p>{{ weather.description }}</p>
+          <small *ngIf="weatherUpdatedAt">
+            MAJ {{ weatherUpdatedAt | date:'HH:mm' }}
+          </small>
+        </div>
+      </div>
+
+      <div class="weather-line"></div>
+
+      <div class="weather-details">
+        <div class="weather-detail-card">
+          <span>Vent</span>
+          <strong>{{ weather.wind }} km/h</strong>
+        </div>
+
+        <div class="weather-detail-card">
+          <span>Humidité</span>
+          <strong>{{ weather.humidity }}%</strong>
+        </div>
+
+        <div class="weather-detail-card">
+          <span>Nuages</span>
+          <strong>{{ weather.rain }}%</strong>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BATTERIES -->
+    <div class="panel">
+      <h3>État des batteries</h3>
+
+      <div class="donut" [ngStyle]="getBatteryDonutStyle()"></div>
+
+      <div class="legend-list">
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot mint-dot"></b>
+            <span>Normal</span>
+          </div>
+          <strong>{{ batteriesNormal }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot amber-dot"></b>
+            <span>Faible</span>
+          </div>
+          <strong>{{ batteriesFaibles }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot rose-dot"></b>
+            <span>Critique</span>
+          </div>
+          <strong>{{ batteriesCritiques }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot slate-dot"></b>
+            <span>Sans données / panne</span>
+          </div>
+          <strong>{{ batteriesSansDonnees + batteriesEnPanne }}</strong>
         </div>
       </div>
     </div>
 
-    <div class="dashboard-card">
-      <div class="card-head">
-        <h3>Équipements à Traiter en Priorité</h3>
-        <span class="circle-counter">4</span>
+    <!-- CAPTEURS -->
+    <div class="panel">
+      <h3>État des capteurs</h3>
+
+      <div class="donut" [ngStyle]="getSensorDonutStyle()"></div>
+
+      <div class="legend-list">
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot mint-dot"></b>
+            <span>Actifs</span>
+          </div>
+          <strong>{{ sensorsActifs }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot amber-dot"></b>
+            <span>Inactifs</span>
+          </div>
+          <strong>{{ sensorsInactifs }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot rose-dot"></b>
+            <span>En panne</span>
+          </div>
+          <strong>{{ sensorsEnPanne }}</strong>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-label">
+            <b class="dot slate-dot"></b>
+            <span>Sans données</span>
+          </div>
+          <strong>{{ sensorsSansDonnees }}</strong>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="work-grid">
+    <section class="tasks-panel tasks-panel--compact">
+      <div class="tasks-header">
+        <div>
+          <h3>{{ taskListTitle }}</h3>
+          <p>Tâches techniques à traiter.</p>
+        </div>
+
+        <button type="button" class="refresh-tasks" (click)="loadTasks()">
+          Actualiser
+        </button>
       </div>
 
-      <div class="priority-list">
-        <div class="priority-item" *ngFor="let item of priorityItems">
-          <div class="priority-content">
-            <div class="priority-top">
-              <h4>{{ item.title }}</h4>
-              <span class="status-chip" [ngClass]="item.badgeClass">
-                {{ item.badge }}
-              </span>
-            </div>
+      <div class="tasks-filters">
+        <button
+          type="button"
+          [class.active]="taskView === 'open'"
+          (click)="setTaskView('open')">
+          Liste des tâches
+          <span class="filter-count">{{ tasks.length }}</span>
+        </button>
 
-            <p>{{ item.subtitle }}</p>
-            <small>{{ item.location }}</small>
+        <button
+          type="button"
+          [class.active]="taskView === 'treated'"
+          (click)="setTaskView('treated')">
+          Tâches traitées
+          <span class="filter-count">{{ treatedTasks.length }}</span>
+        </button>
+      </div>
 
-            <div class="problem-line">
-              <span>Problème</span>
-              <strong>{{ item.problem }}</strong>
+      <div *ngIf="tasksLoading" class="tasks-loading">
+        Chargement des tâches...
+      </div>
+
+      <ng-container *ngIf="!tasksLoading">
+        <div class="task-card task-card--compact" *ngFor="let task of displayedTasks">
+          <div class="task-main">
+            <span class="task-status" [ngClass]="getTaskSeverityClass(task)"></span>
+
+            <div class="task-content">
+              <div class="task-title-row">
+                <h4>{{ getTaskTitle(task) }}</h4>
+                <span class="task-type">{{ getTaskType(task) }}</span>
+              </div>
+
+              <p>{{ getTaskMessage(task) }}</p>
+
+              <div class="task-meta">
+                <span>{{ getTaskBin(task) }}</span>
+                <span>{{ getTaskDate(task) }}</span>
+              </div>
             </div>
           </div>
 
-          <button type="button" class="treat-btn">Traiter</button>
+          <div class="task-actions" *ngIf="taskView === 'open'">
+            <button type="button" class="treat-btn" (click)="treatTask(task)">
+              Traiter
+            </button>
+          </div>
         </div>
+
+        <div *ngIf="displayedTasks.length === 0" class="empty-tasks">
+          {{ emptyTasksLabel }}
+        </div>
+      </ng-container>
+    </section>
+
+    <aside class="alerts-panel">
+      <div class="alerts-head">
+        <div>
+          <h3>Alertes en temps réel</h3>
+          <p>Alertes techniques ouvertes</p>
+        </div>
+        <button type="button" class="refresh-tasks" (click)="loadTasks()">
+          Actualiser
+        </button>
       </div>
-    </div>
-  </div>
+
+      <div *ngIf="tasksLoading" class="tasks-loading">
+        Chargement des alertes...
+      </div>
+
+      <ng-container *ngIf="!tasksLoading">
+        <article
+          class="mini-alert"
+          *ngFor="let alert of dashboardAlerts"
+          [ngClass]="getAlertCardClass(alert)">
+          <div class="mini-alert-top">
+            <strong>{{ getAlertBin(alert) }}</strong>
+            <span>{{ getAlertSeverity(alert) }}</span>
+          </div>
+
+          <h4>{{ getAlertTitle(alert) }}</h4>
+          <p>{{ getAlertMessage(alert) }}</p>
+
+          <div class="mini-alert-meta">
+            <span>{{ getAlertType(alert) }}</span>
+            <span>{{ getTaskDate(alert) }}</span>
+          </div>
+        </article>
+
+        <div *ngIf="dashboardAlerts.length === 0" class="empty-tasks">
+          Aucune alerte technique ouverte.
+        </div>
+      </ng-container>
+    </aside>
+  </section>
+
 </div>

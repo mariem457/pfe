@@ -44,14 +44,17 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
+                        .requestMatchers("/api/maintenance/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register-driver").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/reset-password-by-code").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/resend-verification").permitAll()
+
+                        .requestMatchers(HttpMethod.POST,"/api/auth/resend-verification").permitAll()
+                        .requestMatchers("/api/auth/**","/api/chatbot/**").permitAll()
+
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-reset-code").permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/api/auth/approve-driver").hasRole("ADMIN")
@@ -73,7 +76,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
-                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
+                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER","MAINTENANCE")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER")
 
@@ -93,6 +96,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/auto-incidents/**").hasAnyRole("ADMIN", "MUNICIPALITY", "MAINTENANCE")
 
+                        .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
+                        .requestMatchers("/api/maintenance/dashboard").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/alerts").hasAnyRole("MAINTENANCE", "ADMIN", "MUNICIPALITY")
+                        .requestMatchers(HttpMethod.GET, "/api/alerts/open").hasAnyRole("MAINTENANCE", "ADMIN", "MUNICIPALITY")
+                        .requestMatchers(HttpMethod.PATCH, "/api/alerts/*/resolve").hasAnyRole("MAINTENANCE", "ADMIN", "MUNICIPALITY")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

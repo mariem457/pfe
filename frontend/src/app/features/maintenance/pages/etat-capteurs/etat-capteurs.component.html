@@ -1,0 +1,113 @@
+﻿<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1>État des capteurs</h1>
+      <p>Suivi des capteurs installés sur les poubelles intelligentes.</p>
+    </div>
+
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        type="search"
+        [value]="searchTerm"
+        (input)="onSearch($event)"
+        placeholder="Rechercher un capteur..."
+        aria-label="Rechercher un capteur">
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon stat-total">
+        <span class="material-icons">sensors</span>
+      </div>
+      <div>
+        <p>Total capteurs</p>
+        <h2>{{ totalSensors }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-approved">
+        <span class="material-icons">check_circle</span>
+      </div>
+      <div>
+        <p>Capteurs actifs</p>
+        <h2>{{ actifs }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-rejected">
+        <span class="material-icons">error</span>
+      </div>
+      <div>
+        <p>Capteurs en panne</p>
+        <h2>{{ enPanne }}</h2>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon stat-disabled">
+        <span class="material-icons">wifi_off</span>
+      </div>
+      <div>
+        <p>Sans données</p>
+        <h2>{{ sansDonnees }}</h2>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-title">
+    <h2>Liste des capteurs</h2>
+    <p>{{ filteredSensors.length }} capteur(s) affiché(s)</p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Capteur</th>
+          <th>Zone</th>
+          <th>Dernière valeur</th>
+          <th>État</th>
+        </tr>
+      </thead>
+
+      <tbody *ngIf="!loading">
+        <tr *ngFor="let sensor of filteredSensors">
+          <td>
+            <div class="sensor-cell">
+              <div class="sensor-avatar">
+                <span class="material-icons">sensors</span>
+              </div>
+              <strong>{{ getCode(sensor) }}</strong>
+            </div>
+          </td>
+
+          <td>{{ getZone(sensor) }}</td>
+
+          <td>{{ getLastValue(sensor) }}</td>
+
+          <td>
+            <span class="status-badge" [ngClass]="getClass(sensor)">
+              {{ getStatus(sensor) }}
+            </span>
+          </td>
+        </tr>
+
+        <tr *ngIf="filteredSensors.length === 0">
+          <td colspan="4" class="empty">
+            Aucun capteur trouvé.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="loading" class="loading-box">
+      Données en chargement...
+    </div>
+  </div>
+
+</div>

@@ -187,5 +187,251 @@
     </div>
   </section>
 
-  <app-footer></app-footer>
+
+<!-- BOT FINAL -->
+<div class="final-bot" (click)="toggleChat()">
+
+  <img
+    src="/assets/icons/chatbot.png"
+    alt="WiseBot"
+  />
+
+  <div class="final-bubble">
+    Besoin d’aide ?
+  </div>
+
 </div>
+
+<!-- CHAT WINDOW -->
+<div class="chatbot-window" *ngIf="chatOpen">
+
+  <!-- HEADER -->
+  <div class="chatbot-header">
+
+    <span>WiseBot</span>
+
+    <button
+      type="button"
+      (click)="toggleChat(); $event.stopPropagation()"
+    >
+      ×
+    </button>
+
+  </div>
+
+  <!-- BODY -->
+  <div class="chatbot-body">
+
+    <!-- MESSAGES -->
+    <div
+      *ngFor="let msg of messages"
+      class="chat-msg"
+      [ngClass]="msg.type"
+    >
+
+      <p>{{ msg.text }}</p>
+
+      <!-- GPS BUTTON مباشرة تحت bot message -->
+      <div
+        *ngIf="msg.showLocationActions"
+        class="location-actions"
+      >
+        <button
+          type="button"
+          class="gps-btn"
+          (click)="useCurrentLocation()"
+        >
+
+          <span class="material-icons">
+            my_location
+          </span>
+
+          Utiliser ma position actuelle
+
+        </button>
+
+        <button
+          type="button"
+          class="gps-btn map-select-btn"
+          (click)="openMapPicker()"
+        >
+
+          <span class="material-icons">
+            map
+          </span>
+
+          Sélectionner sur map
+
+        </button>
+      </div>
+
+      <!-- TABLE -->
+      <table
+        class="bins-table"
+        *ngIf="msg.bins && msg.bins.length > 0"
+      >
+
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Zone</th>
+            <th>Remplissage</th>
+            <th>GPS</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <tr *ngFor="let bin of getVisibleBins(msg)">
+
+            <td>{{ bin.code }}</td>
+
+            <td>{{ bin.zone }}</td>
+
+            <td>{{ bin.fillLevel }}%</td>
+
+            <td>
+              <button
+                type="button"
+                class="bin-gps-btn"
+                (click)="showBinOnMap(bin)"
+                title="Voir sur la carte"
+              >
+                <span class="material-icons">gps_fixed</span>
+              </button>
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+      <button
+        *ngIf="canShowMoreBins(msg)"
+        type="button"
+        class="see-more-btn"
+        (click)="showMoreBins(msg)"
+      >
+        Voir plus
+      </button>
+
+      <p
+        *ngIf="msg.bins && msg.bins.length > 0"
+        class="chat-followup"
+      >
+        Vous pouvez aussi demander une autre localisation à tout moment.
+      </p>
+
+    </div>
+
+  </div>
+
+  <div
+    class="map-picker"
+    *ngIf="binMapOpen"
+  >
+    <div class="map-picker-header">
+      <span>Position de la poubelle</span>
+      <button
+        type="button"
+        (click)="closeBinMap()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="map-picker-help">
+      Trajet entre votre position et la poubelle sélectionnée.
+    </div>
+
+    <div
+      id="chatbotBinMap"
+      class="chatbot-map"
+    ></div>
+  </div>
+
+  <div
+    class="map-picker"
+    *ngIf="mapPickerOpen"
+  >
+    <div class="map-picker-header">
+      <span>Sélectionner dans Paris 15</span>
+      <button
+        type="button"
+        (click)="closeMapPicker()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="map-picker-help">
+      Cliquez sur un point dans Paris 15.
+    </div>
+
+    <div
+      id="chatbotParisMap"
+      class="chatbot-map"
+    ></div>
+  </div>
+
+  <!-- WASTE TYPES -->
+  <div
+    class="waste-choice"
+    *ngIf="showWasteChoice"
+  >
+
+    <label
+      class="waste-item"
+      *ngFor="let type of wasteTypes"
+    >
+
+      <input
+        type="checkbox"
+        [checked]="selectedWasteTypes.includes(type.value)"
+        (change)="toggleWasteType(type.value)"
+      />
+
+      {{ type.label }}
+
+    </label>
+
+    <button
+      type="button"
+      class="search-btn"
+      (click)="searchBinsByType()"
+      [disabled]="selectedWasteTypes.length === 0"
+    >
+
+      Rechercher
+
+    </button>
+
+  </div>
+
+  <!-- INPUT -->
+  <div class="chatbot-input">
+
+    <input
+      [(ngModel)]="message"
+      type="text"
+      placeholder="Ex: Rue de Javel..."
+      (keyup.enter)="send()"
+      [disabled]="isSending || showWasteChoice"
+    />
+
+    <button
+      type="button"
+      (click)="send()"
+      [disabled]="isSending || showWasteChoice"
+    >
+
+      Envoyer
+
+    </button>
+
+  </div>
+
+</div>
+
+<app-footer></app-footer>

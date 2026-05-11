@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +21,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../lib/api";
-import { saveAuth } from "../lib/storage";
+import {
+  getRememberedEmail,
+  removeRememberedEmail,
+  saveAuth,
+  saveRememberedEmail,
+} from "../lib/storage";
 
 type LoginResponse = {
   token: string;
@@ -40,6 +45,19 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const isDark = useColorScheme() === "dark";
+
+  useEffect(() => {
+    async function loadRememberedEmail() {
+      const savedEmail = await getRememberedEmail();
+
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRemember(true);
+      }
+    }
+
+    loadRememberedEmail();
+  }, []);
 
   const colors = isDark
     ? {
@@ -122,8 +140,15 @@ export default function LoginScreen() {
         userId: data.userId,
         role: data.role,
         username: data.username,
+        email: data.email ?? trimmedEmail,
         mustChangePassword: data.mustChangePassword ?? false,
       });
+
+      if (remember) {
+        await saveRememberedEmail(trimmedEmail);
+      } else {
+        await removeRememberedEmail();
+      }
 
       if (data.mustChangePassword) {
         router.replace("/reset-password");
@@ -132,7 +157,7 @@ export default function LoginScreen() {
 
       router.replace("/(tabs)/dashboard");
     } catch (error: any) {
-      Alert.alert("Login failed", error?.message || "Impossible de se connecter.");
+      Alert.alert("Échec de connexion", error?.message || "Impossible de se connecter.");
     } finally {
       setLoading(false);
     }
@@ -162,7 +187,7 @@ export default function LoginScreen() {
             >
               <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
                 <Ionicons name="arrow-back" size={18} color={colors.backText} />
-                <Text style={[styles.backText, { color: colors.backText }]}>Back</Text>
+                <Text style={[styles.backText, { color: colors.backText }]}>Retour</Text>
               </TouchableOpacity>
 
               <View style={styles.centerContent}>
@@ -176,11 +201,11 @@ export default function LoginScreen() {
 
                 <View style={[styles.card, { backgroundColor: colors.card }]}>
                   <Text style={[styles.title, { color: colors.title }]}>
-                    Welcome Back
+                    Bienvenue
                   </Text>
 
                   <Text style={[styles.subtitle, { color: colors.subtitle }]}>
-                    Login to continue
+                    se connecter pour continuer 
                   </Text>
 
                   <View style={styles.formGroup}>
@@ -203,7 +228,7 @@ export default function LoginScreen() {
                       <TextInput
                         value={email}
                         onChangeText={setEmail}
-                        placeholder="Enter your email"
+                        placeholder="Entrer votre email"
                         placeholderTextColor={colors.placeholder}
                         style={[styles.input, { color: colors.inputText }]}
                         autoCapitalize="none"
@@ -213,7 +238,7 @@ export default function LoginScreen() {
                   </View>
 
                   <View style={styles.formGroup}>
-                    <Text style={[styles.label, { color: colors.label }]}>Password</Text>
+                    <Text style={[styles.label, { color: colors.label }]}>Mot de passe</Text>
                     <View
                       style={[
                         styles.inputContainer,
@@ -232,7 +257,7 @@ export default function LoginScreen() {
                       <TextInput
                         value={password}
                         onChangeText={setPassword}
-                        placeholder="Enter your password"
+                        placeholder="Entrer votre mot de passe"
                         placeholderTextColor={colors.placeholder}
                         secureTextEntry={!showPassword}
                         style={[styles.input, { color: colors.inputText }]}
@@ -269,7 +294,7 @@ export default function LoginScreen() {
                       </View>
 
                       <Text style={[styles.rememberText, { color: colors.rememberText }]}>
-                        Remember me
+                        se souvenir de moi
                       </Text>
                     </TouchableOpacity>
 
@@ -283,7 +308,7 @@ export default function LoginScreen() {
                       }
                     >
                       <Text style={[styles.forgotText, { color: colors.forgotText }]}>
-                        Forgot password?
+                        Mot de passe oublié?
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -303,18 +328,18 @@ export default function LoginScreen() {
                       {loading ? (
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.loginButtonText}>Login</Text>
+                        <Text style={styles.loginButtonText}>se connecter</Text>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
 
                   <View style={styles.signupRow}>
                     <Text style={[styles.signupText, { color: colors.signupText }]}>
-                      Don&apos;t have an account?
+                      je n&apos;ai pas de compte?
                     </Text>
                     <TouchableOpacity onPress={() => router.push("/signup")}>
                       <Text style={[styles.signupLink, { color: colors.signupLink }]}>
-                        Sign Up
+                        S&apos;inscrire
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -347,6 +372,12 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 200,
     height: 350,
+    ...(Platform.OS === "android"
+      ? {
+          width: 148,
+          height: 148,
+        }
+      : {}),
   },
 
   backRow: {
@@ -376,11 +407,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
-    shadowColor: "#119660",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    ...(Platform.OS === "ios"
+      ? {
+          shadowColor: "#119660",
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.25,
+          shadowRadius: 16,
+        }
+      : {
+          elevation: 0,
+        }),
   },
 
   card: {

@@ -382,23 +382,36 @@ public class BinService {
         }
     }
 
-    private String generateNextBinCode() {
+private String generateNextBinCode() {
+
+    String maxCode = binRepository.findMaxPvpCode();
+
+    if (maxCode == null) {
+
         int max = 0;
 
         List<Bin> bins = binRepository.findAll();
+
         for (Bin b : bins) {
+
             String code = b.getBinCode();
+
             if (code == null) continue;
 
             code = code.trim().toUpperCase();
 
             if (code.startsWith("BIN-")) {
+
                 String suffix = code.substring(4);
+
                 try {
+
                     int n = Integer.parseInt(suffix);
+
                     if (n > max) {
                         max = n;
                     }
+
                 } catch (NumberFormatException ignored) {
                 }
             }
@@ -406,6 +419,18 @@ public class BinService {
 
         return String.format("BIN-%03d", max + 1);
     }
+
+    try {
+
+        int num = Integer.parseInt(maxCode.substring(7));
+
+        return String.format("PVP-15-%05d", num + 1);
+
+    } catch (Exception e) {
+
+        return "PVP-15-00001";
+    }
+}
 
     private Bin getOrThrow(Long id) {
         return binRepository.findById(id)
@@ -451,9 +476,11 @@ public class BinService {
                     ? OffsetDateTime.ofInstant(latest.getTimestamp(), ZoneId.systemDefault())
                     : null;
         } else {
-            r.fillLevel = 0;
-            r.batteryLevel = 0;
-            r.status = "OK";
+
+            r.fillLevel       = 0;
+            r.batteryLevel    = 100;
+            r.status          = "OK";
+
             r.lastTelemetryAt = null;
         }
 

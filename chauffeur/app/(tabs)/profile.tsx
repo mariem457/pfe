@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
-import { getToken, removeAuth } from "../../lib/storage";
+import { getToken, getUserId, removeAuth } from "../../lib/storage";
 
 type DriverProfile = {
   fullName?: string;
@@ -56,14 +56,15 @@ export default function ProfileScreen() {
       setLoading(true);
 
       const token = await getToken();
+      const userId = await getUserId();
 
-      if (!token) {
+      if (!token || !userId) {
         Alert.alert("Erreur", "Session expirée. Veuillez vous reconnecter.");
         router.replace("/login");
         return;
       }
 
-      const response = await fetch(`${BASE_URL}/api/settings/profile`, {
+      const response = await fetch(`${BASE_URL}/api/drivers/${userId}/profile`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -221,7 +222,7 @@ export default function ProfileScreen() {
             />
           </TouchableOpacity>
 
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Profile</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Profil</Text>
 
           <View style={styles.headerSpacer} />
         </View>
@@ -234,12 +235,12 @@ export default function ProfileScreen() {
           <Text style={styles.heroName}>
             {profile?.fullName || "Nom non disponible"}
           </Text>
-          <Text style={styles.heroId}>Driver ID: {profile?.driverId || "-"}</Text>
+          <Text style={styles.heroId}>ID chauffeur: {profile?.driverId || "-"}</Text>
         </LinearGradient>
 
         <View style={[styles.card, { backgroundColor: theme.card }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Driver Information
+            les informations personnelles
           </Text>
 
           <InfoRow
@@ -247,7 +248,7 @@ export default function ProfileScreen() {
             icon="person-outline"
             iconColor="#10B981"
             green
-            label="Full Name"
+            label="Nom complet"
             value={profile?.fullName || "-"}
           />
 
@@ -263,7 +264,7 @@ export default function ProfileScreen() {
             theme={theme}
             icon="call-outline"
             iconColor="#64748B"
-            label="Phone"
+            label="Téléphone"
             value={profile?.phone || "-"}
           />
 
@@ -271,7 +272,7 @@ export default function ProfileScreen() {
             theme={theme}
             icon="bus-outline"
             iconColor="#64748B"
-            label="Assigned Truck"
+            label="Camion Assigné"
             value={profile?.assignedTruck || "-"}
           />
 
@@ -280,7 +281,7 @@ export default function ProfileScreen() {
             icon="calendar-outline"
             iconColor="#10B981"
             green
-            label="Shift Schedule"
+            label="Horaire de travail"
             value={profile?.shiftSchedule || "-"}
           />
         </View>
@@ -289,37 +290,37 @@ export default function ProfileScreen() {
           <View style={styles.sectionHeader}>
             <Ionicons name="lock-closed-outline" size={18} color="#12905C" />
             <Text style={[styles.sectionTitleInline, { color: theme.text }]}>
-              Security Settings
+              Paramètres de sécurité
             </Text>
           </View>
 
           <PasswordInput
-            label="Current Password"
+            label="mot de passe actuel"
             value={currentPassword}
             onChangeText={setCurrentPassword}
             show={showCurrent}
             onToggleShow={() => setShowCurrent(!showCurrent)}
-            placeholder="Enter current password"
+            placeholder="Entrer le mot de passe actuel"
             theme={theme}
           />
 
           <PasswordInput
-            label="New Password"
+            label="nouveau mot de passe"
             value={newPassword}
             onChangeText={setNewPassword}
             show={showNew}
             onToggleShow={() => setShowNew(!showNew)}
-            placeholder="Enter new password"
+            placeholder="Entrer le nouveau mot de passe"
             theme={theme}
           />
 
           <PasswordInput
-            label="Confirm New Password"
+            label="Confirmer le nouveau mot de passe"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             show={showConfirm}
             onToggleShow={() => setShowConfirm(!showConfirm)}
-            placeholder="Confirm new password"
+            placeholder="Confirmer le nouveau mot de passe"
             theme={theme}
           />
 
@@ -330,41 +331,41 @@ export default function ProfileScreen() {
             disabled={savingPassword}
           >
             <Text style={styles.updateButtonText}>
-              {savingPassword ? "Updating..." : "Update Password"}
+              {savingPassword ? "mise à jour..." : "mettre à jour le mot de passe"}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>This Month</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Ce mois</Text>
 
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, styles.statGreen]}>
               <Text style={[styles.statNumber, { color: "#0E8E63" }]}>
                 {profile?.binsCollected ?? 0}
               </Text>
-              <Text style={styles.statText}>Bins Collected</Text>
+              <Text style={styles.statText}>Bacs Collectés</Text>
             </View>
 
             <View style={[styles.statBox, styles.statGreen]}>
               <Text style={[styles.statNumber, { color: "#19C37D" }]}>
                 {profile?.efficiency ?? 0}%
               </Text>
-              <Text style={styles.statText}>Efficiency</Text>
+              <Text style={styles.statText}>Efficacité</Text>
             </View>
 
             <View style={[styles.statBox, styles.statBlue]}>
               <Text style={[styles.statNumber, { color: "#3B82F6" }]}>
                 {profile?.kmDriven ?? 0}
               </Text>
-              <Text style={styles.statText}>km Driven</Text>
+              <Text style={styles.statText}>km conduits</Text>
             </View>
 
             <View style={[styles.statBox, styles.statYellow]}>
               <Text style={[styles.statNumber, { color: "#F59E0B" }]}>
                 {profile?.routesDone ?? 0}
               </Text>
-              <Text style={styles.statText}>Routes Done</Text>
+              <Text style={styles.statText}>Routes Terminées</Text>
             </View>
           </View>
         </View>
@@ -375,7 +376,7 @@ export default function ProfileScreen() {
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={18} color="#FF5A5F" />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>Déconnexion</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

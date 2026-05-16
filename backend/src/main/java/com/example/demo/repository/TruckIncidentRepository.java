@@ -30,4 +30,10 @@ public interface TruckIncidentRepository extends JpaRepository<TruckIncident, Lo
             IncidentType incidentType,
             List<IncidentStatus> statuses
     );
+    
+    List<TruckIncident> findByTruckAndIncidentTypeAndStatus(
+            Truck truck,
+            IncidentType incidentType,
+            IncidentStatus status
+    );
 }

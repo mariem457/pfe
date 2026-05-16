@@ -137,25 +137,38 @@
             <p>{{ getIncidentReplanMessage(incident) }}</p>
           </div>
         </div>
+        <div class="it-incidentActions">
+          <span class="it-autoResolveInfo" *ngIf="['GPS_LOST', 'FUEL_LOW', 'OVERLOAD'].includes(incident.incidentType)">
+            Résolution automatique dès retour à la normale
+          </span>
 
-       <div class="it-incidentActions">
-  <span
-    class="it-autoResolveInfo"
-    *ngIf="['GPS_LOST', 'FUEL_LOW', 'OVERLOAD'].includes(incident.incidentType)"
-  >
-    Résolution automatique dès retour à la normale
-  </span>
+          <button type="button" class="it-contactBtn" (click)="contactDriver(incident)"
+            [disabled]="contactingIncidentId === incident.id">
+            {{ contactingIncidentId === incident.id ? 'Envoi...' : 'Contacter chauffeur' }}
+          </button>
 
-  <button
-    type="button"
-    class="it-replanBtn it-replanBtn--secondary"
-    *ngIf="shouldShowManualReplan(incident)"
-    (click)="replanIncident(incident)"
-    [disabled]="replanningIncidentId === incident.id"
-  >
-    {{ replanningIncidentId === incident.id ? 'Réaffectation...' : 'Réaffecter la mission' }}
-  </button>
-</div>
+          <button type="button" class="it-replanBtn it-replanBtn--secondary" *ngIf="shouldShowManualReplan(incident)"
+            (click)="replanIncident(incident)" [disabled]="replanningIncidentId === incident.id">
+            {{ replanningIncidentId === incident.id ? 'Réaffectation...' : 'Réaffecter la mission' }}
+          </button>
+        </div>
+
+        <div class="it-driverResponse" *ngIf="notificationByIncident[incident.id]">
+          <span class="material-icons">forum</span>
+
+          <div>
+            <strong>Communication chauffeur</strong>
+
+            <p *ngIf="notificationByIncident[incident.id].status !== 'RESPONDED'">
+              Notification envoyée — en attente de réponse.
+            </p>
+
+            <p *ngIf="notificationByIncident[incident.id].status === 'RESPONDED'">
+              Réponse chauffeur :
+              <b>{{ getDriverResponseLabel(notificationByIncident[incident.id].response) }}</b>
+            </p>
+          </div>
+        </div>
       </article>
 
       <div class="it-incidentEmpty" *ngIf="openIncidents.length === 0">

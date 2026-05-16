@@ -11,6 +11,9 @@
         <span class="smart-pill smart-pill--success">
           ● Optimisation IA active
         </span>
+        <span class="smart-pill smart-pill--live">
+          ● Suivi temps réel
+        </span>
         <span class="smart-pill smart-pill--blue">
           OSRM + trafic réel
         </span>
@@ -18,32 +21,20 @@
     </div>
 
     <div class="mission-actions-right">
-  <button
-    type="button"
-    class="mission-action-btn mission-action-btn--secondary"
-    (click)="refreshSelectedMission()"
-    [disabled]="actionLoading()"
-  >
-    Actualiser
-  </button>
+      <button type="button" class="mission-action-btn mission-action-btn--secondary" (click)="refreshSelectedMission()"
+        [disabled]="actionLoading()">
+        Actualiser
+      </button>
 
-  <button
-    type="button"
-    class="mission-action-btn mission-action-btn--outline"
-    (click)="toggleHistory()"
-  >
-    {{ showHistory() ? 'Aujourd’hui' : 'Historique' }}
-  </button>
+      <button type="button" class="mission-action-btn mission-action-btn--outline" (click)="toggleHistory()">
+        {{ showHistory() ? 'Aujourd’hui' : 'Historique' }}
+      </button>
 
-  <button
-    type="button"
-    class="mission-action-btn mission-action-btn--primary"
-    (click)="generateAiMissions()"
-    [disabled]="generatingAi()"
-  >
-    {{ generatingAi() ? 'Génération...' : '✨ Générer missions optimisées' }}
-  </button>
-</div>
+      <button type="button" class="mission-action-btn mission-action-btn--primary" (click)="generateAiMissions()"
+        [disabled]="generatingAi()">
+        {{ generatingAi() ? 'Génération...' : '✨ Générer missions optimisées' }}
+      </button>
+    </div>
   </div>
 
   <!-- ================= MESSAGES ================= -->
@@ -118,9 +109,9 @@
             <h2>{{ showHistory() ? 'Historique des missions' : 'Missions du jour' }}</h2>
             <p>
               {{
-                showHistory()
-                  ? 'Anciennes tournées clôturées ou planifiées les jours précédents'
-                  : 'Navigation rapide des missions prévues aujourd’hui'
+              showHistory()
+              ? 'Anciennes tournées clôturées ou planifiées les jours précédents'
+              : 'Navigation rapide des missions prévues aujourd’hui'
               }}
             </p>
           </div>
@@ -129,20 +120,12 @@
         </div>
 
         <div class="mission-view-switch">
-          <button
-            type="button"
-            [class.active]="!showHistory()"
-            (click)="showHistory.set(false); loadMissions()"
-          >
+          <button type="button" [class.active]="!showHistory()" (click)="showHistory.set(false); loadMissions()">
             Aujourd’hui
             <span>{{ todayMissionsCount() }}</span>
           </button>
 
-          <button
-            type="button"
-            [class.active]="showHistory()"
-            (click)="showHistory.set(true); loadMissions()"
-          >
+          <button type="button" [class.active]="showHistory()" (click)="showHistory.set(true); loadMissions()">
             Historique
             <span>{{ historyMissionsCount() }}</span>
           </button>
@@ -150,44 +133,28 @@
 
         <div class="smart-search">
           <span class="material-icons">search</span>
-          <input
-            type="text"
-            placeholder="Rechercher par mission, chauffeur, zone..."
-            [ngModel]="searchTerm()"
-            (ngModelChange)="searchTerm.set($event)"
-          />
+          <input type="text" placeholder="Rechercher par mission, chauffeur, zone..." [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)" />
         </div>
 
         <div class="smart-filter-row">
-          <button
-            class="smart-filter-chip"
-            [class.active]="selectedStatus() === 'ALL'"
-            (click)="selectedStatus.set('ALL')"
-          >
+          <button class="smart-filter-chip" [class.active]="selectedStatus() === 'ALL'"
+            (click)="selectedStatus.set('ALL')">
             Toutes
           </button>
 
-          <button
-            class="smart-filter-chip"
-            [class.active]="selectedStatus() === 'IN_PROGRESS'"
-            (click)="selectedStatus.set('IN_PROGRESS')"
-          >
+          <button class="smart-filter-chip" [class.active]="selectedStatus() === 'IN_PROGRESS'"
+            (click)="selectedStatus.set('IN_PROGRESS')">
             En cours
           </button>
 
-          <button
-            class="smart-filter-chip"
-            [class.active]="selectedStatus() === 'CREATED'"
-            (click)="selectedStatus.set('CREATED')"
-          >
+          <button class="smart-filter-chip" [class.active]="selectedStatus() === 'CREATED'"
+            (click)="selectedStatus.set('CREATED')">
             Planifiées
           </button>
 
-          <button
-            class="smart-filter-chip"
-            [class.active]="selectedStatus() === 'COMPLETED'"
-            (click)="selectedStatus.set('COMPLETED')"
-          >
+          <button class="smart-filter-chip" [class.active]="selectedStatus() === 'COMPLETED'"
+            (click)="selectedStatus.set('COMPLETED')">
             Terminées
           </button>
         </div>
@@ -208,13 +175,9 @@
               <strong>{{ groupedMissions().inProgress.length }}</strong>
             </div>
 
-            <button
-              class="smart-mission-card"
-              *ngFor="let mission of groupedMissions().inProgress"
-              [class.active]="selectedMission()?.id === mission.id"
-              [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
+            <button class="smart-mission-card" *ngFor="let mission of groupedMissions().inProgress"
+              [class.active]="selectedMission()?.id === mission.id" [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
+              (click)="selectMission(mission)">
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -251,13 +214,9 @@
               <strong>{{ groupedMissions().created.length }}</strong>
             </div>
 
-            <button
-              class="smart-mission-card"
-              *ngFor="let mission of groupedMissions().created"
-              [class.active]="selectedMission()?.id === mission.id"
-              [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
+            <button class="smart-mission-card" *ngFor="let mission of groupedMissions().created"
+              [class.active]="selectedMission()?.id === mission.id" [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
+              (click)="selectMission(mission)">
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -294,13 +253,9 @@
               <strong>{{ groupedMissions().completed.length }}</strong>
             </div>
 
-            <button
-              class="smart-mission-card"
-              *ngFor="let mission of groupedMissions().completed"
-              [class.active]="selectedMission()?.id === mission.id"
-              [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
-              (click)="selectMission(mission)"
-            >
+            <button class="smart-mission-card" *ngFor="let mission of groupedMissions().completed"
+              [class.active]="selectedMission()?.id === mission.id" [class.is-latest-ai]="isInLatestAiBatch(mission.id)"
+              (click)="selectMission(mission)">
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -330,12 +285,8 @@
               <strong>{{ groupedMissions().cancelled.length }}</strong>
             </div>
 
-            <button
-              class="smart-mission-card muted"
-              *ngFor="let mission of groupedMissions().cancelled"
-              [class.active]="selectedMission()?.id === mission.id"
-              (click)="selectMission(mission)"
-            >
+            <button class="smart-mission-card muted" *ngFor="let mission of groupedMissions().cancelled"
+              [class.active]="selectedMission()?.id === mission.id" (click)="selectMission(mission)">
               <div class="smart-mission-card__top">
                 <strong>{{ mission.missionCode }}</strong>
                 <span [class]="statusClass(mission.status)">
@@ -387,9 +338,9 @@
 
               <strong [class]="statusClass(mission.status)">
                 {{
-                  mission.status === 'CREATED'
-                    ? 'Pas encore démarrée'
-                    : getStatusLabel(mission.status)
+                mission.status === 'CREATED'
+                ? 'Pas encore démarrée'
+                : getStatusLabel(mission.status)
                 }}
               </strong>
 
@@ -493,13 +444,10 @@
         </div>
 
         <!-- SYSTEM STATUS -->
-        <div
-          class="smart-status-box"
-          *ngIf="
+        <div class="smart-status-box" *ngIf="
             getMissionStatusDetail(mission) === 'PARTIALLY_REASSIGNED' ||
             getMissionStatusDetail(mission) === 'REPLANNED'
-          "
-        >
+          ">
           ⚡ Replanification dynamique détectée : cette mission a été impactée par un incident et recalculée
           automatiquement.
         </div>
@@ -626,24 +574,14 @@
               Chargement de l’itinéraire...
             </div>
 
-            <app-fleet-map
-              *ngIf="!loadingRoute()"
-              [showHeader]="true"
-              [title]="'Carte de la mission'"
-              [subtitle]="'Visualisation des bacs affectés et de l’itinéraire'"
-              [showTrucks]="false"
-              [showBins]="false"
-              [showReports]="false"
-              [allowAddBins]="false"
-              [missionBins]="missionMapBins()"
+            <app-fleet-map *ngIf="!loadingRoute()" [showHeader]="true" [title]="'Carte de la mission'"
+              [subtitle]="'Visualisation des bacs affectés et de l’itinéraire'" [showTrucks]="false" [showBins]="false"
+              [showReports]="false" [allowAddBins]="false" [missionBins]="missionMapBins()"
               [missionRouteCoordinates]="missionRouteCoordinates()"
               [collectionRouteCoordinates]="collectionRouteCoordinates()"
-              [transferRouteCoordinates]="transferRouteCoordinates()"
-              [missionRouteStops]="missionMapRouteStops()"
-              [snappedWaypoints]="snappedWaypoints()"
-              [matrixSource]="routeMatrixSource()"
-              [geometrySource]="routeGeometrySource()"
-            >
+              [transferRouteCoordinates]="transferRouteCoordinates()" [missionRouteStops]="missionMapRouteStops()"
+              [snappedWaypoints]="snappedWaypoints()" [matrixSource]="routeMatrixSource()"
+              [geometrySource]="routeGeometrySource()">
             </app-fleet-map>
           </div>
         </div>
@@ -668,9 +606,9 @@
               <span>Ordre</span>
               <span>Bac</span>
               <span>Type</span>
-              <span>Seuil</span>
+
               <span>Statut</span>
-              <span>Action</span>
+
             </div>
 
             <div class="smart-bins-row" *ngFor="let bin of missionBins()">
@@ -695,32 +633,19 @@
                 <span *ngIf="!bin.wasteType">—</span>
               </span>
 
-              <span>{{ bin.targetFillThreshold ?? '—' }}%</span>
+
 
               <span [class]="binStatusClass(bin)">
                 {{
-                  bin.assignmentStatus === 'REASSIGNED'
-                    ? 'Réaffecté'
-                    : bin.collected
-                    ? 'Collecté'
-                    : 'À collecter'
+                bin.assignmentStatus === 'REASSIGNED'
+                ? 'Réaffecté'
+                : bin.collected
+                ? 'Collecté'
+                : 'À collecter'
                 }}
               </span>
 
-              <span>
-                <button
-                  class="btn btn-small btn-outline"
-                  (click)="collectBin(bin)"
-                  [disabled]="
-                    bin.collected ||
-                    actionLoading() ||
-                    mission.status === 'COMPLETED' ||
-                    bin.assignmentStatus === 'REASSIGNED'
-                  "
-                >
-                  Collecter
-                </button>
-              </span>
+
             </div>
           </div>
         </div>

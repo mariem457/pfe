@@ -1,0 +1,20 @@
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS incident_id BIGINT;
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS truck_id BIGINT;
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS mission_id BIGINT;
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'SENT';
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS response VARCHAR(50);
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE driver_notifications
+ADD COLUMN IF NOT EXISTS responded_at TIMESTAMP WITH TIME ZONE;

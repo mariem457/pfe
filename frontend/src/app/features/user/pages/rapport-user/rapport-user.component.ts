@@ -45,7 +45,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
   constructor(
     private publicReportService: PublicReportService,
     private location: Location
-  ) {}
+  ) { }
 
   ngAfterViewInit(): void {
     this.initMap();
@@ -65,7 +65,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     try {
       this.map?.remove();
-    } catch {}
+    } catch { }
   }
 
   goBack(): void {
@@ -133,7 +133,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
         this.locating = false;
 
         if (!this.isInsideParis(lat, lng)) {
-          alert('Votre position est en dehors de Paris.');
+          alert('Votre position est en dehors du 15e arrondissement de Paris.');
           return;
         }
 
@@ -198,7 +198,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
 
         if (!this.isInsideParis(lat, lng)) {
           this.submitting = false;
-          alert('Cette adresse est en dehors de Paris.');
+          alert('Cette adresse est en dehors du 15e arrondissement de Paris.');
           return;
         }
 
@@ -352,7 +352,7 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       const lng = e.latlng.lng;
 
       if (!this.isInsideParis(lat, lng)) {
-        alert('Choisissez un point dans Paris.');
+        alert('Choisissez un point dans le 15e arrondissement de Paris.');
         return;
       }
 

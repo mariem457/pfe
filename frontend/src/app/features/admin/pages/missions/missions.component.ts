@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { AlertService, AlertDto } from '../../../../services/alert.service';
+import { RealtimeService, MissionRealtimeEvent } from '../../../../services/realtime.service';
 import { FormsModule } from '@angular/forms';
 import {
   MissionBinResponse,
@@ -95,36 +96,170 @@ loadingReassignments = signal(false);
 
   constructor(
     private missionService: MissionService,
-    private alertService: AlertService
+    private alertService: AlertService,
+    private realtimeService: RealtimeService
   ) { }
 
-  ngOnInit(): void {
-    this.loadMissions();
+ ngOnInit(): void {
+  this.loadMissions();
 
-    this.alertSub.add(
-      this.alertService.realtimeAlert$.subscribe(alert => {
-        const mission = this.selectedMission();
-        if (!mission) return;
+  this.realtimeService.connectAll();
+  this.subscribeToMissionRealtime();
 
-        if (alert.missionId === mission.id && !alert.resolved) {
-          const exists = this.missionAlerts().some(a => a.id === alert.id);
-          if (!exists) {
-            this.missionAlerts.update(list => [alert, ...list]);
-          }
+  this.alertSub.add(
+    this.alertService.realtimeAlert$.subscribe(alert => {
+      const mission = this.selectedMission();
+      if (!mission) return;
+
+      if (alert.missionId === mission.id && !alert.resolved) {
+        const exists = this.missionAlerts().some(a => a.id === alert.id);
+        if (!exists) {
+          this.missionAlerts.update(list => [alert, ...list]);
         }
-      })
-    );
+      }
+    })
+  );
 
-    this.alertSub.add(
-      this.alertService.realtimeResolved$.subscribe(alert => {
-        this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
-      })
-    );
+  this.alertSub.add(
+    this.alertService.realtimeResolved$.subscribe(alert => {
+      this.missionAlerts.update(list => list.filter(a => a.id !== alert.id));
+    })
+  );
+
   }
 
   ngOnDestroy(): void {
     this.alertSub.unsubscribe();
   }
+  private subscribeToMissionRealtime(): void {
+  this.alertSub.add(
+    this.realtimeService.missionEvents$.subscribe(event => {
+      if (!event || !event.type) return;
+      this.handleMissionRealtimeEvent(event);
+    })
+  );
+}
+
+private handleMissionRealtimeEvent(event: MissionRealtimeEvent): void {
+  const eventMissionId = Number(event.missionId ?? event.oldMissionId ?? 0);
+  if (!eventMissionId) return;
+
+  const selected = this.selectedMission();
+  const isSelectedMission = selected?.id === eventMissionId;
+
+  switch (event.type) {
+    case 'MISSION_STATUS_CHANGED':
+    case 'MISSION_COMPLETED':
+    case 'MISSION_CANCELLED':
+      this.applyMissionStatusEvent(event);
+
+      if (isSelectedMission) {
+        this.reloadSelectedMissionLight(eventMissionId);
+      }
+      break;
+
+    case 'MISSION_BIN_COLLECTED':
+    case 'MISSION_BIN_SKIPPED':
+      this.applyMissionStatusEvent(event);
+
+      if (isSelectedMission) {
+        this.loadMissionBins(eventMissionId);
+        this.loadMissionAlerts(eventMissionId);
+      }
+      break;
+
+    case 'MISSION_ALERT_CREATED':
+    case 'MISSION_ALERT_RESOLVED':
+      if (isSelectedMission) {
+        this.loadMissionAlerts(eventMissionId);
+      }
+      break;
+
+    case 'MISSION_URGENT_BIN_INSERTED':
+    case 'MISSION_REPLANNED':
+    case 'MISSION_PARTIALLY_REASSIGNED':
+      this.loadMissions();
+
+      if (isSelectedMission) {
+        this.reloadSelectedMissionFull(eventMissionId);
+      }
+      break;
+
+    default:
+      if (isSelectedMission) {
+        this.reloadSelectedMissionLight(eventMissionId);
+      }
+      break;
+  }
+}
+
+private applyMissionStatusEvent(event: MissionRealtimeEvent): void {
+  const missionId = Number(event.missionId ?? event.oldMissionId ?? 0);
+  if (!missionId) return;
+
+  this.missions.update(list =>
+    this.sortMissionList(
+      list.map(m => {
+        if (m.id !== missionId) return m;
+
+        return {
+          ...m,
+          status: event.status ?? m.status,
+          missionStatusDetail: event.missionStatusDetail ?? m.missionStatusDetail,
+          mission_status_detail: event.missionStatusDetail ?? m.mission_status_detail
+        };
+      })
+    )
+  );
+
+  const selected = this.selectedMission();
+
+  if (selected?.id === missionId) {
+    this.selectedMission.set({
+      ...selected,
+      status: event.status ?? selected.status,
+      missionStatusDetail: event.missionStatusDetail ?? selected.missionStatusDetail,
+      mission_status_detail: event.missionStatusDetail ?? selected.mission_status_detail
+    });
+  }
+}
+
+private reloadSelectedMissionLight(missionId: number): void {
+  this.missionService.getMissionById(missionId).subscribe({
+    next: mission => {
+      this.selectedMission.set(mission);
+
+      this.missions.update(list =>
+        this.sortMissionList(
+          list.map(item => item.id === mission.id ? mission : item)
+        )
+      );
+    },
+    error: () => {}
+  });
+}
+
+private reloadSelectedMissionFull(missionId: number): void {
+  this.missionService.getMissionById(missionId).subscribe({
+    next: mission => {
+      this.selectedMission.set(mission);
+
+      this.missions.update(list =>
+        this.sortMissionList(
+          list.map(item => item.id === mission.id ? mission : item)
+        )
+      );
+
+      this.loadMissionBins(missionId);
+      this.loadMissionRoute(missionId);
+      this.loadMissionAlerts(missionId);
+      this.loadMissionReassignments(missionId);
+    },
+    error: () => {
+      this.loadMissions();
+    }
+  });
+}
 
   private sortMissionList(list: MissionResponse[]): MissionResponse[] {
     const statusOrder: Record<string, number> = {

@@ -35,6 +35,7 @@ public class DriverScanService {
     private final MissionRepository missionRepository;
     private final TruckRepository truckRepository;
     private final BinTelemetryRepository binTelemetryRepository;
+    private final MissionRealtimeService missionRealtimeService;
 
     public DriverScanService(
             BinRepository binRepository,
@@ -43,7 +44,8 @@ public class DriverScanService {
             UserRepository userRepository,
             MissionRepository missionRepository,
             TruckRepository truckRepository,
-            BinTelemetryRepository binTelemetryRepository
+            BinTelemetryRepository binTelemetryRepository,
+            MissionRealtimeService missionRealtimeService
     ) {
         this.binRepository = binRepository;
         this.driverRepository = driverRepository;
@@ -52,6 +54,7 @@ public class DriverScanService {
         this.missionRepository = missionRepository;
         this.truckRepository = truckRepository;
         this.binTelemetryRepository = binTelemetryRepository;
+        this.missionRealtimeService = missionRealtimeService;
     }
 
     @Transactional
@@ -90,6 +93,8 @@ public class DriverScanService {
             MissionBin saved = missionBinRepository.save(missionBin);
 
             syncMissionStatusAfterDriverAction(saved.getMission());
+            missionRealtimeService.publishMissionBinUpdated(saved, "MISSION_BIN_SKIPPED");
+            missionRealtimeService.publishMissionStatusChanged(saved.getMission());
 
             return saved;
         }
@@ -109,6 +114,8 @@ public class DriverScanService {
         updateTruckLoadAfterBinCollection(saved);
 
         syncMissionStatusAfterDriverAction(saved.getMission());
+        missionRealtimeService.publishMissionBinUpdated(saved, "MISSION_BIN_COLLECTED");
+        missionRealtimeService.publishMissionStatusChanged(saved.getMission());
 
         return saved;
     }

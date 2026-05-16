@@ -27,6 +27,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     private final UserRepository userRepository;
     private final SmartAlertService smartAlertService;
     private final DynamicReplanningService dynamicReplanningService;
+    private final MissionRealtimeService missionRealtimeService;
 
     public TruckIncidentServiceImpl(
             TruckIncidentRepository truckIncidentRepository,
@@ -34,7 +35,8 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
             MissionRepository missionRepository,
             UserRepository userRepository,
             SmartAlertService smartAlertService,
-            DynamicReplanningService dynamicReplanningService
+            DynamicReplanningService dynamicReplanningService,
+            MissionRealtimeService missionRealtimeService
     ) {
         this.truckIncidentRepository = truckIncidentRepository;
         this.truckRepository = truckRepository;
@@ -42,6 +44,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         this.userRepository = userRepository;
         this.smartAlertService = smartAlertService;
         this.dynamicReplanningService = dynamicReplanningService;
+        this.missionRealtimeService = missionRealtimeService;
     }
 
     @Override
@@ -83,6 +86,9 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         smartAlertService.createTruckIncidentAlert(saved);
 
         triggerAutomaticReplanIfNeeded(saved);
+        if (saved.getMission() != null && saved.getMission().getId() != null) {
+            missionRealtimeService.publishMissionAlertCreated(saved.getMission().getId(), null);
+        }
 
         return mapToResponse(saved);
     }

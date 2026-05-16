@@ -23,24 +23,66 @@
   border: 1px solid var(--border-color);
   box-shadow: var(--card-shadow);
 }
-
 .back {
+  height: 44px;
+  min-width: 108px;
+  padding: 0 18px;
+
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  color: var(--text-color);
+
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+
+  background: #ffffff;
+  color: #0f172a;
+
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+
   cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  position: static;
-  padding: 10px 14px;
-  border-radius: 12px;
-  transition: background 0.2s ease, color 0.2s ease;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .back:hover {
-  background: var(--soft-bg);
-  color: #10b981;
+  transform: translateY(-1px);
+  background: #f8fafc;
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.10);
+}
+
+.back:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.back:focus-visible {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+}
+body.dark-mode .back {
+  background: #111827;
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .back:hover {
+  background: #0f172a;
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
 }
 
 .brand {

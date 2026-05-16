@@ -18,6 +18,35 @@ export type TruckLocationMsg = {
   timestamp?: string;
 };
 
+export type MissionRealtimeEventType =
+  | 'MISSION_STATUS_CHANGED'
+  | 'MISSION_BIN_COLLECTED'
+  | 'MISSION_BIN_SKIPPED'
+  | 'MISSION_URGENT_BIN_INSERTED'
+  | 'MISSION_ALERT_CREATED'
+  | 'MISSION_ALERT_RESOLVED'
+  | 'MISSION_REPLANNED'
+  | 'MISSION_PARTIALLY_REASSIGNED'
+  | 'MISSION_COMPLETED'
+  | 'MISSION_CANCELLED';
+
+export interface MissionRealtimeEvent {
+  type: MissionRealtimeEventType;
+  missionId?: number | null;
+  missionBinId?: number | null;
+  binId?: number | null;
+  binCode?: string | null;
+  status?: string | null;
+  missionStatusDetail?: string | null;
+  alertId?: number | null;
+  oldMissionId?: number | null;
+  newMissionId?: number | null;
+  collectedCount?: number | null;
+  totalBins?: number | null;
+  message?: string | null;
+  timestamp?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
   private client?: Client;
@@ -25,8 +54,10 @@ export class RealtimeService {
 
   private trucksSubject = new BehaviorSubject<Map<string, TruckLocationMsg>>(new Map());
   trucks$ = this.trucksSubject.asObservable();
+  private missionEventsSubject = new BehaviorSubject<MissionRealtimeEvent | null>(null);
+  missionEvents$ = this.missionEventsSubject.asObservable();
 
-  constructor(private alertService: AlertService) {}
+  constructor(private alertService: AlertService) { }
 
   connectAll(): void {
     if (this.connected || this.client?.active) return;
@@ -39,7 +70,7 @@ export class RealtimeService {
       reconnectDelay: 3000,
       heartbeatIncoming: 0,
       heartbeatOutgoing: 20000,
-      debug: () => {},
+      debug: () => { },
     });
 
     this.client.onConnect = () => {
@@ -77,17 +108,27 @@ export class RealtimeService {
           console.error('Invalid alert resolved WS payload:', e, msg.body);
         }
       });
+
+      this.client?.subscribe('/topic/missions', (msg: IMessage) => {
+        try {
+          const event = JSON.parse(msg.body) as MissionRealtimeEvent;
+          this.missionEventsSubject.next(event);
+          console.log('[MISSION LIVE]', event);
+        } catch (e) {
+          console.error('Invalid mission WS payload:', e, msg.body);
+        }
+      });
     };
 
-   this.client.onWebSocketClose = (event) => {
-  this.connected = false;
-  console.error('[STOMP] websocket closed:', event);
-};
+    this.client.onWebSocketClose = (event) => {
+      this.connected = false;
+      console.error('[STOMP] websocket closed:', event);
+    };
 
-this.client.onWebSocketError = (event) => {
-  this.connected = false;
-  console.error('[STOMP] websocket error:', event);
-};
+    this.client.onWebSocketError = (event) => {
+      this.connected = false;
+      console.error('[STOMP] websocket error:', event);
+    };
 
     this.client.onStompError = (frame) => {
       console.error('STOMP error:', frame.headers['message'], frame.body);
@@ -103,7 +144,7 @@ this.client.onWebSocketError = (event) => {
   disconnect(): void {
     try {
       this.client?.deactivate();
-    } catch {}
+    } catch { }
     this.connected = false;
     this.client = undefined;
   }

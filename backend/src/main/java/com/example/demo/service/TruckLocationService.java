@@ -27,7 +27,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-
+import com.example.demo.entity.TruckIncident;
+import com.example.demo.repository.TruckIncidentRepository;
 @Service
 public class TruckLocationService {
 
@@ -39,6 +40,8 @@ public class TruckLocationService {
     private final MissionRepository missionRepository;
     private final MissionBinRepository missionBinRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TruckIncidentRepository truckIncidentRepository;
+    private final SmartAlertService smartAlertService;
 
     public TruckLocationService(
             TruckLocationRepository truckLocationRepository,
@@ -46,7 +49,9 @@ public class TruckLocationService {
             TruckRepository truckRepository,
             MissionRepository missionRepository,
             MissionBinRepository missionBinRepository,
-            SimpMessagingTemplate messagingTemplate
+            SimpMessagingTemplate messagingTemplate,
+            TruckIncidentRepository truckIncidentRepository,
+            SmartAlertService smartAlertService
     ) {
         this.truckLocationRepository = truckLocationRepository;
         this.driverRepository = driverRepository;
@@ -54,6 +59,8 @@ public class TruckLocationService {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
         this.messagingTemplate = messagingTemplate;
+        this.truckIncidentRepository = truckIncidentRepository;
+        this.smartAlertService = smartAlertService;
     }
 
     @Transactional
@@ -63,8 +70,7 @@ public class TruckLocationService {
         log.info("Truck location received: driverId={}, lat={}, lng={}, speed={}, heading={}",
                 in.driverId, in.lat, in.lng, in.speedKmh, in.headingDeg);
 
-        Driver driver = driverRepository.findById(in.driverId)
-                .orElseThrow(() -> new RuntimeException("Driver not found: " + in.driverId));
+        Driver driver = resolveDriverFromRequest(in.driverId);
 
         Truck truck = resolveActiveTruckByDriver(driver);
 
@@ -82,6 +88,7 @@ public class TruckLocationService {
         truck.setLastKnownLng(in.lng);
         truck.setLastStatusUpdate(OffsetDateTime.now(ZoneOffset.UTC));
         truckRepository.save(truck);
+        autoResolveGpsLostIncident(truck);
 
         TruckLocationResponse resp = TruckLocationResponse.of(
                 driver.getId(),
@@ -185,6 +192,19 @@ public class TruckLocationService {
         );
     }
 
+    
+    private Driver resolveDriverFromRequest(Long driverOrUserId) {
+        if (driverOrUserId == null) {
+            throw new RuntimeException("driverId is required");
+        }
+
+        // في app chauffeur، القيمة المبعوثة هي userId
+        return driverRepository.findByUserId(driverOrUserId)
+                .or(() -> driverRepository.findById(driverOrUserId))
+                .orElseThrow(() -> new RuntimeException(
+                        "Driver not found for userId/driverId: " + driverOrUserId
+                ));
+    }
     private Truck resolveActiveTruckByDriver(Driver driver) {
         return truckRepository.findByIsActiveTrue()
                 .stream()
@@ -266,6 +286,56 @@ public class TruckLocationService {
         return "Lat " + String.format("%.4f", lat) + ", Lng " + String.format("%.4f", lng);
     }
 
+    
+    private void autoResolveGpsLostIncident(Truck truck) {
+        if (truck == null || truck.getId() == null) {
+            return;
+        }
+
+        List<TruckIncident> gpsLostIncidents =
+                truckIncidentRepository.findByTruckAndIncidentTypeAndStatus(
+                        truck,
+                        TruckIncident.IncidentType.GPS_LOST,
+                        TruckIncident.IncidentStatus.OPEN
+                );
+
+        if (gpsLostIncidents == null || gpsLostIncidents.isEmpty()) {
+            return;
+        }
+
+        for (TruckIncident incident : gpsLostIncidents) {
+            incident.setStatus(TruckIncident.IncidentStatus.RESOLVED);
+            incident.setResolvedAt(OffsetDateTime.now());
+
+            TruckIncident saved = truckIncidentRepository.save(incident);
+
+            smartAlertService.resolveAlertsByIncident(saved.getId());
+
+            log.info(
+                    "GPS_LOST incident auto-resolved after receiving truck location: truckId={}, incidentId={}",
+                    truck.getId(),
+                    saved.getId()
+            );
+        }
+
+        boolean hasOtherOpenIncidents = truckIncidentRepository
+                .findByTruckAndStatus(truck, TruckIncident.IncidentStatus.OPEN)
+                .stream()
+                .anyMatch(i -> i.getIncidentType() != TruckIncident.IncidentType.GPS_LOST);
+
+        if (!hasOtherOpenIncidents) {
+            List<Mission> activeMissions = findActiveMissionsForTruck(truck);
+
+            if (!activeMissions.isEmpty()) {
+                truck.setStatus(Truck.TruckStatus.ON_MISSION);
+            } else {
+                truck.setStatus(Truck.TruckStatus.AVAILABLE);
+            }
+
+            truck.setLastStatusUpdate(OffsetDateTime.now());
+            truckRepository.save(truck);
+        }
+    }
     private void validateInput(TruckLocationRequest in) {
         if (in == null) {
             throw new RuntimeException("TruckLocationRequest is required");

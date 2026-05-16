@@ -9,7 +9,10 @@ import {
   TruckItem,
   MissionRouteResponse,
 } from '../../../../services/truck-dashboard.service';
-
+import {
+  DriverNotificationService,
+  DriverNotificationResponse
+} from '../../../../services/driver-notification.service';
 import {
   TruckIncident,
   TruckIncidentService,
@@ -73,12 +76,14 @@ export class TrucksComponent implements OnInit, OnDestroy {
   autoDetectionMessage = '';
   private alertSub = new Subscription();
   private refreshTimer: any;
-
+contactingIncidentId: number | null = null;
+notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {};
   constructor(
     private dashboardService: TruckDashboardService,
     private incidentService: TruckIncidentService,
     private replanService: RoutingReplanService,
-    private alertService: AlertService
+    private alertService: AlertService,
+    private driverNotificationService: DriverNotificationService
   ) { }
 
   ngOnInit(): void {
@@ -94,7 +99,7 @@ export class TrucksComponent implements OnInit, OnDestroy {
 
         const isFleetAlert =
           [
-            'TRUCK_FUEL_LOW',
+            
             'TRUCK_GPS_LOST',
             'TRUCK_OVERLOAD',
             'TRUCK_BREAKDOWN',
@@ -274,7 +279,10 @@ export class TrucksComponent implements OnInit, OnDestroy {
 
     this.incidentService.getOpenIncidents().subscribe({
       next: (data: TruckIncident[]) => {
-        this.openIncidents = data || [];
+        this.openIncidents = (data || []).filter(i =>
+  !['FUEL_LOW', 'OVERLOAD'].includes(i.incidentType)
+);
+        this.openIncidents.forEach(i => this.loadIncidentNotification(i));
         this.buildIncidentMap();
         this.loadingIncidents = false;
         this.updateKpis();
@@ -506,7 +514,7 @@ export class TrucksComponent implements OnInit, OnDestroy {
           const type = a.alertType ?? a.alert_type ?? '';
 
           return [
-            'TRUCK_FUEL_LOW',
+            
             'TRUCK_GPS_LOST',
             'TRUCK_OVERLOAD',
             'TRUCK_BREAKDOWN',
@@ -536,7 +544,7 @@ export class TrucksComponent implements OnInit, OnDestroy {
 
 
   hasAutomaticReplanInfo(incident: TruckIncident): boolean {
-    return !!incident.missionId && ['BREAKDOWN', 'FUEL_LOW', 'TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType);
+    return !!incident.missionId && ['BREAKDOWN', 'TRAFFIC_BLOCK', 'DELAY' ,'DRIVER_UNAVAILABLE'].includes(incident.incidentType);
   }
 
   getIncidentMissionLabel(incident: TruckIncident): string {
@@ -552,9 +560,7 @@ export class TrucksComponent implements OnInit, OnDestroy {
       return 'Replanification automatique lancée: les bacs restants sont transférés vers un camion disponible.';
     }
 
-    if (incident.incidentType === 'FUEL_LOW') {
-      return 'Incident carburant détecté: le système peut recalculer la tournée ou proposer un arrêt carburant.';
-    }
+   
 
     return 'Incident opérationnel détecté: la mission peut être adaptée dynamiquement.';
   }
@@ -563,5 +569,69 @@ shouldShowManualReplan(incident: TruckIncident): boolean {
   return !!incident.missionId &&
     ['BREAKDOWN', 'DRIVER_UNAVAILABLE', 'TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType) &&
     !this.replanningIncidentId;
+}
+
+
+contactDriver(incident: TruckIncident): void {
+  if (!incident?.id) return;
+
+  this.contactingIncidentId = incident.id;
+
+  const message = this.buildDriverContactMessage(incident);
+
+  this.driverNotificationService.contactDriver(incident.id, message).subscribe({
+    next: (notification) => {
+      this.contactingIncidentId = null;
+      this.notificationByIncident[incident.id] = notification;
+      this.autoDetectionMessage = `Notification envoyée au chauffeur du camion ${incident.truckCode}.`;
+    },
+    error: (err) => {
+      console.error('Contact driver error:', err);
+      this.contactingIncidentId = null;
+      alert('Impossible de contacter le chauffeur.');
+    }
+  });
+}
+
+loadIncidentNotification(incident: TruckIncident): void {
+  if (!incident?.id) return;
+
+  this.driverNotificationService.getLatestByIncident(incident.id).subscribe({
+    next: (notification) => {
+      if (notification) {
+        this.notificationByIncident[incident.id] = notification;
+      }
+    },
+    error: () => {}
+  });
+}
+
+getDriverResponseLabel(response?: string | null): string {
+  switch (response) {
+    case 'POSITION_CONFIRMED':
+      return 'Position confirmée';
+    case 'PROBLEM_RESOLVED':
+      return 'Problème résolu';
+    case 'NEED_ASSISTANCE':
+      return 'Besoin d’assistance';
+    default:
+      return 'En attente de réponse';
+  }
+}
+
+private buildDriverContactMessage(incident: TruckIncident): string {
+  switch (incident.incidentType) {
+    case 'GPS_LOST':
+      return 'Perte GPS détectée. Merci de vérifier votre connexion et confirmer votre position.';
+    
+     
+    case 'BREAKDOWN':
+      return 'Panne camion signalée. Merci de confirmer si vous avez besoin d’assistance.';
+    case 'TRAFFIC_BLOCK':
+    case 'DELAY':
+      return 'Retard ou blocage détecté. Merci de confirmer votre situation.';
+    default:
+      return 'Incident détecté. Merci de confirmer votre situation.';
+  }
 }
 }

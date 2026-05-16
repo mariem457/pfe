@@ -10,6 +10,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken } from "../../lib/storage";
 
 export default function ScanScreen() {
@@ -94,7 +95,10 @@ export default function ScanScreen() {
 
       Alert.alert(
         "Succès",
-        result?.message || `Poubelle ${result?.binCode || data} collectée avec succès`,
+        alertMessageFr(
+          result?.message,
+          `Poubelle ${result?.binCode || data} collectée avec succès`
+        ),
         [
           {
             text: "Continuer route",
@@ -116,7 +120,7 @@ export default function ScanScreen() {
         ]
       );
     } catch (err: any) {
-      Alert.alert("Erreur", err.message || "Une erreur est survenue", [
+      Alert.alert("Erreur", alertMessageFr(err.message, "Une erreur est survenue"), [
         {
           text: "Quitter",
           style: "cancel",

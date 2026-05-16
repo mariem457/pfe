@@ -13,8 +13,10 @@ import {
   useColorScheme,
 } from "react-native";
 import MapView, { Geojson, Marker } from "react-native-maps";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId, saveTruckId } from "../../lib/storage";
 import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
+import { formatWasteTypeFr } from "../../lib/wasteType";
 
 type DriverBin = {
   missionId?: number;
@@ -54,7 +56,7 @@ const paris15: any = {
   features: [],
 };
 
-const BASE_URL = "http://192.168.0.13:8081";
+const BASE_URL = "http://192.168.1.209:8081";
 
 function formatTruckLabel(value: string) {
   return value.replace(/^TRUCK/i, "CAMION");
@@ -445,7 +447,8 @@ export default function Dashboard() {
       console.log("START MISSION ERROR:", error);
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible de démarrer la mission."
+        alertMessageFr(error?.message, "Impossible de démarrer la mission."),
+        [{ text: "D'accord" }]
       );
     }
   }
@@ -803,7 +806,7 @@ export default function Dashboard() {
                     </Text>
 
                     <Text style={[styles.binAddress, { color: colors.subtext }]}>
-                      {bin.wasteType ? `Déchet: ${bin.wasteType}` : "Bac assigné"}
+                      {bin.wasteType ? `Déchet: ${formatWasteTypeFr(bin.wasteType)}` : "Bac assigné"}
                     </Text>
 
                     <View style={styles.binMetaRow}>

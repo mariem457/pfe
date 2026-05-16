@@ -20,6 +20,7 @@ import {
   useColorScheme,
 } from "react-native";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId } from "../../lib/storage";
 import { declareTruckIncident, getCurrentMissionId } from "../../lib/truckApi";
 
@@ -287,7 +288,7 @@ export default function DeclareBreakdownScreen() {
       console.log("Erreur déclaration problème:", error);
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible d'envoyer le signalement."
+        alertMessageFr(error?.message, "Impossible d'envoyer le signalement.")
       );
     } finally {
       setLoading(false);

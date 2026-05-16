@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken } from "../../lib/storage";
 
 type DriverNotificationType =
@@ -98,7 +99,7 @@ export default function NotificationsScreen() {
     } catch (error: any) {
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible de charger les notifications."
+        alertMessageFr(error?.message, "Impossible de charger les notifications.")
       );
     } finally {
       setLoading(false);

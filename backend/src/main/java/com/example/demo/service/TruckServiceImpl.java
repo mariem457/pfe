@@ -10,6 +10,7 @@ import com.example.demo.exception.ConflictException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.TruckRepository;
+import com.example.demo.repository.ZoneRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +24,14 @@ public class TruckServiceImpl implements TruckService {
 
     private final TruckRepository truckRepository;
     private final DriverRepository driverRepository;
+    private final ZoneRepository zoneRepository;
 
     public TruckServiceImpl(TruckRepository truckRepository,
-                            DriverRepository driverRepository) {
+                            DriverRepository driverRepository,
+                            ZoneRepository zoneRepository) {
         this.truckRepository = truckRepository;
         this.driverRepository = driverRepository;
+        this.zoneRepository = zoneRepository;
     }
 
     @Override
@@ -225,6 +229,16 @@ public class TruckServiceImpl implements TruckService {
                     .orElseThrow(() -> new ResourceNotFoundException("Assigned driver not found"));
             truck.setAssignedDriver(driver);
         }
+
+        if (request.getZoneId() != null) {
+            truck.setZone(zoneRepository.findById(request.getZoneId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found")));
+        } else if (request.getZoneName() != null && !request.getZoneName().isBlank()) {
+            truck.setZone(zoneRepository.findByShapeName(request.getZoneName())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found")));
+        } else {
+            truck.setZone(null);
+        }
     }
 
     private TruckResponseDto mapToResponse(Truck truck) {
@@ -252,6 +266,11 @@ public class TruckServiceImpl implements TruckService {
         if (truck.getAssignedDriver() != null) {
             dto.setAssignedDriverId(truck.getAssignedDriver().getId());
             dto.setAssignedDriverName(truck.getAssignedDriver().getFullName());
+        }
+
+        if (truck.getZone() != null) {
+            dto.setZoneId(truck.getZone().getId());
+            dto.setZoneName(truck.getZone().getShapeName());
         }
 
         return dto;

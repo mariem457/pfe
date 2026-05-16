@@ -21,6 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 import {
   getRememberedEmail,
   removeRememberedEmail,
@@ -157,7 +158,10 @@ export default function LoginScreen() {
 
       router.replace("/(tabs)/dashboard");
     } catch (error: any) {
-      Alert.alert("Échec de connexion", error?.message || "Impossible de se connecter.");
+      Alert.alert(
+        "Échec de connexion",
+        alertMessageFr(error?.message, "Impossible de se connecter.")
+      );
     } finally {
       setLoading(false);
     }

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { getToken, getUserId } from "../lib/storage";
+import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BASE_URL = "http://10.221.127.114:8081";
@@ -924,7 +925,7 @@ async function continueRoute() {
           const { status } = await Location.requestForegroundPermissionsAsync();
 
           if (status !== "granted") {
-            Alert.alert("Permission refusée", "Active la localisation GPS.");
+            Alert.alert("Permission refusée", "Activez la localisation GPS.");
             setLoading(false);
             return;
           }
@@ -1160,7 +1161,7 @@ async function continueRoute() {
           <Text style={styles.stopBadge}>STOP</Text>
           <Text style={styles.stopTitle}>Poubelle atteinte</Text>
           <Text style={styles.stopCode}>{targetBin.binCode ?? "Bac"}</Text>
-          <Text style={styles.stopSub}>Déchet: {targetBin.wasteType ?? "--"}</Text>
+          <Text style={styles.stopSub}>Déchet: {formatWasteTypeFr(targetBin.wasteType)}</Text>
 
           <TouchableOpacity style={styles.collectBtn} onPress={openScanner}>
             <Ionicons name="scan-outline" size={20} color="#FFFFFF" />

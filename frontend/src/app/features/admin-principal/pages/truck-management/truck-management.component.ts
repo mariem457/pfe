@@ -1,35 +1,44 @@
+import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { TruckRequest, TruckResponse, TruckService, TruckStatus, FuelType } from '../../../../../services/truck.service';
+import { FormsModule } from '@angular/forms';
+import { TruckRequest, TruckResponse, TruckService, TruckStatus, FuelType, ZoneResponse } from '../../../../services/truck.service';
 
 @Component({
   selector: 'app-truck-management',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './truck-management.component.html',
   styleUrls: ['./truck-management.component.css']
 })
 export class TruckManagementComponent implements OnInit {
   trucks: TruckResponse[] = [];
   filteredTrucks: TruckResponse[] = [];
+  zoneOptions: Array<Partial<ZoneResponse> & { name: string }> = [];
+  private readonly paris15ZoneNames = [
+    'Saint-Lambert',
+    'Necker',
+    'Grenelle',
+    'Javel'
+  ];
 
   loading = false;
+  saving = false;
   errorMessage = '';
   successMessage = '';
 
   searchTerm = '';
   selectedStatus = 'ALL';
-  selectedActive = 'ALL';
 
   showForm = false;
   editMode = false;
   selectedTruckId: number | null = null;
+  openedActionTruckId: number | null = null;
 
   statuses: TruckStatus[] = [
     'AVAILABLE',
-    'ON_MISSION',
     'BREAKDOWN',
-    'MAINTENANCE',
-    'REFUELING',
-    'UNAVAILABLE',
-    'OUT_OF_SERVICE'
+    'MAINTENANCE'
   ];
 
   fuelTypes: FuelType[] = ['DIESEL', 'ESSENCE', 'ELECTRIC', 'HYBRID'];
@@ -39,7 +48,21 @@ export class TruckManagementComponent implements OnInit {
   constructor(private truckService: TruckService) {}
 
   ngOnInit(): void {
+    this.zoneOptions = this.paris15ZoneNames.map((name) => ({ name }));
+    this.loadZones();
     this.loadTrucks();
+  }
+
+  loadZones(): void {
+    this.truckService.getZones().subscribe({
+      next: (zones) => {
+        this.zoneOptions = this.paris15ZoneNames
+          .map((name) => (zones || []).find((zone) => zone.name === name) || { name });
+      },
+      error: () => {
+        this.zoneOptions = this.paris15ZoneNames.map((name) => ({ name }));
+      }
+    });
   }
 
   loadTrucks(): void {
@@ -48,7 +71,7 @@ export class TruckManagementComponent implements OnInit {
 
     this.truckService.getAll().subscribe({
       next: (data) => {
-        this.trucks = data || [];
+        this.trucks = (data || []).filter((truck) => truck.isActive !== false);
         this.applyFilters();
         this.loading = false;
       },
@@ -73,8 +96,8 @@ export class TruckManagementComponent implements OnInit {
       maxBinCapacity: 20,
       currentLoadKg: 0,
       status: 'AVAILABLE',
-      lastKnownLat: undefined,
-      lastKnownLng: undefined,
+      zoneId: null,
+      zoneName: null,
       isActive: true,
       assignedDriverId: null
     };
@@ -89,6 +112,7 @@ export class TruckManagementComponent implements OnInit {
   }
 
   openEditForm(truck: TruckResponse): void {
+    this.closeActionMenu();
     this.showForm = true;
     this.editMode = true;
     this.selectedTruckId = truck.id;
@@ -106,8 +130,8 @@ export class TruckManagementComponent implements OnInit {
       maxBinCapacity: Number(truck.maxBinCapacity || 0),
       currentLoadKg: Number(truck.currentLoadKg || 0),
       status: truck.status || 'AVAILABLE',
-      lastKnownLat: truck.lastKnownLat,
-      lastKnownLng: truck.lastKnownLng,
+      zoneId: truck.zoneId || null,
+      zoneName: truck.zoneName || null,
       isActive: truck.isActive,
       assignedDriverId: truck.assignedDriverId || null
     };
@@ -120,39 +144,110 @@ export class TruckManagementComponent implements OnInit {
     this.editMode = false;
     this.selectedTruckId = null;
     this.form = this.getEmptyForm();
+    this.saving = false;
   }
 
   saveTruck(): void {
     this.clearMessages();
 
-    if (!this.form.truckCode || !this.form.fuelType) {
+    const payload = this.buildPayload();
+
+    if (!payload.truckCode || !payload.fuelType) {
       this.errorMessage = 'Code camion et type carburant sont obligatoires.';
       return;
     }
 
+    this.saving = true;
+
     if (this.editMode && this.selectedTruckId) {
-      this.truckService.update(this.selectedTruckId, this.form).subscribe({
+      this.truckService.update(this.selectedTruckId, payload).subscribe({
         next: () => {
           this.successMessage = 'Camion modifié avec succès.';
           this.closeForm();
           this.loadTrucks();
         },
-        error: () => {
-          this.errorMessage = 'Erreur lors de la modification du camion.';
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage = this.getBackendErrorMessage(error, 'Erreur lors de la modification du camion.');
+          this.saving = false;
         }
       });
     } else {
-      this.truckService.create(this.form).subscribe({
+      this.truckService.create(payload).subscribe({
         next: () => {
           this.successMessage = 'Camion ajouté avec succès.';
           this.closeForm();
           this.loadTrucks();
         },
-        error: () => {
-          this.errorMessage = 'Erreur lors de l’ajout du camion.';
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage = this.getBackendErrorMessage(error, 'Erreur lors de l ajout du camion.');
+          this.saving = false;
         }
       });
     }
+  }
+
+  private buildPayload(): TruckRequest {
+    return {
+      truckCode: this.cleanText(this.form.truckCode) || '',
+      plateNumber: this.cleanText(this.form.plateNumber),
+      model: this.cleanText(this.form.model),
+      brand: this.cleanText(this.form.brand),
+      fuelType: this.form.fuelType || 'DIESEL',
+      tankCapacityLiters: this.toNumberOrUndefined(this.form.tankCapacityLiters),
+      fuelLevelLiters: this.toNumberOrUndefined(this.form.fuelLevelLiters),
+      fuelConsumptionPerKm: this.toNumberOrUndefined(this.form.fuelConsumptionPerKm),
+      maxLoadKg: this.toNumberOrUndefined(this.form.maxLoadKg),
+      maxBinCapacity: this.toNumberOrUndefined(this.form.maxBinCapacity),
+      currentLoadKg: this.toNumberOrUndefined(this.form.currentLoadKg),
+      status: this.form.status || 'AVAILABLE',
+      zoneId: this.toNumberOrNull(this.form.zoneId),
+      zoneName: this.cleanText(this.form.zoneName),
+      isActive: this.form.isActive ?? true,
+      assignedDriverId: this.editMode ? this.toNumberOrNull(this.form.assignedDriverId) : null
+    };
+  }
+
+  private cleanText(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  private toNumberOrUndefined(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private toNumberOrNull(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private getBackendErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    if (typeof error.error === 'string' && error.error.trim()) {
+      return error.error;
+    }
+
+    if (error.error?.message) {
+      return error.error.message;
+    }
+
+    if (error.error?.errors) {
+      return Object.values(error.error.errors).join(' ');
+    }
+
+    return fallback;
   }
 
   changeStatus(truck: TruckResponse, status: TruckStatus): void {
@@ -182,6 +277,31 @@ export class TruckManagementComponent implements OnInit {
     });
   }
 
+  deleteTruck(truck: TruckResponse): void {
+    this.closeActionMenu();
+
+    const ok = confirm(`Supprimer le camion ${truck.truckCode} ?`);
+    if (!ok) return;
+
+    this.truckService.deactivate(truck.id).subscribe({
+      next: () => {
+        this.successMessage = 'Camion supprimÃ©.';
+        this.loadTrucks();
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de supprimer le camion.';
+      }
+    });
+  }
+
+  toggleActionMenu(truckId: number): void {
+    this.openedActionTruckId = this.openedActionTruckId === truckId ? null : truckId;
+  }
+
+  closeActionMenu(): void {
+    this.openedActionTruckId = null;
+  }
+
   applyFilters(): void {
     const term = this.searchTerm.toLowerCase().trim();
 
@@ -197,19 +317,13 @@ export class TruckManagementComponent implements OnInit {
       const matchesStatus =
         this.selectedStatus === 'ALL' || truck.status === this.selectedStatus;
 
-      const matchesActive =
-        this.selectedActive === 'ALL' ||
-        (this.selectedActive === 'ACTIVE' && truck.isActive) ||
-        (this.selectedActive === 'INACTIVE' && !truck.isActive);
-
-      return matchesSearch && matchesStatus && matchesActive;
+      return matchesSearch && matchesStatus;
     });
   }
 
   resetFilters(): void {
     this.searchTerm = '';
     this.selectedStatus = 'ALL';
-    this.selectedActive = 'ALL';
     this.applyFilters();
   }
 
@@ -228,8 +342,7 @@ export class TruckManagementComponent implements OnInit {
   get problemTrucks(): number {
     return this.trucks.filter(t =>
       t.status === 'BREAKDOWN' ||
-      t.status === 'MAINTENANCE' ||
-      t.status === 'OUT_OF_SERVICE'
+      t.status === 'MAINTENANCE'
     ).length;
   }
 

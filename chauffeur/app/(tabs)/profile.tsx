@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId, removeAuth } from "../../lib/storage";
 
 type DriverProfile = {
@@ -151,7 +152,7 @@ export default function ProfileScreen() {
       setNewPassword("");
       setConfirmPassword("");
 
-      Alert.alert("Succès", data?.message || "Mot de passe mis à jour.");
+      Alert.alert("Succès", alertMessageFr(data?.message, "Mot de passe mis à jour."));
     } catch (error) {
       console.log("Erreur update password:", error);
       Alert.alert("Erreur", "Une erreur est survenue.");

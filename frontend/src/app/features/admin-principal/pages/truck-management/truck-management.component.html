@@ -5,6 +5,16 @@
       <p>Ajouter, modifier, suivre et gérer les camions de collecte.</p>
     </div>
 
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        type="text"
+        placeholder="Rechercher un camion..."
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()"
+      />
+    </div>
+
     <button class="primary-btn" (click)="openCreateForm()">
       + Ajouter un camion
     </button>
@@ -20,45 +30,52 @@
 
   <div class="stats-grid">
     <div class="stat-card">
-      <span>Total camions</span>
-      <strong>{{ totalTrucks }}</strong>
+      <div class="stat-icon stat-total">
+        <span class="material-icons">local_shipping</span>
+      </div>
+      <div>
+        <p>Total camions</p>
+        <h2>{{ totalTrucks }}</h2>
+      </div>
     </div>
 
     <div class="stat-card">
-      <span>Disponibles</span>
-      <strong>{{ availableTrucks }}</strong>
+      <div class="stat-icon stat-available">
+        <span class="material-icons">check_circle</span>
+      </div>
+      <div>
+        <p>Disponibles</p>
+        <h2>{{ availableTrucks }}</h2>
+      </div>
     </div>
 
     <div class="stat-card">
-      <span>En mission</span>
-      <strong>{{ missionTrucks }}</strong>
+      <div class="stat-icon stat-mission">
+        <span class="material-icons">route</span>
+      </div>
+      <div>
+        <p>En mission</p>
+        <h2>{{ missionTrucks }}</h2>
+      </div>
     </div>
 
     <div class="stat-card">
-      <span>Panne / maintenance</span>
-      <strong>{{ problemTrucks }}</strong>
+      <div class="stat-icon stat-problem">
+        <span class="material-icons">build</span>
+      </div>
+      <div>
+        <p>Panne / maintenance</p>
+        <h2>{{ problemTrucks }}</h2>
+      </div>
     </div>
   </div>
 
   <div class="filters-card">
-    <input
-      type="text"
-      placeholder="Rechercher par code, matricule, marque, chauffeur..."
-      [(ngModel)]="searchTerm"
-      (input)="applyFilters()"
-    />
-
     <select [(ngModel)]="selectedStatus" (change)="applyFilters()">
       <option value="ALL">Tous les statuts</option>
       <option *ngFor="let status of statuses" [value]="status">
         {{ getStatusLabel(status) }}
       </option>
-    </select>
-
-    <select [(ngModel)]="selectedActive" (change)="applyFilters()">
-      <option value="ALL">Tous</option>
-      <option value="ACTIVE">Actifs</option>
-      <option value="INACTIVE">Inactifs</option>
     </select>
 
     <button class="secondary-btn" (click)="resetFilters()">Réinitialiser</button>
@@ -138,16 +155,16 @@
       </label>
 
       <label>
-        Latitude
-        <input type="number" step="0.000001" [(ngModel)]="form.lastKnownLat" />
+        Zone
+        <select [(ngModel)]="form.zoneName">
+          <option [ngValue]="null">Choisir une zone</option>
+          <option *ngFor="let zone of zoneOptions" [ngValue]="zone.name">
+            {{ zone.name }}
+          </option>
+        </select>
       </label>
 
-      <label>
-        Longitude
-        <input type="number" step="0.000001" [(ngModel)]="form.lastKnownLng" />
-      </label>
-
-      <label>
+      <label *ngIf="editMode">
         ID chauffeur affecté
         <input type="number" [(ngModel)]="form.assignedDriverId" />
       </label>
@@ -183,10 +200,8 @@
             <th>Code</th>
             <th>Matricule</th>
             <th>Marque / Modèle</th>
-            <th>Carburant</th>
             <th>Capacité</th>
             <th>Chauffeur</th>
-            <th>GPS</th>
             <th>Statut</th>
             <th>Actif</th>
             <th>Actions</th>
@@ -208,27 +223,11 @@
             </td>
 
             <td>
-              <div>{{ truck.fuelType }}</div>
-              <div class="fuel-bar">
-                <div [style.width.%]="getFuelPercent(truck)"></div>
-              </div>
-              <small>{{ getFuelPercent(truck) }}%</small>
-            </td>
-
-            <td>
               <div>{{ truck.maxLoadKg || 0 }} Kg</div>
               <small>{{ truck.maxBinCapacity || 0 }} bacs</small>
             </td>
 
             <td>{{ truck.assignedDriverName || 'Non assigné' }}</td>
-
-            <td>
-              <span *ngIf="truck.lastKnownLat && truck.lastKnownLng">
-                {{ truck.lastKnownLat | number:'1.4-4' }},
-                {{ truck.lastKnownLng | number:'1.4-4' }}
-              </span>
-              <span *ngIf="!truck.lastKnownLat || !truck.lastKnownLng">-</span>
-            </td>
 
             <td>
               <span [class]="getStatusClass(truck.status)">
@@ -243,26 +242,25 @@
 
             <td>
               <div class="actions">
-                <button (click)="openEditForm(truck)">Modifier</button>
-
-                <select
-                  [ngModel]="truck.status"
-                  (ngModelChange)="changeStatus(truck, $event)"
-                >
-                  <option *ngFor="let status of statuses" [value]="status">
-                    {{ getStatusLabel(status) }}
-                  </option>
-                </select>
-
-                <button class="danger" (click)="deactivateTruck(truck)">
-                  Désactiver
+                <button
+                  type="button"
+                  class="kebab-btn"
+                  title="Actions"
+                  (click)="toggleActionMenu(truck.id)">
+                  <span class="material-icons">more_vert</span>
                 </button>
+
+                <div class="action-menu" *ngIf="openedActionTruckId === truck.id">
+                  <button type="button" class="danger" (click)="deleteTruck(truck)">
+                    Supprimer
+                  </button>
+                </div>
               </div>
             </td>
           </tr>
 
           <tr *ngIf="filteredTrucks.length === 0">
-            <td colspan="10" class="empty">
+            <td colspan="8" class="empty">
               Aucun camion trouvé.
             </td>
           </tr>

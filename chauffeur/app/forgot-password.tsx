@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 
 export default function ForgotPasswordScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
@@ -86,17 +87,17 @@ export default function ForgotPasswordScreen() {
       } catch {}
 
       if (!response.ok) {
-        Alert.alert("Erreur", data?.message || "Impossible d’envoyer le code.");
+        Alert.alert("Erreur", alertMessageFr(data?.message, "Impossible d’envoyer le code."));
         return;
       }
 
       // ✅ هنا التعديل المهم
       Alert.alert(
         "Succès",
-        data?.message || "Code envoyé avec succès.",
+        alertMessageFr(data?.message, "Code envoyé avec succès."),
         [
           {
-            text: "OK",
+            text: "D'accord",
             onPress: () =>
               router.push({
                 pathname: "/verify-code", // 🔥 بدل reset-password

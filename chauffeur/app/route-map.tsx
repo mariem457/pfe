@@ -4,6 +4,7 @@ import { BlurView } from "expo-blur";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
+import { sendTruckLocation } from "../lib/truckApi";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,11 +18,12 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { getToken, getUserId } from "../lib/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.0.13:8081";
-const OSRM_URL = "http://192.168.0.13:5000";
+const BASE_URL = "http://10.221.127.114:8081";
+const OSRM_URL = "http://10.221.127.114:5000";
 
 const DEV_MODE_PARIS = true;
 const LAST_ROUTE_INDEX_KEY = "wise_last_route_index";
+const LAST_DRIVER_POINT_KEY = "wise_last_driver_point";
 
 type DriverBin = {
   missionBinId?: number;
@@ -149,8 +151,8 @@ function Arrow({
     maneuver === "slight-left"
       ? "-35deg"
       : maneuver === "slight-right"
-      ? "35deg"
-      : "0deg";
+        ? "35deg"
+        : "0deg";
 
   return (
     <View style={{ opacity, transform: [{ rotate }] }}>
@@ -325,6 +327,16 @@ export default function RouteMap() {
     isPausedRef.current = isRoutePaused || awaitingContinue;
   }, [isRoutePaused, awaitingContinue]);
 
+  useEffect(() => {
+    sendTruckLocation().catch(console.log);
+
+    const interval = setInterval(() => {
+      sendTruckLocation().catch(console.log);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   function speakText(text: string) {
     Speech.stop();
     Speech.speak(text, {
@@ -431,11 +443,11 @@ export default function RouteMap() {
 
       let validBins = Array.isArray(data)
         ? data.filter(
-            (b) =>
-              !b.collected &&
-              typeof b.lat === "number" &&
-              typeof b.lng === "number"
-          )
+          (b) =>
+            !b.collected &&
+            typeof b.lat === "number" &&
+            typeof b.lng === "number"
+        )
         : [];
 
       const doneId = params.collectedBinId || params.reportedBinId;
@@ -449,6 +461,12 @@ export default function RouteMap() {
       validBins.sort((a, b) => (a.visitOrder || 999) - (b.visitOrder || 999));
 
       setBins(validBins);
+
+      if (validBins.length === 0) {
+        await AsyncStorage.removeItem(LAST_ROUTE_INDEX_KEY);
+        await AsyncStorage.removeItem(LAST_DRIVER_POINT_KEY);
+      }
+
       return validBins;
     } catch (e) {
       console.log("loadBins error:", e);
@@ -495,8 +513,8 @@ export default function RouteMap() {
         data?.collectionRouteCoordinates?.length >= 2
           ? data.collectionRouteCoordinates
           : data?.routeCoordinates?.length >= 2
-          ? data.routeCoordinates
-          : [];
+            ? data.routeCoordinates
+            : [];
 
       const coords: Point[] = rawCoords
         .filter((p) => typeof p.lat === "number" && typeof p.lng === "number")
@@ -659,7 +677,7 @@ export default function RouteMap() {
         Math.atan2(
           Math.sin(dLng) * Math.cos(lat2),
           Math.cos(lat1) * Math.sin(lat2) -
-            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
+          Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
         )
       ) +
         360) %
@@ -677,8 +695,8 @@ export default function RouteMap() {
     const x =
       Math.sin(dLat / 2) ** 2 +
       Math.cos(toRad(a.latitude)) *
-        Math.cos(toRad(b.latitude)) *
-        Math.sin(dLng / 2) ** 2;
+      Math.cos(toRad(b.latitude)) *
+      Math.sin(dLng / 2) ** 2;
 
     return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
   }
@@ -699,44 +717,67 @@ export default function RouteMap() {
     });
   }
 
-  function findNearBin(point: Point, routeBins: DriverBin[], threshold = 45) {
-    for (const bin of routeBins) {
-      if (bin.collected) continue;
-      if (typeof bin.lat !== "number" || typeof bin.lng !== "number") continue;
+  function findNearBin(point: Point, routeBins: DriverBin[], threshold = 80) {
+    const remaining = routeBins
+      .filter(
+        (b) =>
+          !b.collected &&
+          typeof b.lat === "number" &&
+          typeof b.lng === "number"
+      )
+      .sort((a, b) => (a.visitOrder || 999) - (b.visitOrder || 999));
 
+    if (remaining.length === 0) return null;
+
+    // نشوف أقرب bac restant، موش شرط أول واحد فقط
+    let nearest: DriverBin | null = null;
+    let nearestDistance = Number.MAX_VALUE;
+
+    for (const bin of remaining) {
       const d = getDistanceMeters(point, {
-        latitude: bin.lat,
-        longitude: bin.lng,
+        latitude: Number(bin.lat),
+        longitude: Number(bin.lng),
       });
 
-      if (d <= threshold) return bin;
+      if (d < nearestDistance) {
+        nearestDistance = d;
+        nearest = bin;
+      }
+    }
+
+    if (nearest && nearestDistance <= threshold) {
+      return nearest;
     }
 
     return null;
   }
 
-  function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
-    setTargetBin(bin);
-    setIsRoutePaused(true);
-    isPausedRef.current = true;
+function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
+  setTargetBin(bin);
+  setIsRoutePaused(true);
+  isPausedRef.current = true;
 
-    if (demoTimerRef.current) {
-      clearInterval(demoTimerRef.current);
-      demoTimerRef.current = null;
-    }
-
-    setCurrentLocation(point);
-
-    mapRef.current?.animateCamera({
-      center: point,
-      zoom: 18,
-      heading: headingDeg,
-      pitch: 45,
-    });
-
-    speakText(`Poubelle atteinte ${bin.binCode ?? ""}. Choisissez une action.`);
+  if (demoTimerRef.current) {
+    clearInterval(demoTimerRef.current);
+    demoTimerRef.current = null;
   }
 
+  setCurrentLocation(point);
+
+  AsyncStorage.setItem(
+    LAST_DRIVER_POINT_KEY,
+    JSON.stringify(point)
+  );
+
+  mapRef.current?.animateCamera({
+    center: point,
+    zoom: 18,
+    heading: headingDeg,
+    pitch: 45,
+  });
+
+  speakText(`Poubelle atteinte ${bin.binCode ?? ""}. Choisissez une action.`);
+}
   function openScanner() {
     if (!targetBin) return;
 
@@ -745,6 +786,7 @@ export default function RouteMap() {
       params: {
         missionBinId: String(targetBin.missionBinId ?? ""),
         expectedBinCode: targetBin.binCode ?? "",
+        resumeIndex: String(routeIndexRef.current ?? 0),
       },
     });
   }
@@ -763,18 +805,23 @@ export default function RouteMap() {
     });
   }
 
-  function continueRoute() {
-    setAwaitingContinue(false);
-    setIsRoutePaused(false);
-    setTargetBin(null);
-    isPausedRef.current = false;
 
-    speakText("Reprise de l'itinéraire.");
 
-    if (DEV_MODE_PARIS && routeCoords.length >= 2) {
-      startParisDemoTrackingOnOptimizedRoute(routeCoords, bins);
-    }
+async function continueRoute() {
+  setAwaitingContinue(false);
+  setIsRoutePaused(false);
+  setTargetBin(null);
+  isPausedRef.current = false;
+
+  routeIndexRef.current = 0;
+  await AsyncStorage.setItem(LAST_ROUTE_INDEX_KEY, "0");
+
+  speakText("Reprise de l'itinéraire.");
+
+  if (DEV_MODE_PARIS && routeCoords.length >= 2) {
+    startParisDemoTrackingOnOptimizedRoute(routeCoords, bins);
   }
+}
 
   function trimRouteBehind(position: Point) {
     setRouteCoords((prev) => {
@@ -807,21 +854,17 @@ export default function RouteMap() {
 
     if (!path || path.length < 2) return;
 
-    let i = routeIndexRef.current || 0;
+    let i = Math.min(Math.max(routeIndexRef.current || 0, 0), path.length - 1);
 
-    const startIndex = currentLocation
-      ? Math.max(
-          0,
-          path.reduce((best, p, idx) => {
-            const bestDist = getDistanceMeters(currentLocation, path[best]);
-            const d = getDistanceMeters(currentLocation, p);
-            return d < bestDist ? idx : best;
-          }, 0)
-        )
-      : 0;
-
-    if (!routeIndexRef.current) {
-      i = startIndex;
+    if (currentLocation && i === 0) {
+      i = Math.max(
+        0,
+        path.reduce((best, p, idx) => {
+          const bestDist = getDistanceMeters(currentLocation, path[best]);
+          const d = getDistanceMeters(currentLocation, p);
+          return d < bestDist ? idx : best;
+        }, 0)
+      );
     }
 
     routeIndexRef.current = i;
@@ -829,11 +872,22 @@ export default function RouteMap() {
     demoTimerRef.current = setInterval(() => {
       if (isPausedRef.current) return;
 
-      const current = path[i % path.length];
-      const next = path[(i + 1) % path.length];
+      if (i >= path.length - 1) {
+        if (demoTimerRef.current) {
+          clearInterval(demoTimerRef.current);
+          demoTimerRef.current = null;
+        }
+
+        setRouteCoords([]);
+        speakText("Itinéraire terminé.");
+        return;
+      }
+
+      const current = path[i];
+      const next = path[i + 1];
       const headingDeg = calculateHeading(current, next);
 
-      const near = findNearBin(next, routeBins, 45);
+      const near = findNearBin(next, routeBins, 80);
       if (near) {
         stopRouteAtBin(near, next, headingDeg);
         return;
@@ -909,14 +963,42 @@ export default function RouteMap() {
           await loadNavStepsFromBins(start, syncedRouteBins);
         }
 
-        if (params.actionDone) {
-          setAwaitingContinue(true);
-          setIsRoutePaused(true);
-          isPausedRef.current = true;
-          speakText("Action terminée. Appuyez sur continuer route.");
-          return;
-        }
+       if (params.actionDone) {
+  const savedPoint = await AsyncStorage.getItem(LAST_DRIVER_POINT_KEY);
 
+  if (savedPoint) {
+    try {
+      const parsed = JSON.parse(savedPoint);
+
+      if (
+        typeof parsed?.latitude === "number" &&
+        typeof parsed?.longitude === "number"
+      ) {
+        start = {
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+        };
+
+        setCurrentLocation(start);
+      }
+    } catch {}
+  }
+
+  routeIndexRef.current = 0;
+  await AsyncStorage.setItem(LAST_ROUTE_INDEX_KEY, "0");
+
+  const remainingRoute = await loadFallbackOsrmRoute(start, syncedRouteBins);
+
+  if (remainingRoute.length >= 2) {
+    setRouteCoords(remainingRoute);
+  }
+
+  setAwaitingContinue(true);
+  setIsRoutePaused(true);
+  isPausedRef.current = true;
+  speakText("Action terminée. Appuyez sur continuer route.");
+  return;
+}
         if (DEV_MODE_PARIS && optimizedRoute.length >= 2) {
           const savedIndex = await AsyncStorage.getItem(LAST_ROUTE_INDEX_KEY);
 
@@ -959,7 +1041,7 @@ export default function RouteMap() {
                 longitude: location.coords.longitude,
               };
 
-              const near = findNearBin(newPosition, syncedRouteBins, 45);
+              const near = findNearBin(newPosition, syncedRouteBins, 80);
               if (near) {
                 stopRouteAtBin(
                   near,

@@ -137,7 +137,7 @@ def get_tomtom_matrix(locations):
         distances[origin_index][destination_index] = route_summary.get("lengthInMeters", 0)
         durations[origin_index][destination_index] = route_summary.get("travelTimeInSeconds", 0)
 
-    return distances, durations, "OSRM + TOMTOM_TRAFFIC"
+    return distances, durations, "TOMTOM_TRAFFIC"
 
 
 def call_tomtom_route(locations):

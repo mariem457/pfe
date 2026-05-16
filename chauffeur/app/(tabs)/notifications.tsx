@@ -11,6 +11,11 @@ import {
   View,
   useColorScheme,
 } from "react-native";
+import {
+  respondToDriverNotification,
+  markDriverNotificationAsRead,
+  DriverNotificationResponseType,
+} from "../../lib/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
@@ -20,7 +25,8 @@ type DriverNotificationType =
   | "MISSION_REASSIGNED"
   | "TRUCK_BREAKDOWN_HANDLED"
   | "SENSOR_BREAKDOWN_HANDLED"
-  | "DELAY_DETECTED";
+  | "DELAY_DETECTED"
+  | "INCIDENT_CONTACT";;
 
 type DriverNotification = {
   id: number;
@@ -29,6 +35,13 @@ type DriverNotification = {
   message: string;
   createdAt: string;
   read: boolean;
+  status?: "SENT" | "READ" | "RESPONDED";
+  response?: "POSITION_CONFIRMED" | "PROBLEM_RESOLVED" | "NEED_ASSISTANCE" | null;
+  incidentId?: number | null;
+  truckId?: number | null;
+  truckCode?: string | null;
+  missionId?: number | null;
+  respondedAt?: string | null;
 };
 
 export default function NotificationsScreen() {
@@ -41,35 +54,35 @@ export default function NotificationsScreen() {
 
   const colors = isDark
     ? {
-        container: "#0F172A",
-        card: "#1A232D",
-        text: "#F3F4F6",
-        subtext: "#94A3B8",
-        softText: "#CBD5E1",
-        whiteBtn: "#1A232D",
-        green: "#12905C",
-        redSoft: "#2B1620",
-        orangeSoft: "#3A2A12",
-        blueSoft: "#172554",
-        redText: "#FF6B6B",
-        orangeText: "#FBBF24",
-        blueText: "#60A5FA",
-      }
+      container: "#0F172A",
+      card: "#1A232D",
+      text: "#F3F4F6",
+      subtext: "#94A3B8",
+      softText: "#CBD5E1",
+      whiteBtn: "#1A232D",
+      green: "#12905C",
+      redSoft: "#2B1620",
+      orangeSoft: "#3A2A12",
+      blueSoft: "#172554",
+      redText: "#FF6B6B",
+      orangeText: "#FBBF24",
+      blueText: "#60A5FA",
+    }
     : {
-        container: "#F3F5F7",
-        card: "#FFFFFF",
-        text: "#102A43",
-        subtext: "#6B7C93",
-        softText: "#7C8DA6",
-        whiteBtn: "#FFFFFF",
-        green: "#12905C",
-        redSoft: "#FFF1F2",
-        orangeSoft: "#FFF7ED",
-        blueSoft: "#EEF4FF",
-        redText: "#FF4D4F",
-        orangeText: "#F59E0B",
-        blueText: "#3B82F6",
-      };
+      container: "#F3F5F7",
+      card: "#FFFFFF",
+      text: "#102A43",
+      subtext: "#6B7C93",
+      softText: "#7C8DA6",
+      whiteBtn: "#FFFFFF",
+      green: "#12905C",
+      redSoft: "#FFF1F2",
+      orangeSoft: "#FFF7ED",
+      blueSoft: "#EEF4FF",
+      redText: "#FF4D4F",
+      orangeText: "#F59E0B",
+      blueText: "#3B82F6",
+    };
 
   useEffect(() => {
     loadNotifications();
@@ -159,6 +172,13 @@ export default function NotificationsScreen() {
           bg: colors.redSoft,
           label: "Retard",
         };
+      case "INCIDENT_CONTACT":
+        return {
+          icon: "chatbubble-ellipses-outline" as const,
+          iconColor: colors.redText,
+          bg: colors.redSoft,
+          label: "Incident",
+        };
       default:
         return {
           icon: "notifications-outline" as const,
@@ -166,6 +186,32 @@ export default function NotificationsScreen() {
           bg: colors.blueSoft,
           label: "Notification",
         };
+    }
+  }
+  async function respondQuickly(
+    notificationId: number,
+    response: DriverNotificationResponseType
+  ) {
+    try {
+      await respondToDriverNotification(notificationId, response);
+      await loadNotifications();
+
+      Alert.alert("Réponse envoyée", "Votre réponse a été transmise à la municipalité.");
+    } catch (error: any) {
+      Alert.alert("Erreur", error?.message || "Impossible d’envoyer la réponse.");
+    }
+  }
+
+  function getResponseLabel(response?: string | null) {
+    switch (response) {
+      case "POSITION_CONFIRMED":
+        return "Position confirmée";
+      case "PROBLEM_RESOLVED":
+        return "Problème résolu";
+      case "NEED_ASSISTANCE":
+        return "Besoin d’assistance";
+      default:
+        return null;
     }
   }
 
@@ -240,6 +286,45 @@ export default function NotificationsScreen() {
                           {getTimeAgo(item.createdAt)}
                         </Text>
                       </View>
+                      {item.type === "INCIDENT_CONTACT" && item.status !== "RESPONDED" && (
+                        <View style={styles.quickActions}>
+                          <TouchableOpacity
+                            style={[styles.quickBtn, { backgroundColor: colors.blueSoft }]}
+                            onPress={() => respondQuickly(item.id, "POSITION_CONFIRMED")}
+                          >
+                            <Text style={[styles.quickBtnText, { color: colors.blueText }]}>
+                              Position confirmée
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.quickBtn, { backgroundColor: colors.green + "22" }]}
+                            onPress={() => respondQuickly(item.id, "PROBLEM_RESOLVED")}
+                          >
+                            <Text style={[styles.quickBtnText, { color: colors.green }]}>
+                              Problème résolu
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.quickBtn, { backgroundColor: colors.orangeSoft }]}
+                            onPress={() => respondQuickly(item.id, "NEED_ASSISTANCE")}
+                          >
+                            <Text style={[styles.quickBtnText, { color: colors.orangeText }]}>
+                              Besoin d’assistance
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {item.status === "RESPONDED" && (
+                        <View style={styles.responseBox}>
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          <Text style={styles.responseText}>
+                            Réponse envoyée : {getResponseLabel(item.response)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -339,5 +424,33 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     marginLeft: 10,
     marginTop: 6,
+  },
+    quickActions: {
+    marginTop: 10,
+    gap: 8,
+  },
+  quickBtn: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  quickBtnText: {
+    fontSize: 12,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  responseBox: {
+    marginTop: 10,
+    backgroundColor: "#ECFDF5",
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  responseText: {
+    color: "#047857",
+    fontSize: 12,
+    fontWeight: "800",
   },
 });

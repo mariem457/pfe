@@ -59,12 +59,16 @@ export class PublicReportsComponent implements OnInit {
   error = '';
 
   actingId: number | null = null;
+  qualifyModalOpen = false;
+  selectedReport: ReportItem | null = null;
+  qualificationText = '';
+  duplicateReportIdText = '';
 
   constructor(
     private publicReportService: PublicReportService,
     private mapFocusService: MapFocusService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadReports();
@@ -157,15 +161,15 @@ export class PublicReportsComponent implements OnInit {
   statusLabel(s: ReportStatus) {
     return s === 'PendingReview' ? 'En attente de validation'
       : s === 'Validated' ? 'Validé'
-      : s === 'Rejected' ? 'Rejeté'
-      : s === 'Assigned' ? 'Affecté'
-      : 'Résolu';
+        : s === 'Rejected' ? 'Rejeté'
+          : s === 'Assigned' ? 'Affecté'
+            : 'Résolu';
   }
 
   priorityLabel(p: Priority) {
     return p === 'High' ? 'Élevée'
       : p === 'Medium' ? 'Moyenne'
-      : 'Faible';
+        : 'Faible';
   }
 
   get stats() {
@@ -200,9 +204,9 @@ export class PublicReportsComponent implements OnInit {
   statusClass(s: ReportStatus) {
     return s === 'PendingReview' ? 'is-pending-review'
       : s === 'Validated' ? 'is-validated'
-      : s === 'Rejected' ? 'is-rejected'
-      : s === 'Assigned' ? 'is-assigned'
-      : 'is-resolved';
+        : s === 'Rejected' ? 'is-rejected'
+          : s === 'Assigned' ? 'is-assigned'
+            : 'is-resolved';
   }
 
   priorityClass(p: Priority) {
@@ -253,31 +257,58 @@ export class PublicReportsComponent implements OnInit {
     });
   }
 
-  qualify(r: ReportItem) {
-    const note = prompt(
-      `Qualification pour ${r.code}\n\nEx: possible doublon / infos insuffisantes / à surveiller`
-    );
+ qualify(r: ReportItem) {
+  this.selectedReport = r;
+  this.qualificationText = r.qualificationNote || '';
+  this.duplicateReportIdText = r.duplicateOfReportId ? String(r.duplicateOfReportId) : '';
+  this.qualifyModalOpen = true;
+}
 
-    if (note == null) return;
+closeQualifyModal() {
+  this.qualifyModalOpen = false;
+  this.selectedReport = null;
+  this.qualificationText = '';
+  this.duplicateReportIdText = '';
+}
 
-    const duplicateRaw = prompt(
-      `ID du signalement doublon (optionnel) pour ${r.code}\n\nLaissez vide si aucun`
-    );
+confirmQualification() {
+  if (!this.selectedReport) return;
 
-    const duplicateId =
-      duplicateRaw && duplicateRaw.trim() ? Number(duplicateRaw.trim()) : null;
+  const note = this.qualificationText.trim();
 
-    this.publicReportService.qualifyReport(r.id, note.trim(), duplicateId).subscribe({
+  if (!note) {
+    this.error = 'Veuillez saisir une note de qualification.';
+    return;
+  }
+
+  const duplicateId =
+    this.duplicateReportIdText.trim()
+      ? Number(this.duplicateReportIdText.trim())
+      : null;
+
+  if (duplicateId !== null && Number.isNaN(duplicateId)) {
+    this.error = 'L’identifiant du doublon doit être un nombre.';
+    return;
+  }
+
+  this.actingId = this.selectedReport.id;
+  this.error = '';
+
+  this.publicReportService
+    .qualifyReport(this.selectedReport.id, note, duplicateId)
+    .subscribe({
       next: () => {
-        alert('Qualification enregistrée.');
+        this.actingId = null;
+        this.closeQualifyModal();
         this.loadReports();
       },
       error: (err) => {
         console.error(err);
-        alert('Erreur lors de la qualification.');
+        this.actingId = null;
+        this.error = 'Erreur lors de la qualification.';
       }
     });
-  }
+}
 
   viewHistory(r: ReportItem) {
     this.publicReportService.getReportHistory(r.id).subscribe({

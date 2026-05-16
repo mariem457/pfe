@@ -23,20 +23,20 @@ public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionServ
     private static final int CURRENT_RUN_MANDATORY_THRESHOLD = 5;
     private static final int CURRENT_RUN_OPPORTUNISTIC_THRESHOLD = 8;
 
-    private final FuelManagementService fuelManagementService;
+   
     private final PostponedBinRepository postponedBinRepository;
     private final RoutingExecutionLogRepository routingExecutionLogRepository;
     private final RoutingFeedbackService routingFeedbackService;
     private final RoutingPayloadBuilderService routingPayloadBuilderService;
 
     public SmartRoutingDecisionServiceImpl(
-            FuelManagementService fuelManagementService,
+            
             PostponedBinRepository postponedBinRepository,
             RoutingExecutionLogRepository routingExecutionLogRepository,
             RoutingFeedbackService routingFeedbackService,
             RoutingPayloadBuilderService routingPayloadBuilderService
     ) {
-        this.fuelManagementService = fuelManagementService;
+       
         this.postponedBinRepository = postponedBinRepository;
         this.routingExecutionLogRepository = routingExecutionLogRepository;
         this.routingFeedbackService = routingFeedbackService;
@@ -51,16 +51,7 @@ public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionServ
             );
         }
 
-        long fuelCriticalCount = trucks.stream()
-                .filter(fuelManagementService::isFuelCritical)
-                .count();
-
-        if (fuelCriticalCount == trucks.size()) {
-            return RoutingDecision.refuelOnly(
-                    "Tous les camions disponibles sont en état critique de carburant. " +
-                    "Le système recommande une mission de ravitaillement avant toute optimisation."
-            );
-        }
+      
 
         Optional<RoutingExecutionLog> lastExecutionOpt =
                 routingExecutionLogRepository.findTop1ByOrderByCreatedAtDesc();

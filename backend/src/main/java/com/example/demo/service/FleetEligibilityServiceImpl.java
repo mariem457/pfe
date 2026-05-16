@@ -8,12 +8,6 @@ import java.math.BigDecimal;
 @Service
 public class FleetEligibilityServiceImpl implements FleetEligibilityService {
 
-    private final FuelManagementService fuelManagementService;
-
-    public FleetEligibilityServiceImpl(FuelManagementService fuelManagementService) {
-        this.fuelManagementService = fuelManagementService;
-    }
-
     @Override
     public boolean isTruckEligible(Truck truck, double requiredLoadKg, double estimatedDistanceKm) {
         if (truck == null) {
@@ -28,11 +22,7 @@ public class FleetEligibilityServiceImpl implements FleetEligibilityService {
             return false;
         }
 
-        if (!hasEnoughCapacity(truck, requiredLoadKg)) {
-            return false;
-        }
-
-        return hasEnoughFuel(truck, estimatedDistanceKm);
+        return hasEnoughCapacity(truck, requiredLoadKg);
     }
 
     @Override
@@ -56,24 +46,6 @@ public class FleetEligibilityServiceImpl implements FleetEligibilityService {
 
     @Override
     public boolean hasEnoughFuel(Truck truck, double estimatedDistanceKm) {
-        if (truck == null) {
-            return false;
-        }
-
-        if (fuelManagementService.isFuelCritical(truck)) {
-            return false;
-        }
-
-        double safeAutonomyKm = fuelManagementService.calculateEstimatedAutonomyKm(truck);
-
-        if (safeAutonomyKm <= 0) {
-            return false;
-        }
-
-        if (estimatedDistanceKm <= 0) {
-            return true;
-        }
-
-        return safeAutonomyKm >= estimatedDistanceKm;
+        return true;
     }
 }

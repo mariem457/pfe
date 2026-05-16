@@ -193,5 +193,51 @@
 
     </article>
   </div>
+<div class="it-modalBackdrop" *ngIf="qualifyModalOpen" (click)="closeQualifyModal()">
+  <div class="it-modal" (click)="$event.stopPropagation()">
 
+    <div class="it-modalHead">
+      <div>
+        <h2>Qualification du signalement</h2>
+        <p *ngIf="selectedReport">{{ selectedReport.code }}</p>
+      </div>
+
+      <button class="it-modalClose" type="button" (click)="closeQualifyModal()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="it-modalBody">
+      <label>Note de qualification</label>
+
+      <textarea
+        [(ngModel)]="qualificationText"
+        rows="4"
+        placeholder="Ex : possible doublon, informations insuffisantes, à surveiller...">
+      </textarea>
+
+      <label class="it-modalLabel2">ID du signalement doublon optionnel</label>
+
+      <input
+        class="it-modalInput"
+        [(ngModel)]="duplicateReportIdText"
+        placeholder="Laisser vide si aucun doublon" />
+    </div>
+
+    <div class="it-modalActions">
+      <button class="it-btn it-btn--ghost" type="button" (click)="closeQualifyModal()">
+        Annuler
+      </button>
+
+      <button
+        class="it-btn it-btn--green"
+        type="button"
+        (click)="confirmQualification()"
+        [disabled]="!qualificationText.trim() || actingId === selectedReport?.id">
+        {{ actingId === selectedReport?.id ? 'Enregistrement...' : 'Enregistrer' }}
+      </button>
+    </div>
+
+  </div>
+</div>
 </section>

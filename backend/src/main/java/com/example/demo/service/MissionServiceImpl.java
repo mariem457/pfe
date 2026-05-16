@@ -1,5 +1,6 @@
 package com.example.demo.service;
 import java.util.Objects;
+import com.example.demo.service.MissionRealtimeService;
 import java.time.OffsetDateTime;
 import com.example.demo.dto.MissionBinActionRequest;
 import com.example.demo.repository.TruckRepository;
@@ -63,6 +64,7 @@ public class MissionServiceImpl implements MissionService {
     private final BinTelemetryRepository binTelemetryRepository;
     private final BinPredictionRepository binPredictionRepository;
     private final BinTimePredictionRepository binTimePredictionRepository;
+    private final MissionRealtimeService missionRealtimeService;
 
     public MissionServiceImpl(
             MissionRepository missionRepository,
@@ -76,7 +78,8 @@ public class MissionServiceImpl implements MissionService {
             TruckRepository truckRepository,
             BinTelemetryRepository binTelemetryRepository,
             BinPredictionRepository binPredictionRepository,
-            BinTimePredictionRepository binTimePredictionRepository
+            BinTimePredictionRepository binTimePredictionRepository,
+            MissionRealtimeService missionRealtimeService
     ) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
@@ -90,6 +93,7 @@ public class MissionServiceImpl implements MissionService {
         this.binTelemetryRepository = binTelemetryRepository;
         this.binPredictionRepository = binPredictionRepository;
         this.binTimePredictionRepository = binTimePredictionRepository;
+        this.missionRealtimeService = missionRealtimeService;
     }
 
     @Override
@@ -114,6 +118,7 @@ public class MissionServiceImpl implements MissionService {
         }
 
         missionRepository.save(mission);
+        missionRealtimeService.publishMissionStatusChanged(mission);
 
         Truck truck = mission.getTruck();
 
@@ -160,6 +165,7 @@ public class MissionServiceImpl implements MissionService {
         }
 
         autoCompleteMissionAfterLastCollection(mission);
+       
 
         return mapMissionToResponse(mission);
     }
@@ -201,6 +207,7 @@ public class MissionServiceImpl implements MissionService {
         }
 
         missionBinRepository.save(missionBin);
+       
         Truck truck = mission.getTruck();
 
         if (truck != null) {
@@ -289,8 +296,11 @@ public class MissionServiceImpl implements MissionService {
             }
 
             missionRepository.save(mission);
+            missionRealtimeService.publishMissionStatusChanged(mission);
             autoInsertRefuelStopIfNeeded(mission);
         }
+
+        missionRealtimeService.publishMissionBinUpdated(missionBin, "MISSION_BIN_COLLECTED");
 
         return mapMissionToResponse(mission);
     }
@@ -311,6 +321,7 @@ public class MissionServiceImpl implements MissionService {
 
         mission.setCompletedAt(Instant.now());
         missionRepository.save(mission);
+        missionRealtimeService.publishMissionCompleted(mission);
 
         List<RoutePlan> plans = routePlanRepository.findByMissionOrderByCreatedAtDesc(mission);
 
@@ -379,6 +390,7 @@ public class MissionServiceImpl implements MissionService {
         }
 
         missionRepository.save(nextMission);
+        missionRealtimeService.publishMissionStatusChanged(nextMission);
 
         truck.setStatus(Truck.TruckStatus.ON_MISSION);
         truck.setLastStatusUpdate(OffsetDateTime.now());

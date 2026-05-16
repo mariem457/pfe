@@ -795,4 +795,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
       (a.alertType || '').toUpperCase() === 'MISSION_NOT_STARTED'
     );
   }
+  getZoneFallback(message?: string | null): string {
+  if (!message) {
+    return 'Paris 15e Arrondissement';
+  }
+
+  const text = message.toLowerCase();
+
+  if (text.includes('15e arrondissement') || text.includes('75015')) {
+    return 'Paris 15e Arrondissement';
+  }
+
+  if (text.includes('quartier de javel') || text.includes('javel')) {
+    return 'Quartier de Javel';
+  }
+
+  return 'Zone municipale';
+}
 }

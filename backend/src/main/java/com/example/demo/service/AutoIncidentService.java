@@ -58,9 +58,7 @@ public class AutoIncidentService {
         int created = 0;
 
         for (Truck truck : trucks) {
-            if (detectFuelLow(truck)) {
-                created++;
-            }
+           
 
             if (detectOverload(truck)) {
                 created++;

@@ -86,6 +86,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
     private final BinRepository binRepository;
     private final TruckLocationRepository truckLocationRepository;
     private final AlertRepository alertRepository;
+    private final MissionRealtimeService missionRealtimeService;
 
     public DynamicReplanningServiceImpl(MissionRepository missionRepository,
                                         MissionBinRepository missionBinRepository,
@@ -100,7 +101,8 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                                         PythonRoutingClient pythonRoutingClient,
                                         BinRepository binRepository,
                                         TruckLocationRepository truckLocationRepository,
-                                        AlertRepository alertRepository
+                                        AlertRepository alertRepository,
+                                        MissionRealtimeService missionRealtimeService
                                         
     		) {
         this.missionRepository = missionRepository;
@@ -117,6 +119,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         this.binRepository = binRepository;
         this.truckLocationRepository = truckLocationRepository;
         this.alertRepository = alertRepository;
+        this.missionRealtimeService = missionRealtimeService;
     }
 
     @Override
@@ -255,6 +258,14 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         missionRepository.save(mission);
 
         markOpenBinAlertsInsertedInMission(bin, mission);
+
+        missionRealtimeService.publishMissionReplanned(mission, null);
+        missionRealtimeService.publishMissionBinUpdated(
+                urgentMissionBin,
+                "MISSION_URGENT_BIN_INSERTED"
+        );
+
+       
 
         System.out.println(
                 "✅ URGENT BIN INSERTED INTO EXISTING MISSION => binId="
@@ -857,6 +868,12 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
         originalMission.setMissionStatusDetail(Mission.MissionStatusDetail.PARTIALLY_REASSIGNED);
         originalMission.setReplannedCount((originalMission.getReplannedCount() != null ? originalMission.getReplannedCount() : 0) + 1);
         missionRepository.save(originalMission);
+
+        Long newMissionId = replannedMissions.isEmpty()
+                ? null
+                : replannedMissions.get(0).getId();
+
+        missionRealtimeService.publishMissionPartiallyReassigned(originalMission, newMissionId);
 
         return replannedMissions;
 

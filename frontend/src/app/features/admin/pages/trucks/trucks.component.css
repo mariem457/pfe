@@ -1088,3 +1088,51 @@
   font-size: 11px;
   font-weight: 900;
 }
+.it-contactBtn {
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.it-contactBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.it-driverResponse {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.it-driverResponse .material-icons {
+  font-size: 19px;
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.it-driverResponse strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 950;
+  color: #1e3a8a;
+}
+
+.it-driverResponse p {
+  margin: 4px 0 0;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.45;
+}

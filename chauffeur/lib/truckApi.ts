@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import { getToken, getTruckId, getUserId } from "./storage";
 
-const BASE_URL = "http://192.168.0.13:8081";
+const BASE_URL = "http://10.221.127.114:8081";
 
 export async function sendTruckLocation() {
   const token = await getToken();

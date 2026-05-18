@@ -10,6 +10,7 @@ import com.example.demo.exception.ConflictException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.TruckRepository;
+import com.example.demo.repository.ZoneRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +24,16 @@ public class TruckServiceImpl implements TruckService {
 
     private final TruckRepository truckRepository;
     private final DriverRepository driverRepository;
+    private final ZoneRepository zoneRepository;
 
-    public TruckServiceImpl(TruckRepository truckRepository,
-                            DriverRepository driverRepository) {
+    public TruckServiceImpl(
+            TruckRepository truckRepository,
+            DriverRepository driverRepository,
+            ZoneRepository zoneRepository
+    ) {
         this.truckRepository = truckRepository;
         this.driverRepository = driverRepository;
+        this.zoneRepository = zoneRepository;
     }
 
     @Override
@@ -97,15 +103,19 @@ public class TruckServiceImpl implements TruckService {
         if (request.getStatus() != null) {
             truck.setStatus(request.getStatus());
         }
+
         if (request.getFuelLevelLiters() != null) {
             truck.setFuelLevelLiters(BigDecimal.valueOf(request.getFuelLevelLiters()));
         }
+
         if (request.getCurrentLoadKg() != null) {
             truck.setCurrentLoadKg(BigDecimal.valueOf(request.getCurrentLoadKg()));
         }
+
         if (request.getLastKnownLat() != null) {
             truck.setLastKnownLat(request.getLastKnownLat());
         }
+
         if (request.getLastKnownLng() != null) {
             truck.setLastKnownLng(request.getLastKnownLng());
         }
@@ -121,6 +131,7 @@ public class TruckServiceImpl implements TruckService {
     public TruckResponseDto getTruckById(Long truckId) {
         Truck truck = truckRepository.findById(truckId)
                 .orElseThrow(() -> new ResourceNotFoundException("Truck not found"));
+
         return mapToResponse(truck);
     }
 
@@ -141,9 +152,7 @@ public class TruckServiceImpl implements TruckService {
                 .map(this::mapToResponse)
                 .toList();
     }
-    
-    
-    
+
     @Override
     public TruckResponseDto unloadTruck(Long truckId) {
         Truck truck = truckRepository.findById(truckId)
@@ -177,45 +186,59 @@ public class TruckServiceImpl implements TruckService {
         if (request.getTruckCode() != null) {
             truck.setTruckCode(request.getTruckCode());
         }
+
         if (request.getPlateNumber() != null) {
             truck.setPlateNumber(request.getPlateNumber());
         }
+
         if (request.getModel() != null) {
             truck.setModel(request.getModel());
         }
+
         if (request.getBrand() != null) {
             truck.setBrand(request.getBrand());
         }
+
         if (request.getFuelType() != null) {
             truck.setFuelType(request.getFuelType());
         }
+
         if (request.getTankCapacityLiters() != null) {
             truck.setTankCapacityLiters(BigDecimal.valueOf(request.getTankCapacityLiters()));
         }
+
         if (request.getFuelLevelLiters() != null) {
             truck.setFuelLevelLiters(BigDecimal.valueOf(request.getFuelLevelLiters()));
         }
+
         if (request.getFuelConsumptionPerKm() != null) {
             truck.setFuelConsumptionPerKm(BigDecimal.valueOf(request.getFuelConsumptionPerKm()));
         }
+
         if (request.getMaxLoadKg() != null) {
             truck.setMaxLoadKg(BigDecimal.valueOf(request.getMaxLoadKg()));
         }
+
         if (request.getMaxBinCapacity() != null) {
             truck.setMaxBinCapacity(request.getMaxBinCapacity());
         }
+
         if (request.getCurrentLoadKg() != null) {
             truck.setCurrentLoadKg(BigDecimal.valueOf(request.getCurrentLoadKg()));
         }
+
         if (request.getStatus() != null) {
             truck.setStatus(request.getStatus());
         }
+
         if (request.getLastKnownLat() != null) {
             truck.setLastKnownLat(request.getLastKnownLat());
         }
+
         if (request.getLastKnownLng() != null) {
             truck.setLastKnownLng(request.getLastKnownLng());
         }
+
         if (request.getIsActive() != null) {
             truck.setIsActive(request.getIsActive());
         }
@@ -223,12 +246,24 @@ public class TruckServiceImpl implements TruckService {
         if (request.getAssignedDriverId() != null) {
             Driver driver = driverRepository.findById(request.getAssignedDriverId())
                     .orElseThrow(() -> new ResourceNotFoundException("Assigned driver not found"));
+
             truck.setAssignedDriver(driver);
+        }
+
+        if (request.getZoneId() != null) {
+            truck.setZone(zoneRepository.findById(request.getZoneId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found")));
+        } else if (request.getZoneName() != null && !request.getZoneName().isBlank()) {
+            truck.setZone(zoneRepository.findByShapeName(request.getZoneName())
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found")));
+        } else {
+            truck.setZone(null);
         }
     }
 
     private TruckResponseDto mapToResponse(Truck truck) {
         TruckResponseDto dto = new TruckResponseDto();
+
         dto.setId(truck.getId());
         dto.setTruckCode(truck.getTruckCode());
         dto.setPlateNumber(truck.getPlateNumber());
@@ -252,6 +287,11 @@ public class TruckServiceImpl implements TruckService {
         if (truck.getAssignedDriver() != null) {
             dto.setAssignedDriverId(truck.getAssignedDriver().getId());
             dto.setAssignedDriverName(truck.getAssignedDriver().getFullName());
+        }
+
+        if (truck.getZone() != null) {
+            dto.setZoneId(truck.getZone().getId());
+            dto.setZoneName(truck.getZone().getShapeName());
         }
 
         return dto;

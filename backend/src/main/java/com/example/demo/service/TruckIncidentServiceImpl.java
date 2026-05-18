@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.IncidentStatusUpdateDto;
 import com.example.demo.dto.TruckIncidentRequestDto;
 import com.example.demo.dto.TruckIncidentResponseDto;
+import com.example.demo.dto.routing.ReplanRequestDto;
 import com.example.demo.entity.Mission;
 import com.example.demo.entity.Truck;
 import com.example.demo.entity.TruckIncident;
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import com.example.demo.dto.routing.ReplanRequestDto;
+
 @Service
 @Transactional
 public class TruckIncidentServiceImpl implements TruckIncidentService {
@@ -49,9 +50,17 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
     @Override
     public TruckIncidentResponseDto createIncident(TruckIncidentRequestDto request) {
-        if (request.getTruckId() == null) throw new RuntimeException("Truck id is required");
-        if (request.getIncidentType() == null) throw new RuntimeException("Incident type is required");
-        if (request.getSeverity() == null) throw new RuntimeException("Severity is required");
+        if (request.getTruckId() == null) {
+            throw new RuntimeException("Truck id is required");
+        }
+
+        if (request.getIncidentType() == null) {
+            throw new RuntimeException("Incident type is required");
+        }
+
+        if (request.getSeverity() == null) {
+            throw new RuntimeException("Severity is required");
+        }
 
         Truck truck = truckRepository.findById(request.getTruckId())
                 .orElseThrow(() -> new RuntimeException("Truck not found"));
@@ -64,7 +73,11 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         incident.setLat(request.getLat());
         incident.setLng(request.getLng());
         incident.setAutoDetected(request.getAutoDetected() != null ? request.getAutoDetected() : false);
-        incident.setStatus(request.getStatus() != null ? request.getStatus() : TruckIncident.IncidentStatus.OPEN);
+
+        TruckIncident.IncidentStatus incidentStatus =
+                request.getStatus() != null ? request.getStatus() : TruckIncident.IncidentStatus.OPEN;
+
+        incident.setStatus(incidentStatus);
 
         if (request.getMissionId() != null) {
             Mission mission = missionRepository.findById(request.getMissionId())
@@ -78,14 +91,17 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
             incident.setReportedByUser(user);
         }
 
-        applyTruckStatusFromIncident(truck, incident.getIncidentType());
+        applyTruckStatusFromIncident(truck, incident.getIncidentType(), incidentStatus);
 
         TruckIncident saved = truckIncidentRepository.save(incident);
-        truckRepository.save(truck);
+        truckRepository.saveAndFlush(truck);
 
         smartAlertService.createTruckIncidentAlert(saved);
 
-        triggerAutomaticReplanIfNeeded(saved);
+        if (Boolean.TRUE.equals(saved.getAutoDetected())) {
+            triggerAutomaticReplanIfNeeded(saved);
+        }
+
         if (saved.getMission() != null && saved.getMission().getId() != null) {
             missionRealtimeService.publishMissionAlertCreated(saved.getMission().getId(), null);
         }
@@ -136,13 +152,17 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
     public TruckIncidentResponseDto getIncidentById(Long incidentId) {
         TruckIncident incident = truckIncidentRepository.findById(incidentId)
                 .orElseThrow(() -> new RuntimeException("Incident not found"));
+
         return mapToResponse(incident);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TruckIncidentResponseDto> getAllIncidents() {
-        return truckIncidentRepository.findAll().stream().map(this::mapToResponse).toList();
+        return truckIncidentRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Override
@@ -151,7 +171,10 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         Truck truck = truckRepository.findById(truckId)
                 .orElseThrow(() -> new RuntimeException("Truck not found"));
 
-        return truckIncidentRepository.findByTruck(truck).stream().map(this::mapToResponse).toList();
+        return truckIncidentRepository.findByTruck(truck)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Override
@@ -162,9 +185,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
                 .map(this::mapToResponse)
                 .toList();
     }
-    
-    
-    
+
     private void triggerAutomaticReplanIfNeeded(TruckIncident incident) {
         if (incident == null) {
             return;
@@ -234,7 +255,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
             );
         }
     }
-    
+
     private Mission resolveMissionForAutomaticReplan(TruckIncident incident) {
         if (incident == null || incident.getTruck() == null || incident.getTruck().getId() == null) {
             return null;
@@ -242,10 +263,6 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         Long incidentTruckId = incident.getTruck().getId();
 
-        /*
-         * First choice: use the mission sent by the chauffeur app,
-         * but only if it is really assigned to the same truck.
-         */
         if (incident.getMission() != null
                 && incident.getMission().getTruck() != null
                 && incident.getMission().getTruck().getId() != null
@@ -290,14 +307,29 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         };
     }
 
-    private void applyTruckStatusFromIncident(Truck truck, TruckIncident.IncidentType incidentType) {
+    private void applyTruckStatusFromIncident(
+            Truck truck,
+            TruckIncident.IncidentType incidentType,
+            TruckIncident.IncidentStatus incidentStatus
+    ) {
+        if (truck == null || incidentType == null) {
+            return;
+        }
+
+        if (incidentStatus == TruckIncident.IncidentStatus.RESOLVED
+                || incidentStatus == TruckIncident.IncidentStatus.CANCELLED) {
+            return;
+        }
+
         switch (incidentType) {
             case BREAKDOWN -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
             case FUEL_LOW -> truck.setStatus(Truck.TruckStatus.REFUELING);
+            case GPS_LOST -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
             case DRIVER_UNAVAILABLE, OVERLOAD -> truck.setStatus(Truck.TruckStatus.UNAVAILABLE);
             default -> {
             }
         }
+
         truck.setLastStatusUpdate(OffsetDateTime.now());
     }
 

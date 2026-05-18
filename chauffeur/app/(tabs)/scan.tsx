@@ -10,6 +10,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken } from "../../lib/storage";
 
 export default function ScanScreen() {
@@ -18,10 +19,14 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
 
-  const { expectedBinCode, missionBinId } = useLocalSearchParams<{
+  const { expectedBinCode, missionBinId, resumeIndex, isLastBin } = useLocalSearchParams<{
     expectedBinCode?: string;
     missionBinId?: string;
+    resumeIndex?: string;
+    isLastBin?: string;
   }>();
+
+  const isLastMissionBin = isLastBin === "1";
 
   useEffect(() => {
     if (!permission) {
@@ -49,7 +54,21 @@ export default function ScanScreen() {
             {
               text: "Quitter",
               style: "cancel",
-              onPress: () => router.replace("/(tabs)/dashboard"),
+              onPress: () => {
+                if (missionBinId) {
+                  router.replace({
+                    pathname: "/route-map",
+                    params: {
+                      invalidScan: "1",
+                      missionBinId,
+                      resumeIndex: resumeIndex ?? "0",
+                    },
+                  });
+                  return;
+                }
+
+                router.replace("/(tabs)/dashboard");
+              },
             },
             { text: "Rescanner", onPress: rescan },
           ]
@@ -94,10 +113,13 @@ export default function ScanScreen() {
 
       Alert.alert(
         "Succès",
-        result?.message || `Poubelle ${result?.binCode || data} collectée avec succès`,
+        alertMessageFr(
+          result?.message,
+          `Poubelle ${result?.binCode || data} collectée avec succès`
+        ),
         [
           {
-            text: "Continuer route",
+            text: isLastMissionBin ? "OK" : "Continuer route",
             onPress: () => {
               if (missionBinId) {
                 router.replace({
@@ -105,6 +127,7 @@ export default function ScanScreen() {
                   params: {
                     actionDone: "collect",
                     collectedBinId: missionBinId,
+                    missionComplete: isLastMissionBin ? "1" : "0",
                   },
                 });
                 return;
@@ -116,15 +139,28 @@ export default function ScanScreen() {
         ]
       );
     } catch (err: any) {
-      Alert.alert("Erreur", err.message || "Une erreur est survenue", [
+      Alert.alert("Erreur", alertMessageFr(err.message, "Une erreur est survenue"), [
         {
           text: "Quitter",
           style: "cancel",
-          onPress: () => router.replace("/(tabs)/dashboard"),
+          onPress: () => {
+            if (missionBinId) {
+              router.replace({
+                pathname: "/route-map",
+                params: {
+                  invalidScan: "1",
+                  missionBinId,
+                  resumeIndex: resumeIndex ?? "0",
+                },
+              });
+              return;
+            }
+
+            router.replace("/(tabs)/dashboard");
+          },
         },
         { text: "Rescanner", onPress: rescan },
       ]);
-      rescan();
     } finally {
       setLoading(false);
     }

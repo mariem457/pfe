@@ -19,6 +19,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 
 const CODE_LENGTH = 6;
 
@@ -30,7 +31,7 @@ export default function VerifyEmailScreen() {
     Array(CODE_LENGTH).fill("")
   );
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
 
   const colors = isDark
     ? {
@@ -133,14 +134,14 @@ export default function VerifyEmailScreen() {
       } catch {}
 
       if (!response.ok) {
-        Alert.alert("Erreur", data?.message || "Code incorrect.");
+        Alert.alert("Erreur", alertMessageFr(data?.message, "Code incorrect."));
         return;
       }
 
       Alert.alert(
         "Succès",
-        data?.message || raw || "E-mail vérifié avec succès.",
-        [{ text: "OK", onPress: () => router.replace("/login") }]
+        alertMessageFr(data?.message || raw, "E-mail vérifié avec succès."),
+        [{ text: "D'accord", onPress: () => router.replace("/login") }]
       );
     } catch {
       Alert.alert("Erreur", "Une erreur est survenue.");
@@ -165,11 +166,11 @@ export default function VerifyEmailScreen() {
       } catch {}
 
       if (!response.ok) {
-        Alert.alert("Erreur", data?.message || "Impossible de renvoyer le code.");
+        Alert.alert("Erreur", alertMessageFr(data?.message, "Impossible de renvoyer le code."));
         return;
       }
 
-      Alert.alert("Succès", data?.message || raw || "Code renvoyé avec succès.");
+      Alert.alert("Succès", alertMessageFr(data?.message || raw, "Code renvoyé avec succès."));
     } catch {
       Alert.alert("Erreur", "Une erreur est survenue.");
     }

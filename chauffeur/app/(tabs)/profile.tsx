@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId, removeAuth } from "../../lib/storage";
 
 type DriverProfile = {
@@ -31,6 +32,11 @@ type DriverProfile = {
   kmDriven?: number;
   routesDone?: number;
 };
+
+function formatTruckLabel(value?: string) {
+  if (!value) return "-";
+  return value.replace(/^TRUCK/i, "CAMION");
+}
 
 export default function ProfileScreen() {
   const isDark = useColorScheme() === "dark";
@@ -151,7 +157,7 @@ export default function ProfileScreen() {
       setNewPassword("");
       setConfirmPassword("");
 
-      Alert.alert("Succès", data?.message || "Mot de passe mis à jour.");
+      Alert.alert("Succès", alertMessageFr(data?.message, "Mot de passe mis à jour."));
     } catch (error) {
       console.log("Erreur update password:", error);
       Alert.alert("Erreur", "Une erreur est survenue.");
@@ -212,7 +218,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: theme.backButton }]}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/dashboard")}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -273,16 +279,7 @@ export default function ProfileScreen() {
             icon="bus-outline"
             iconColor="#64748B"
             label="Camion Assigné"
-            value={profile?.assignedTruck || "-"}
-          />
-
-          <InfoRow
-            theme={theme}
-            icon="calendar-outline"
-            iconColor="#10B981"
-            green
-            label="Horaire de travail"
-            value={profile?.shiftSchedule || "-"}
+            value={formatTruckLabel(profile?.assignedTruck)}
           />
         </View>
 

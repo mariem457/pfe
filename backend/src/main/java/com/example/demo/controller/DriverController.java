@@ -6,6 +6,7 @@ import com.example.demo.dto.CreateDriverResponse;
 import com.example.demo.dto.DriverBinDto;
 import com.example.demo.dto.DriverListResponse;
 import com.example.demo.dto.DriverProfileResponse;
+import com.example.demo.dto.DriverPushTokenRequest;
 import com.example.demo.entity.MissionBin;
 import com.example.demo.service.DriverScanService;
 import com.example.demo.service.DriverService;
@@ -97,5 +98,26 @@ public class DriverController {
                         "binCode", request.getBinCode()
                 )
         );
+    }
+
+    @PostMapping("/me/push-token")
+    public ResponseEntity<?> savePushToken(
+            @RequestBody DriverPushTokenRequest request,
+            Authentication authentication
+    ) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("success", false, "message", "Authentication required")
+            );
+        }
+
+        String usernameOrEmail = authentication.getName();
+
+        driverService.saveExpoPushTokenByUsernameOrEmail(
+                usernameOrEmail,
+                request != null ? request.getExpoPushToken() : null
+        );
+
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }

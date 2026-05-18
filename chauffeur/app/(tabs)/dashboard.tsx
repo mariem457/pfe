@@ -13,8 +13,16 @@ import {
   useColorScheme,
 } from "react-native";
 import MapView, { Geojson, Marker } from "react-native-maps";
+import { alertMessageFr } from "../../lib/alertMessages";
+import { BASE_URL } from "../../lib/api";
+import {
+  DriverNotification,
+  DriverNotificationType,
+  getDriverNotificationText,
+} from "../../lib/driverNotifications";
 import { getToken, getUserId, saveTruckId } from "../../lib/storage";
 import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
+import { formatWasteTypeFr } from "../../lib/wasteType";
 
 type DriverBin = {
   missionId?: number;
@@ -29,21 +37,6 @@ type DriverBin = {
   wasteType?: string;
 };
 
-type DriverNotificationType =
-  | "MISSION_REASSIGNED"
-  | "TRUCK_BREAKDOWN_HANDLED"
-  | "SENSOR_BREAKDOWN_HANDLED"
-  | "DELAY_DETECTED";
-
-type DriverNotification = {
-  id: number;
-  type: DriverNotificationType;
-  title: string;
-  message: string;
-  createdAt: string;
-  read: boolean;
-};
-
 type RouteStats = {
   totalDistanceKm: number | null;
   estimatedDurationMin: number | null;
@@ -53,8 +46,6 @@ const paris15: any = {
   type: "FeatureCollection",
   features: [],
 };
-
-const BASE_URL = "http://10.221.127.114:8081";
 
 function formatTruckLabel(value: string) {
   return value.replace(/^TRUCK/i, "CAMION");
@@ -222,6 +213,8 @@ export default function Dashboard() {
     switch (type) {
       case "MISSION_REASSIGNED":
         return "git-branch-outline" as const;
+      case "MISSION_CANCELLED":
+        return "close-circle-outline" as const;
       case "TRUCK_BREAKDOWN_HANDLED":
         return "construct-outline" as const;
       case "SENSOR_BREAKDOWN_HANDLED":
@@ -239,6 +232,11 @@ export default function Dashboard() {
         return {
           bg: colors.blueSoft,
           iconColor: "#3B82F6",
+        };
+      case "MISSION_CANCELLED":
+        return {
+          bg: colors.dangerSoft,
+          iconColor: colors.redText,
         };
       case "TRUCK_BREAKDOWN_HANDLED":
       case "SENSOR_BREAKDOWN_HANDLED":
@@ -269,7 +267,7 @@ export default function Dashboard() {
 
     toastTimerRef.current = setTimeout(() => {
       setToast(null);
-    }, 60000);
+    }, 6000);
   }
 
   const loadDriverNotifications = useCallback(
@@ -406,6 +404,7 @@ export default function Dashboard() {
   const totalDistanceText = loadingBins
     ? "--"
     : formatDistance(routeStats.totalDistanceKm);
+  const toastText = toast ? getDriverNotificationText(toast) : null;
 
   async function startCurrentMissionAndOpenRoute() {
     try {
@@ -445,7 +444,8 @@ export default function Dashboard() {
       console.log("START MISSION ERROR:", error);
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible de démarrer la mission."
+        alertMessageFr(error?.message, "Impossible de démarrer la mission."),
+        [{ text: "D'accord" }]
       );
     }
   }
@@ -511,10 +511,10 @@ export default function Dashboard() {
 
             <View style={styles.alertTextWrap}>
               <Text style={[styles.alertTitle, { color: colors.text }]}>
-                {toast.title}
+                {toastText?.title}
               </Text>
               <Text style={[styles.alertTime, { color: colors.subtext }]}>
-                {toast.message}
+                {toastText?.message}
               </Text>
             </View>
           </View>
@@ -803,7 +803,7 @@ export default function Dashboard() {
                     </Text>
 
                     <Text style={[styles.binAddress, { color: colors.subtext }]}>
-                      {bin.wasteType ? `Déchet: ${bin.wasteType}` : "Bac assigné"}
+                      {bin.wasteType ? `Déchet: ${formatWasteTypeFr(bin.wasteType)}` : "Bac assigné"}
                     </Text>
 
                     <View style={styles.binMetaRow}>

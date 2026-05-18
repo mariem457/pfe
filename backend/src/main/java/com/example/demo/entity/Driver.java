@@ -28,6 +28,9 @@ public class Driver {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "expo_push_token", length = 255)
+    private String expoPushToken;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -41,25 +44,67 @@ public class Driver {
         if (this.isActive == null) this.isActive = true;
     }
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public User getUser() {
+        return user;
+    }
 
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
+    public String getFullName() {
+        return fullName;
+    }
 
-    public String getVehicleCode() { return vehicleCode; }
-    public void setVehicleCode(String vehicleCode) { this.vehicleCode = vehicleCode; }
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
 
-    public Boolean getIsActive() { return isActive; }
-    public void setIsActive(Boolean active) { isActive = active; }
+    public String getPhone() {
+        return phone;
+    }
 
-    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
 
-    public Truck getTruck() { return truck; }
-    public void setTruck(Truck truck) { this.truck = truck; }
+    public String getVehicleCode() {
+        return vehicleCode;
+    }
+
+    public void setVehicleCode(String vehicleCode) {
+        this.vehicleCode = vehicleCode;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean active) {
+        isActive = active;
+    }
+
+    public String getExpoPushToken() {
+        return expoPushToken;
+    }
+
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public Truck getTruck() {
+        return truck;
+    }
+
+    public void setTruck(Truck truck) {
+        this.truck = truck;
+    }
 }

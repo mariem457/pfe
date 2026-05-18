@@ -35,7 +35,7 @@ export interface MissionBinResponse {
   visitOrder: number;
   targetFillThreshold: number | null;
   wasteType?: string | null;
-    fillLevel?: number | null;
+  fillLevel?: number | null;
   batteryLevel?: number | null;
   weightKg?: number | null;
   status?: string | null;
@@ -68,8 +68,6 @@ export interface MissionBinResponse {
   actualArrival: string | null;
   skippedReason: string | null;
 }
-
-
 
 export interface MissionReassignmentResponse {
   id: number;
@@ -160,7 +158,9 @@ export class MissionService {
     return this.http.post<MissionResponse>(`${this.apiUrl}/${id}/complete`, {});
   }
 
-  
+  cancelMission(id: number): Observable<MissionResponse> {
+    return this.http.post<MissionResponse>(`${this.apiUrl}/${id}/cancel`, {});
+  }
 
   collectMissionBin(
     missionId: number,
@@ -179,17 +179,15 @@ export class MissionService {
   }
 
   planAndSaveMissions(): Observable<MissionResponse[]> {
-  return this.http.post<MissionResponse[]>(
-    'http://localhost:8081/api/routing/plan-and-save',
-    {}
-  );
-}
+    return this.http.post<MissionResponse[]>(
+      'http://localhost:8081/api/routing/plan-and-save',
+      {}
+    );
+  }
 
-
-
-getMissionReassignments(missionId: number): Observable<MissionReassignmentResponse[]> {
-  return this.http.get<MissionReassignmentResponse[]>(
-    `http://localhost:8081/api/mission-reassignments/mission/${missionId}`
-  );
-}
+  getMissionReassignments(missionId: number): Observable<MissionReassignmentResponse[]> {
+    return this.http.get<MissionReassignmentResponse[]>(
+      `http://localhost:8081/api/mission-reassignments/mission/${missionId}`
+    );
+  }
 }

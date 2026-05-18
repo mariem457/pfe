@@ -14,6 +14,8 @@ public interface MissionService {
 
     MissionResponse completeMission(Long missionId);
 
+    MissionResponse cancelMission(Long missionId);
+
     MissionResponse collectMissionBin(Long missionId, Long missionBinId, MissionBinActionRequest request);
 
     List<MissionResponse> getAllMissions();
@@ -27,6 +29,4 @@ public interface MissionService {
     MissionFuelStatusResponse getMissionFuelStatus(Long missionId);
 
     MissionFuelStatusResponse insertRefuelStop(Long missionId);
-    
-    
 }

@@ -2,9 +2,18 @@ package com.example.demo.dto;
 
 public class BinScanRequest {
 
+    private Long missionBinId;
     private String binCode;
     private String driverNote;
     private String issueType;
+
+    public Long getMissionBinId() {
+        return missionBinId;
+    }
+
+    public void setMissionBinId(Long missionBinId) {
+        this.missionBinId = missionBinId;
+    }
 
     public String getBinCode() {
         return binCode;

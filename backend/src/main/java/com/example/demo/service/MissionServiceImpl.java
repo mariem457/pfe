@@ -65,6 +65,7 @@ public class MissionServiceImpl implements MissionService {
     private final BinPredictionRepository binPredictionRepository;
     private final BinTimePredictionRepository binTimePredictionRepository;
     private final MissionRealtimeService missionRealtimeService;
+    private final DriverNotificationService driverNotificationService;
 
     public MissionServiceImpl(
             MissionRepository missionRepository,
@@ -79,7 +80,8 @@ public class MissionServiceImpl implements MissionService {
             BinTelemetryRepository binTelemetryRepository,
             BinPredictionRepository binPredictionRepository,
             BinTimePredictionRepository binTimePredictionRepository,
-            MissionRealtimeService missionRealtimeService
+            MissionRealtimeService missionRealtimeService,
+            DriverNotificationService driverNotificationService
     ) {
         this.missionRepository = missionRepository;
         this.missionBinRepository = missionBinRepository;
@@ -94,6 +96,7 @@ public class MissionServiceImpl implements MissionService {
         this.binPredictionRepository = binPredictionRepository;
         this.binTimePredictionRepository = binTimePredictionRepository;
         this.missionRealtimeService = missionRealtimeService;
+        this.driverNotificationService = driverNotificationService;
     }
 
     @Override
@@ -168,6 +171,69 @@ public class MissionServiceImpl implements MissionService {
        
 
         return mapMissionToResponse(mission);
+    }
+
+    @Override
+    @Transactional
+    public MissionResponse cancelMission(Long missionId) {
+        Mission mission = missionRepository.findById(missionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mission not found: " + missionId));
+
+        if ("COMPLETED".equalsIgnoreCase(mission.getStatus())) {
+            throw new BadRequestException("Cannot cancel a completed mission");
+        }
+
+        if ("CANCELLED".equalsIgnoreCase(mission.getStatus())) {
+            return mapMissionToResponse(mission);
+        }
+
+        mission.setStatus("CANCELLED");
+        mission.setMissionStatusDetail(Mission.MissionStatusDetail.CANCELLED);
+        Mission savedMission = missionRepository.save(mission);
+
+        List<MissionBin> missionBins = missionBinRepository.findByMissionOrderByVisitOrderAsc(savedMission);
+        for (MissionBin missionBin : missionBins) {
+            if (!missionBin.isCollected()) {
+                missionBin.setAssignmentStatus(AssignmentStatus.CANCELLED);
+                missionBin.setSkippedReason("MISSION_CANCELLED");
+            }
+        }
+        missionBinRepository.saveAll(missionBins);
+
+        List<RoutePlan> routePlans = routePlanRepository.findByMission(savedMission);
+        for (RoutePlan routePlan : routePlans) {
+            routePlan.setPlanStatus(RoutePlan.PlanStatus.CANCELLED);
+
+            List<RouteStop> stops = routeStopRepository.findByRoutePlanOrderByStopOrderAsc(routePlan);
+            for (RouteStop stop : stops) {
+                if (stop.getStatus() == RouteStop.StopStatus.PLANNED) {
+                    stop.setStatus(RouteStop.StopStatus.CANCELLED);
+                }
+            }
+            routeStopRepository.saveAll(stops);
+        }
+        routePlanRepository.saveAll(routePlans);
+
+        Truck truck = savedMission.getTruck();
+        if (truck != null && !hasAnotherRunningMission(truck, savedMission.getId())) {
+            truck.setStatus(Truck.TruckStatus.AVAILABLE);
+            truck.setCurrentLoadKg(BigDecimal.ZERO);
+            truck.setLastStatusUpdate(OffsetDateTime.now());
+            truckRepository.save(truck);
+        }
+
+        missionRealtimeService.publishMissionCancelled(savedMission);
+
+        if (savedMission.getDriver() != null) {
+            driverNotificationService.createMissionNotification(
+                    savedMission,
+                    "MISSION_CANCELLED",
+                    "Mission annulee",
+                    "Votre mission a ete annulee. Le tableau de bord a ete mis a jour."
+            );
+        }
+
+        return mapMissionToResponse(savedMission);
     }
 
     @Override
@@ -351,6 +417,16 @@ public class MissionServiceImpl implements MissionService {
         if (ENABLE_AUTO_MISSION_CHAINING && truck != null) {
             tryStartNextMissionForSameTruck(mission, truck);
         }
+    }
+
+    private boolean hasAnotherRunningMission(Truck truck, Long excludedMissionId) {
+        if (truck == null) {
+            return false;
+        }
+
+        return missionRepository.findByTruckAndStatusIn(truck, List.of("IN_PROGRESS"))
+                .stream()
+                .anyMatch(mission -> mission.getId() != null && !mission.getId().equals(excludedMissionId));
     }
     
     

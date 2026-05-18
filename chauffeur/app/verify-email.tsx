@@ -31,7 +31,7 @@ export default function VerifyEmailScreen() {
     Array(CODE_LENGTH).fill("")
   );
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
 
   const colors = isDark
     ? {

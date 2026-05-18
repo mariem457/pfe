@@ -98,6 +98,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/drivers/*/profile").authenticated()
                         .requestMatchers("/api/drivers/*/my-bins").hasAnyRole("DRIVER", "ADMIN")
                         .requestMatchers("/api/drivers/me/truck").hasAnyRole("DRIVER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/drivers/me/push-token").hasRole("DRIVER")
                         .requestMatchers(HttpMethod.POST, "/api/drivers/bin-scan").hasRole("DRIVER")
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "MUNICIPALITY")
 

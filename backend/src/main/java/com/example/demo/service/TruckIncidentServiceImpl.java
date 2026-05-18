@@ -87,7 +87,9 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         smartAlertService.createTruckIncidentAlert(saved);
 
-        triggerAutomaticReplanIfNeeded(saved);
+        if (Boolean.TRUE.equals(saved.getAutoDetected())) {
+            triggerAutomaticReplanIfNeeded(saved);
+        }
         if (saved.getMission() != null && saved.getMission().getId() != null) {
             missionRealtimeService.publishMissionAlertCreated(saved.getMission().getId(), null);
         }

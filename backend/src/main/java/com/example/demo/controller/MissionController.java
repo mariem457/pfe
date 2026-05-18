@@ -60,6 +60,11 @@ public class MissionController {
     public ResponseEntity<MissionResponse> completeMission(@PathVariable Long missionId) {
         return ResponseEntity.ok(missionService.completeMission(missionId));
     }
+
+    @PostMapping("/{missionId}/cancel")
+    public ResponseEntity<MissionResponse> cancelMission(@PathVariable Long missionId) {
+        return ResponseEntity.ok(missionService.cancelMission(missionId));
+    }
     
     
   

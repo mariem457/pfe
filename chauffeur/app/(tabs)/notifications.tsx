@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,30 +20,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BASE_URL } from "../../lib/api";
 import { alertMessageFr } from "../../lib/alertMessages";
+import {
+  DriverNotification,
+  DriverNotificationType,
+  getDriverNotificationText,
+} from "../../lib/driverNotifications";
 import { getToken } from "../../lib/storage";
-
-type DriverNotificationType =
-  | "MISSION_REASSIGNED"
-  | "TRUCK_BREAKDOWN_HANDLED"
-  | "SENSOR_BREAKDOWN_HANDLED"
-  | "DELAY_DETECTED"
-  | "INCIDENT_CONTACT";;
-
-type DriverNotification = {
-  id: number;
-  type: DriverNotificationType;
-  title: string;
-  message: string;
-  createdAt: string;
-  read: boolean;
-  status?: "SENT" | "READ" | "RESPONDED";
-  response?: "POSITION_CONFIRMED" | "PROBLEM_RESOLVED" | "NEED_ASSISTANCE" | null;
-  incidentId?: number | null;
-  truckId?: number | null;
-  truckCode?: string | null;
-  missionId?: number | null;
-  respondedAt?: string | null;
-};
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<DriverNotification[]>([]);
@@ -89,6 +71,19 @@ export default function NotificationsScreen() {
     loadNotifications();
   }, []);
 
+  function isGpsLostNotification(item: DriverNotification) {
+    const text = `${item.type} ${item.title} ${item.message}`.toUpperCase();
+    return text.includes("GPS_LOST") || text.includes("GPS-LOST");
+  }
+
+  function shouldShowGreenDot(item: DriverNotification) {
+    if (isGpsLostNotification(item)) {
+      return item.status !== "RESPONDED";
+    }
+
+    return !item.read;
+  }
+
   async function loadNotifications() {
     try {
       setLoading(true);
@@ -122,6 +117,14 @@ export default function NotificationsScreen() {
   async function onRefresh() {
     try {
       setRefreshing(true);
+      const markable = notifications.filter(
+        (item) => !item.read && !isGpsLostNotification(item)
+      );
+
+      await Promise.all(
+        markable.map((item) => markDriverNotificationAsRead(item.id))
+      );
+
       await loadNotifications();
     } finally {
       setRefreshing(false);
@@ -137,7 +140,7 @@ export default function NotificationsScreen() {
     const hours = Math.floor(diffMs / 3600000);
     const days = Math.floor(diffMs / 86400000);
 
-    if (minutes < 1) return "À l’instant";
+    if (minutes < 1) return "À l'instant";
     if (minutes < 60) return `Il y a ${minutes} min`;
     if (hours < 24) return `Il y a ${hours} h`;
     return `Il y a ${days} j`;
@@ -150,6 +153,13 @@ export default function NotificationsScreen() {
           icon: "git-branch-outline" as const,
           iconColor: colors.blueText,
           bg: colors.blueSoft,
+          label: "Mission",
+        };
+      case "MISSION_CANCELLED":
+        return {
+          icon: "close-circle-outline" as const,
+          iconColor: colors.redText,
+          bg: colors.redSoft,
           label: "Mission",
         };
       case "TRUCK_BREAKDOWN_HANDLED":
@@ -199,7 +209,7 @@ export default function NotificationsScreen() {
 
       Alert.alert("Réponse envoyée", "Votre réponse a été transmise à la municipalité.");
     } catch (error: any) {
-      Alert.alert("Erreur", error?.message || "Impossible d’envoyer la réponse.");
+      Alert.alert("Erreur", error?.message || "Impossible d'envoyer la réponse.");
     }
   }
 
@@ -210,7 +220,7 @@ export default function NotificationsScreen() {
       case "PROBLEM_RESOLVED":
         return "Problème résolu";
       case "NEED_ASSISTANCE":
-        return "Besoin d’assistance";
+        return "Besoin d'assistance";
       default:
         return null;
     }
@@ -221,7 +231,7 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backButton, { backgroundColor: colors.whiteBtn }]}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)/dashboard")}
           activeOpacity={0.8}
         >
           <Ionicons name="arrow-back" size={20} color={colors.text} />
@@ -258,6 +268,7 @@ export default function NotificationsScreen() {
           ) : (
             notifications.map((item) => {
               const ui = getNotificationUI(item.type);
+              const text = getDriverNotificationText(item);
 
               return (
                 <View key={item.id} style={[styles.card, { backgroundColor: colors.card }]}>
@@ -268,10 +279,10 @@ export default function NotificationsScreen() {
 
                     <View style={styles.textWrap}>
                       <Text style={[styles.title, { color: colors.text }]}>
-                        {item.title}
+                        {text.title}
                       </Text>
                       <Text style={[styles.desc, { color: colors.subtext }]}>
-                        {item.message}
+                        {text.message}
                       </Text>
 
                       <View style={styles.metaRow}>
@@ -287,7 +298,8 @@ export default function NotificationsScreen() {
                           {getTimeAgo(item.createdAt)}
                         </Text>
                       </View>
-                      {item.type === "INCIDENT_CONTACT" && item.status !== "RESPONDED" && (
+                      {(item.type === "INCIDENT_CONTACT" || isGpsLostNotification(item)) &&
+                        item.status !== "RESPONDED" && (
                         <View style={styles.quickActions}>
                           <TouchableOpacity
                             style={[styles.quickBtn, { backgroundColor: colors.blueSoft }]}
@@ -312,7 +324,7 @@ export default function NotificationsScreen() {
                             onPress={() => respondQuickly(item.id, "NEED_ASSISTANCE")}
                           >
                             <Text style={[styles.quickBtnText, { color: colors.orangeText }]}>
-                              Besoin d’assistance
+                              Besoin d'assistance
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -329,7 +341,7 @@ export default function NotificationsScreen() {
                     </View>
                   </View>
 
-                  {!item.read && (
+                  {shouldShowGreenDot(item) && (
                     <View style={[styles.greenDot, { backgroundColor: colors.green }]} />
                   )}
                 </View>
@@ -455,3 +467,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 });
+

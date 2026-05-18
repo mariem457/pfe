@@ -1,7 +1,27 @@
-import * as Location from "expo-location";
+﻿import * as Location from "expo-location";
+import { BASE_URL } from "./api";
 import { getToken, getTruckId, getUserId } from "./storage";
 
-const BASE_URL = "http://192.168.1.209:8081";
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 10000
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error("Le serveur ne répond pas. Vérifiez la connexion.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function sendTruckLocation() {
   const token = await getToken();
@@ -44,7 +64,7 @@ export async function getCurrentMissionId(): Promise<number | null> {
 
   if (!token || !userId) return null;
 
-  const response = await fetch(`${BASE_URL}/api/drivers/${userId}/my-bins`, {
+  const response = await fetchWithTimeout(`${BASE_URL}/api/drivers/${userId}/my-bins`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -81,25 +101,29 @@ export async function declareTruckIncident(params: {
     throw new Error("Session invalide ou camion non trouvé");
   }
 
-  const response = await fetch(`${BASE_URL}/api/truck-incidents`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/api/truck-incidents`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        truckId,
+        missionId: params.missionId ?? null,
+        incidentType: params.incidentType,
+        severity: params.incidentType === "BREAKDOWN" ? "CRITICAL" : "HIGH",
+        description: params.description,
+        status: "OPEN",
+        reportedByUserId: userId,
+        autoDetected: false,
+        lat: params.lat,
+        lng: params.lng,
+      }),
     },
-    body: JSON.stringify({
-      truckId,
-      missionId: params.missionId ?? null,
-      incidentType: params.incidentType,
-      severity: params.incidentType === "BREAKDOWN" ? "CRITICAL" : "HIGH",
-      description: params.description,
-      status: "OPEN",
-      reportedByUserId: userId,
-      autoDetected: false,
-      lat: params.lat,
-      lng: params.lng,
-    }),
-  });
+    30000
+  );
 
   if (!response.ok) {
     throw new Error(await response.text());
@@ -129,3 +153,4 @@ export async function getMyTruckIncidents() {
 
   return response.json();
 }
+

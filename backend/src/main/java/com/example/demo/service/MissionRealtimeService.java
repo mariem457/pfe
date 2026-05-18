@@ -53,6 +53,21 @@ public class MissionRealtimeService {
         publish(event);
     }
 
+    public void publishMissionCancelled(Mission mission) {
+        if (mission == null || mission.getId() == null) return;
+
+        MissionRealtimeEvent event = MissionRealtimeEvent.of("MISSION_CANCELLED", mission.getId());
+        event.setStatus(mission.getStatus());
+        event.setMissionStatusDetail(
+                mission.getMissionStatusDetail() != null
+                        ? mission.getMissionStatusDetail().name()
+                        : null
+        );
+        event.setMessage("Mission cancelled");
+
+        publish(event);
+    }
+
     public void publishMissionBinUpdated(MissionBin missionBin, String type) {
         if (missionBin == null || missionBin.getMission() == null) return;
 

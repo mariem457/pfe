@@ -6,15 +6,43 @@
 
     <div class="topbar-text">
       <h1>Espace Administrateur</h1>
-      
     </div>
   </div>
 
   <div class="topbar-actions">
-    <button class="icon-btn" type="button" (click)="toggleTheme()" aria-label="Changer le thème">
+    <button class="icon-btn" type="button" (click)="toggleTheme()" aria-label="Changer le theme">
       <span class="material-icons">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
     </button>
 
-    
+    <div class="notif-wrap">
+      <button
+        class="icon-btn notif-btn"
+        type="button"
+        (click)="toggleNotifications()"
+        aria-label="Notifications"
+      >
+        <span class="material-icons">notifications</span>
+        <span *ngIf="unreadCount > 0" class="notif-badge">
+          {{ unreadCount > 99 ? '99+' : unreadCount }}
+        </span>
+      </button>
+
+      <div *ngIf="openNotifications" class="notif-menu">
+        <div class="notif-title">Alertes en temps reel</div>
+
+        <div *ngIf="latestAlerts.length === 0" class="notif-empty">
+          Aucune alerte ouverte
+        </div>
+
+        <div class="notif-item" *ngFor="let alert of latestAlerts">
+          <div class="notif-item-top">
+            <strong>{{ label(alert) }}</strong>
+            <span>{{ alert.severity }}</span>
+          </div>
+          <div class="notif-item-title">{{ alert.title }}</div>
+          <div class="notif-item-message">{{ alert.message }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

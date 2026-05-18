@@ -160,6 +160,10 @@ export class MissionService {
     return this.http.post<MissionResponse>(`${this.apiUrl}/${id}/complete`, {});
   }
 
+  cancelMission(id: number): Observable<MissionResponse> {
+    return this.http.post<MissionResponse>(`${this.apiUrl}/${id}/cancel`, {});
+  }
+
   
 
   collectMissionBin(

@@ -1,6 +1,8 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.Alert;
+import com.example.demo.entity.Bin;
+import com.example.demo.entity.MissionBin;
 import com.example.demo.entity.TruckIncident;
 import com.example.demo.repository.AlertRepository;
 import org.springframework.stereotype.Service;
@@ -85,6 +87,54 @@ public class SmartAlertService {
 	}
 
     @Transactional
+    public void createDriverBinIssueAlert(MissionBin missionBin) {
+        if (missionBin == null || missionBin.getId() == null || missionBin.getBin() == null) {
+            return;
+        }
+
+        String alertType = "DRIVER_BIN_ISSUE";
+
+        boolean exists = alertRepository.existsByEntityTypeAndEntityIdAndAlertTypeAndResolvedFalse(
+                "MISSION_BIN",
+                missionBin.getId(),
+                alertType
+        );
+
+        if (exists) {
+            return;
+        }
+
+        Bin bin = missionBin.getBin();
+
+        Alert alert = new Alert();
+        alert.setAlertType(alertType);
+        alert.setSeverity("HIGH");
+        alert.setEntityType("MISSION_BIN");
+        alert.setEntityId(missionBin.getId());
+        alert.setBin(bin);
+        alert.setMission(missionBin.getMission());
+        alert.setTitle(buildBinIssueTitle(missionBin));
+        alert.setMessage(buildBinIssueMessage(missionBin));
+        alert.setRecommendation(buildBinIssueRecommendation(missionBin));
+        alert.setActionType("INSPECT");
+        alert.setResolved(false);
+
+        Alert saved = alertRepository.save(alert);
+        alertRepository.flush();
+
+        Alert loaded = alertRepository.findCreatedAlertWithRelations(saved.getId());
+        var response = alertService.toResponse(loaded);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                alertRealtimeService.publishCreated(response);
+                System.out.println("REALTIME DRIVER BIN ISSUE ALERT SENT => " + response.getId());
+            }
+        });
+    }
+
+    @Transactional
     public int backfillOpenTruckIncidentAlerts(List<TruckIncident> incidents) {
         int created = 0;
 
@@ -148,6 +198,10 @@ public class SmartAlertService {
             return "TRUCK_INCIDENT";
         }
 
+        if (isQrCodeTruckProblem(incident)) {
+            return "TRUCK_QR_CODE_PROBLEM";
+        }
+
         return switch (incident.getIncidentType()) {
             case BREAKDOWN -> "TRUCK_BREAKDOWN";
             case FUEL_LOW -> "TRUCK_FUEL_LOW";
@@ -164,6 +218,10 @@ public class SmartAlertService {
         String truckCode = incident.getTruck() != null && incident.getTruck().getTruckCode() != null
                 ? incident.getTruck().getTruckCode()
                 : "Camion";
+
+        if (isQrCodeTruckProblem(incident)) {
+            return truckCode + " - Problème QR code";
+        }
 
         String type = incident.getIncidentType() != null
                 ? incident.getIncidentType().name()
@@ -185,6 +243,10 @@ public class SmartAlertService {
     }
 
     private String buildIncidentRecommendation(TruckIncident incident) {
+        if (isQrCodeTruckProblem(incident)) {
+            return "Vérifier le QR code signalé par le chauffeur et corriger l'association si nécessaire.";
+        }
+
         if (incident.getIncidentType() == null) {
             return "Vérifier l'incident et contacter le chauffeur si nécessaire.";
         }
@@ -210,6 +272,10 @@ public class SmartAlertService {
     }
 
     private String resolveActionType(TruckIncident incident) {
+        if (isQrCodeTruckProblem(incident)) {
+            return "INSPECT";
+        }
+
         if (incident.getIncidentType() == null) {
             return "INSPECT";
         }
@@ -220,6 +286,44 @@ public class SmartAlertService {
             case GPS_LOST -> "CALL_DRIVER";
             case OVERLOAD -> "DISPOSAL_SITE";
             default -> "INSPECT";
+        };
+    }
+
+    private boolean isQrCodeTruckProblem(TruckIncident incident) {
+        String text = ((incident.getDescription() != null ? incident.getDescription() : "") + " "
+                + (incident.getIncidentType() != null ? incident.getIncidentType().name() : "")).toLowerCase();
+
+        return text.contains("qr code") || text.contains("qrcode");
+    }
+
+    private String buildBinIssueTitle(MissionBin missionBin) {
+        String binCode = missionBin.getBin() != null && missionBin.getBin().getBinCode() != null
+                ? missionBin.getBin().getBinCode()
+                : "Poubelle";
+
+        return binCode + " - Problème signalé par chauffeur";
+    }
+
+    private String buildBinIssueMessage(MissionBin missionBin) {
+        String issueType = missionBin.getIssueType() != null ? missionBin.getIssueType() : "OTHER";
+        String note = missionBin.getDriverNote() != null && !missionBin.getDriverNote().isBlank()
+                ? missionBin.getDriverNote()
+                : "Aucune description ajoutée.";
+
+        return "Le chauffeur a signalé un problème sur cette poubelle. Type: "
+                + issueType
+                + ". Détail: "
+                + note;
+    }
+
+    private String buildBinIssueRecommendation(MissionBin missionBin) {
+        String issueType = missionBin.getIssueType() != null ? missionBin.getIssueType() : "OTHER";
+
+        return switch (issueType) {
+            case "BLOCKED" -> "Vérifier l'accès à la poubelle et envoyer une équipe si nécessaire.";
+            case "DAMAGED" -> "Planifier une intervention de maintenance pour inspecter ou remplacer la poubelle.";
+            case "SENSOR_ERROR" -> "Vérifier le capteur de la poubelle et créer une intervention maintenance.";
+            default -> "Vérifier le signalement chauffeur et décider de l'action appropriée.";
         };
     }
     @Transactional

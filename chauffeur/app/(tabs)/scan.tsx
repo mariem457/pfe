@@ -19,10 +19,14 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
 
-  const { expectedBinCode, missionBinId } = useLocalSearchParams<{
+  const { expectedBinCode, missionBinId, resumeIndex, isLastBin } = useLocalSearchParams<{
     expectedBinCode?: string;
     missionBinId?: string;
+    resumeIndex?: string;
+    isLastBin?: string;
   }>();
+
+  const isLastMissionBin = isLastBin === "1";
 
   useEffect(() => {
     if (!permission) {
@@ -50,7 +54,21 @@ export default function ScanScreen() {
             {
               text: "Quitter",
               style: "cancel",
-              onPress: () => router.replace("/(tabs)/dashboard"),
+              onPress: () => {
+                if (missionBinId) {
+                  router.replace({
+                    pathname: "/route-map",
+                    params: {
+                      invalidScan: "1",
+                      missionBinId,
+                      resumeIndex: resumeIndex ?? "0",
+                    },
+                  });
+                  return;
+                }
+
+                router.replace("/(tabs)/dashboard");
+              },
             },
             { text: "Rescanner", onPress: rescan },
           ]
@@ -101,7 +119,7 @@ export default function ScanScreen() {
         ),
         [
           {
-            text: "Continuer route",
+            text: isLastMissionBin ? "OK" : "Continuer route",
             onPress: () => {
               if (missionBinId) {
                 router.replace({
@@ -109,6 +127,7 @@ export default function ScanScreen() {
                   params: {
                     actionDone: "collect",
                     collectedBinId: missionBinId,
+                    missionComplete: isLastMissionBin ? "1" : "0",
                   },
                 });
                 return;
@@ -124,11 +143,24 @@ export default function ScanScreen() {
         {
           text: "Quitter",
           style: "cancel",
-          onPress: () => router.replace("/(tabs)/dashboard"),
+          onPress: () => {
+            if (missionBinId) {
+              router.replace({
+                pathname: "/route-map",
+                params: {
+                  invalidScan: "1",
+                  missionBinId,
+                  resumeIndex: resumeIndex ?? "0",
+                },
+              });
+              return;
+            }
+
+            router.replace("/(tabs)/dashboard");
+          },
         },
         { text: "Rescanner", onPress: rescan },
       ]);
-      rescan();
     } finally {
       setLoading(false);
     }

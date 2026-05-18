@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.DriverNotificationResponse;
 import com.example.demo.entity.Driver;
 import com.example.demo.entity.DriverNotification;
+import com.example.demo.entity.Mission;
 import com.example.demo.entity.TruckIncident;
 import com.example.demo.repository.DriverNotificationRepository;
 import com.example.demo.repository.DriverRepository;
@@ -19,15 +20,18 @@ public class DriverNotificationService {
     private final DriverNotificationRepository notificationRepository;
     private final DriverRepository driverRepository;
     private final TruckIncidentRepository truckIncidentRepository;
+    private final DriverPushNotificationService pushNotificationService;
 
     public DriverNotificationService(
             DriverNotificationRepository notificationRepository,
             DriverRepository driverRepository,
-            TruckIncidentRepository truckIncidentRepository
+            TruckIncidentRepository truckIncidentRepository,
+            DriverPushNotificationService pushNotificationService
     ) {
         this.notificationRepository = notificationRepository;
         this.driverRepository = driverRepository;
         this.truckIncidentRepository = truckIncidentRepository;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -36,7 +40,7 @@ public class DriverNotificationService {
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
 
         return notificationRepository
-                .findByDriverIdOrderByCreatedAtDesc(driver.getId())
+                .findTop25ByDriverIdOrderByCreatedAtDesc(driver.getId())
                 .stream()
                 .map(DriverNotificationResponse::new)
                 .toList();
@@ -60,7 +64,40 @@ public class DriverNotificationService {
         notification.setRead(false);
         notification.setStatus("SENT");
 
-        return notificationRepository.save(notification);
+        DriverNotification saved = notificationRepository.save(notification);
+        pruneOldNotifications(driver.getId());
+        pushNotificationService.sendIfImportant(saved);
+        return saved;
+    }
+
+    @Transactional
+    public DriverNotification createMissionNotification(
+            Mission mission,
+            String type,
+            String title,
+            String message
+    ) {
+        if (mission == null || mission.getDriver() == null || mission.getDriver().getId() == null) {
+            throw new RuntimeException("Mission driver not found");
+        }
+
+        Driver driver = driverRepository.findById(mission.getDriver().getId())
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+
+        DriverNotification notification = new DriverNotification();
+        notification.setDriver(driver);
+        notification.setMission(mission);
+        notification.setTruck(mission.getTruck());
+        notification.setType(type);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setRead(false);
+        notification.setStatus("SENT");
+
+        DriverNotification saved = notificationRepository.save(notification);
+        pruneOldNotifications(driver.getId());
+        pushNotificationService.sendIfImportant(saved);
+        return saved;
     }
 
     @Transactional
@@ -91,6 +128,8 @@ public class DriverNotificationService {
         notification.setStatus("SENT");
 
         DriverNotification saved = notificationRepository.save(notification);
+        pruneOldNotifications(driver.getId());
+        pushNotificationService.sendIfImportant(saved);
         return new DriverNotificationResponse(saved);
     }
 
@@ -161,5 +200,20 @@ public class DriverNotificationService {
             default ->
                     "Incident détecté. Merci de confirmer votre situation.";
         };
+    }
+
+    private void pruneOldNotifications(Long driverId) {
+        if (driverId == null) {
+            return;
+        }
+
+        List<DriverNotification> notifications =
+                notificationRepository.findByDriverIdOrderByCreatedAtDesc(driverId);
+
+        if (notifications.size() <= 25) {
+            return;
+        }
+
+        notificationRepository.deleteAll(notifications.subList(25, notifications.size()));
     }
 }

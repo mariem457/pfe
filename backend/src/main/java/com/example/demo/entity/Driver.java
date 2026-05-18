@@ -28,6 +28,9 @@ public class Driver {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "expo_push_token", length = 255)
+    private String expoPushToken;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -57,6 +60,9 @@ public class Driver {
 
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean active) { isActive = active; }
+
+    public String getExpoPushToken() { return expoPushToken; }
+    public void setExpoPushToken(String expoPushToken) { this.expoPushToken = expoPushToken; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
 

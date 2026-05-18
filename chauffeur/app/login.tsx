@@ -22,11 +22,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../lib/api";
 import { alertMessageFr } from "../lib/alertMessages";
+import { registerDriverPushToken } from "../lib/phoneNotifications";
 import {
-  getRememberedEmail,
+  getRememberedAccounts,
   removeRememberedEmail,
+  saveRememberedAccount,
   saveAuth,
   saveRememberedEmail,
+  type RememberedAccount,
 } from "../lib/storage";
 
 type LoginResponse = {
@@ -44,20 +47,19 @@ export default function LoginScreen() {
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rememberedAccounts, setRememberedAccounts] = useState<RememberedAccount[]>([]);
+  const [showEmailSuggestions, setShowEmailSuggestions] = useState(false);
 
   const isDark = useColorScheme() === "dark";
 
   useEffect(() => {
-    async function loadRememberedEmail() {
-      const savedEmail = await getRememberedEmail();
+    async function loadRememberedData() {
+      const accounts = await getRememberedAccounts();
 
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRemember(true);
-      }
+      setRememberedAccounts(accounts);
     }
 
-    loadRememberedEmail();
+    loadRememberedData();
   }, []);
 
   const colors = isDark
@@ -147,6 +149,7 @@ export default function LoginScreen() {
 
       if (remember) {
         await saveRememberedEmail(trimmedEmail);
+        await saveRememberedAccount(trimmedEmail, password);
       } else {
         await removeRememberedEmail();
       }
@@ -156,6 +159,7 @@ export default function LoginScreen() {
         return;
       }
 
+      registerDriverPushToken().catch(console.log);
       router.replace("/(tabs)/dashboard");
     } catch (error: any) {
       Alert.alert(
@@ -165,6 +169,19 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  const emailSuggestions = rememberedAccounts.filter((account) => {
+    const query = email.trim().toLowerCase();
+    if (!query) return true;
+    return account.email.toLowerCase().includes(query);
+  });
+
+  function selectRememberedAccount(account: RememberedAccount) {
+    setEmail(account.email);
+    setPassword(account.password);
+    setRemember(true);
+    setShowEmailSuggestions(false);
   }
 
   return (
@@ -231,14 +248,49 @@ export default function LoginScreen() {
                       />
                       <TextInput
                         value={email}
-                        onChangeText={setEmail}
+                        onChangeText={(value) => {
+                          setEmail(value);
+                          setShowEmailSuggestions(true);
+                        }}
                         placeholder="Entrer votre email"
                         placeholderTextColor={colors.placeholder}
                         style={[styles.input, { color: colors.inputText }]}
                         autoCapitalize="none"
                         keyboardType="email-address"
+                        onFocus={() => setShowEmailSuggestions(true)}
                       />
                     </View>
+                    {showEmailSuggestions && emailSuggestions.length > 0 && (
+                      <View
+                        style={[
+                          styles.suggestionsBox,
+                          {
+                            backgroundColor: colors.inputBg,
+                            borderColor: colors.inputBorder,
+                          },
+                        ]}
+                      >
+                        {emailSuggestions.map((account) => (
+                          <TouchableOpacity
+                            key={account.email}
+                            style={styles.suggestionItem}
+                            activeOpacity={0.85}
+                            onPress={() => selectRememberedAccount(account)}
+                          >
+                            <Ionicons name="mail-outline" size={16} color={colors.icon} />
+                            <Text
+                              style={[
+                                styles.suggestionText,
+                                { color: colors.inputText },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {account.email}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.formGroup}>
@@ -475,6 +527,31 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
+  },
+
+  suggestionsBox: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    marginTop: -2,
+    overflow: "hidden",
+  },
+
+  suggestionItem: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(148,163,184,0.25)",
+  },
+
+  suggestionText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   optionsRow: {

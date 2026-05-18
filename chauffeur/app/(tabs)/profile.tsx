@@ -33,6 +33,11 @@ type DriverProfile = {
   routesDone?: number;
 };
 
+function formatTruckLabel(value?: string) {
+  if (!value) return "-";
+  return value.replace(/^TRUCK/i, "CAMION");
+}
+
 export default function ProfileScreen() {
   const isDark = useColorScheme() === "dark";
 
@@ -213,7 +218,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: theme.backButton }]}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/dashboard")}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -274,16 +279,7 @@ export default function ProfileScreen() {
             icon="bus-outline"
             iconColor="#64748B"
             label="Camion Assigné"
-            value={profile?.assignedTruck || "-"}
-          />
-
-          <InfoRow
-            theme={theme}
-            icon="calendar-outline"
-            iconColor="#10B981"
-            green
-            label="Horaire de travail"
-            value={profile?.shiftSchedule || "-"}
+            value={formatTruckLabel(profile?.assignedTruck)}
           />
         </View>
 

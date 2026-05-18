@@ -36,6 +36,7 @@ public class DriverScanService {
     private final TruckRepository truckRepository;
     private final BinTelemetryRepository binTelemetryRepository;
     private final MissionRealtimeService missionRealtimeService;
+    private final SmartAlertService smartAlertService;
 
     public DriverScanService(
             BinRepository binRepository,
@@ -45,7 +46,8 @@ public class DriverScanService {
             MissionRepository missionRepository,
             TruckRepository truckRepository,
             BinTelemetryRepository binTelemetryRepository,
-            MissionRealtimeService missionRealtimeService
+            MissionRealtimeService missionRealtimeService,
+            SmartAlertService smartAlertService
     ) {
         this.binRepository = binRepository;
         this.driverRepository = driverRepository;
@@ -55,6 +57,7 @@ public class DriverScanService {
         this.truckRepository = truckRepository;
         this.binTelemetryRepository = binTelemetryRepository;
         this.missionRealtimeService = missionRealtimeService;
+        this.smartAlertService = smartAlertService;
     }
 
     @Transactional
@@ -69,15 +72,21 @@ public class DriverScanService {
         Driver driver = driverRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Driver introuvable pour cet utilisateur"));
 
-        Bin bin = binRepository.findByBinCode(cleanCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Poubelle introuvable pour ce code : " + cleanCode));
-
-        MissionBin missionBin = findPlannedMissionBin(bin.getBinCode(), driver.getId());
-
         OffsetDateTime nowOffset = OffsetDateTime.now();
         Instant nowInstant = Instant.now();
 
-        String issueType = request.getIssueType() == null ? null : request.getIssueType().trim();
+        String issueType = normalizeBinIssueType(request.getIssueType());
+        MissionBin missionBin;
+
+        if (issueType != null && !issueType.isBlank() && request.getMissionBinId() != null) {
+            missionBin = findDriverMissionBinById(request.getMissionBinId(), driver.getId());
+        } else {
+            Bin bin = binRepository.findByBinCode(cleanCode)
+                    .orElseThrow(() -> new ResourceNotFoundException("Poubelle introuvable pour ce code : " + cleanCode));
+
+            missionBin = findPlannedMissionBin(bin.getBinCode(), driver.getId());
+        }
+
 
         // cas problème
         if (issueType != null && !issueType.isBlank()) {
@@ -93,6 +102,7 @@ public class DriverScanService {
             MissionBin saved = missionBinRepository.save(missionBin);
 
             syncMissionStatusAfterDriverAction(saved.getMission());
+            smartAlertService.createDriverBinIssueAlert(saved);
             missionRealtimeService.publishMissionBinUpdated(saved, "MISSION_BIN_SKIPPED");
             missionRealtimeService.publishMissionStatusChanged(saved.getMission());
 
@@ -290,5 +300,63 @@ public class DriverScanService {
         }
 
         throw new ResourceNotFoundException("Aucune mission active pour cette poubelle et ce chauffeur");
+    }
+
+    private MissionBin findDriverMissionBinById(Long missionBinId, Long driverId) {
+        MissionBin missionBin = missionBinRepository.findById(missionBinId)
+                .orElseThrow(() -> new ResourceNotFoundException("Poubelle de mission introuvable : " + missionBinId));
+
+        Mission mission = missionBin.getMission();
+        if (mission == null || mission.getDriver() == null || !driverId.equals(mission.getDriver().getId())) {
+            throw new ResourceNotFoundException("Cette poubelle n'appartient pas a ce chauffeur");
+        }
+
+        String status = mission.getStatus();
+        if (!"CREATED".equals(status) && !"IN_PROGRESS".equals(status)) {
+            throw new ConflictException("Aucune mission active pour cette poubelle");
+        }
+
+        MissionBin.AssignmentStatus assignmentStatus = missionBin.getAssignmentStatus();
+        if (assignmentStatus == MissionBin.AssignmentStatus.COLLECTED) {
+            throw new ConflictException("Cette poubelle a deja ete collectee");
+        }
+
+        if (assignmentStatus == MissionBin.AssignmentStatus.SKIPPED) {
+            throw new ConflictException("Cette poubelle a deja ete signalee comme probleme");
+        }
+
+        return missionBin;
+    }
+
+    private String normalizeBinIssueType(String issueType) {
+        if (issueType == null || issueType.trim().isBlank()) {
+            return null;
+        }
+
+        String normalized = issueType.trim().toUpperCase();
+
+        if (
+                "BLOCKED".equals(normalized)
+                        || "DAMAGED".equals(normalized)
+                        || "SENSOR_ERROR".equals(normalized)
+                        || "OTHER".equals(normalized)
+        ) {
+            return normalized;
+        }
+
+        String lower = issueType.trim().toLowerCase();
+        if (lower.contains("bloqu") || lower.contains("acces") || lower.contains("accès")) {
+            return "BLOCKED";
+        }
+
+        if (lower.contains("endommag") || lower.contains("panne")) {
+            return "DAMAGED";
+        }
+
+        if (lower.contains("capteur")) {
+            return "SENSOR_ERROR";
+        }
+
+        return "OTHER";
     }
 }

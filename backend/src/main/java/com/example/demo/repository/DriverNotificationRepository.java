@@ -10,5 +10,7 @@ public interface DriverNotificationRepository extends JpaRepository<DriverNotifi
 
     List<DriverNotification> findByDriverIdOrderByCreatedAtDesc(Long driverId);
 
+    List<DriverNotification> findTop25ByDriverIdOrderByCreatedAtDesc(Long driverId);
+
     Optional<DriverNotification> findTopByIncidentIdOrderByCreatedAtDesc(Long incidentId);
 }

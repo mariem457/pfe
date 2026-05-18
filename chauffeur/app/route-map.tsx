@@ -19,8 +19,8 @@ import { getToken, getUserId } from "../lib/storage";
 import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://10.221.127.114:8081";
-const OSRM_URL = "http://10.221.127.114:5000";
+const BASE_URL = "http://192.168.1.209:8081";
+const OSRM_URL = "http://192.168.1.209:5000";
 
 const DEV_MODE_PARIS = true;
 const LAST_ROUTE_INDEX_KEY = "wise_last_route_index";
@@ -305,6 +305,10 @@ export default function RouteMap() {
     actionDone?: string;
     collectedBinId?: string;
     reportedBinId?: string;
+    missionComplete?: string;
+    invalidScan?: string;
+    missionBinId?: string;
+    resumeIndex?: string;
   }>();
 
   const mapRef = useRef<MapView | null>(null);
@@ -323,10 +327,11 @@ export default function RouteMap() {
   const [targetBin, setTargetBin] = useState<DriverBin | null>(null);
   const [isRoutePaused, setIsRoutePaused] = useState(false);
   const [awaitingContinue, setAwaitingContinue] = useState(false);
+  const [missionCompleted, setMissionCompleted] = useState(false);
 
   useEffect(() => {
-    isPausedRef.current = isRoutePaused || awaitingContinue;
-  }, [isRoutePaused, awaitingContinue]);
+    isPausedRef.current = isRoutePaused || awaitingContinue || missionCompleted;
+  }, [isRoutePaused, awaitingContinue, missionCompleted]);
 
   useEffect(() => {
     sendTruckLocation().catch(console.log);
@@ -467,6 +472,8 @@ export default function RouteMap() {
         await AsyncStorage.removeItem(LAST_ROUTE_INDEX_KEY);
         await AsyncStorage.removeItem(LAST_DRIVER_POINT_KEY);
       }
+
+      setMissionCompleted(validBins.length === 0 && !!params.actionDone);
 
       return validBins;
     } catch (e) {
@@ -781,6 +788,7 @@ function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
 }
   function openScanner() {
     if (!targetBin) return;
+    const isLastBin = bins.filter((bin) => !bin.collected).length <= 1;
 
     router.push({
       pathname: "/scan",
@@ -788,12 +796,14 @@ function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
         missionBinId: String(targetBin.missionBinId ?? ""),
         expectedBinCode: targetBin.binCode ?? "",
         resumeIndex: String(routeIndexRef.current ?? 0),
+        isLastBin: isLastBin ? "1" : "0",
       },
     });
   }
 
   function declareProblem() {
     if (!targetBin) return;
+    const isLastBin = bins.filter((bin) => !bin.collected).length <= 1;
 
     router.push({
       pathname: "/declare-breakdown",
@@ -802,6 +812,7 @@ function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
         missionBinId: String(targetBin.missionBinId ?? ""),
         binCode: targetBin.binCode ?? "",
         resumeIndex: String(routeIndexRef.current ?? 0),
+        isLastBin: isLastBin ? "1" : "0",
       },
     });
   }
@@ -964,7 +975,40 @@ async function continueRoute() {
           await loadNavStepsFromBins(start, syncedRouteBins);
         }
 
+        if (params.invalidScan === "1") {
+          const target = syncedRouteBins.find(
+            (bin) => String(bin.missionBinId ?? "") === String(params.missionBinId ?? "")
+          );
+
+          if (target) {
+            const parsedIndex = Number(params.resumeIndex ?? "0");
+            routeIndexRef.current = Number.isNaN(parsedIndex) ? 0 : Math.max(parsedIndex, 0);
+            await AsyncStorage.setItem(LAST_ROUTE_INDEX_KEY, String(routeIndexRef.current));
+
+            setTargetBin(target);
+            setAwaitingContinue(false);
+            setIsRoutePaused(true);
+            isPausedRef.current = true;
+            speakText("Vous pouvez signaler un problÃ¨me pour cette poubelle.");
+            return;
+          }
+        }
+
        if (params.actionDone) {
+  if (params.missionComplete === "1" || syncedRouteBins.length === 0) {
+    setRouteCoords([]);
+    setNavSteps([]);
+    setDistanceKm(null);
+    setDurationMin(null);
+    setTargetBin(null);
+    setAwaitingContinue(false);
+    setIsRoutePaused(true);
+    setMissionCompleted(true);
+    isPausedRef.current = true;
+    speakText("Mission complète.");
+    return;
+  }
+
   const savedPoint = await AsyncStorage.getItem(LAST_DRIVER_POINT_KEY);
 
   if (savedPoint) {
@@ -1150,9 +1194,30 @@ async function continueRoute() {
         ))}
       </MapView>
 
-      {visibleBins.length === 0 && (
+      {visibleBins.length === 0 && !missionCompleted && (
         <View style={styles.noBinsCard}>
           <Text style={styles.noBinsText}>Tous les bins sont collectés</Text>
+        </View>
+      )}
+
+      {missionCompleted && (
+        <View style={styles.completeCard}>
+          <View style={styles.completeIcon}>
+            <Ionicons name="checkmark" size={34} color="#FFFFFF" />
+          </View>
+          <Text style={styles.completeTitle}>Mission complète</Text>
+          <Text style={styles.completeSub}>
+            Tous les bacs de cette tournée ont été traités.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.completeBtn}
+            activeOpacity={0.9}
+            onPress={() => router.replace("/(tabs)/dashboard")}
+          >
+            <Ionicons name="home-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.completeBtnText}>Retourner au tableau de bord</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1175,7 +1240,7 @@ async function continueRoute() {
         </View>
       )}
 
-      {awaitingContinue && (
+      {awaitingContinue && !missionCompleted && (
         <View style={styles.continueCard}>
           <Ionicons name="checkmark-circle" size={42} color="#19C37D" />
           <Text style={styles.continueTitle}>Action terminée</Text>
@@ -1190,6 +1255,7 @@ async function continueRoute() {
         </View>
       )}
 
+      {!missionCompleted && (
       <View style={styles.bottomCard}>
         <View>
           <Text style={styles.bottomLabel}>Trajet</Text>
@@ -1218,6 +1284,7 @@ async function continueRoute() {
           <Ionicons name="navigate" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 }
@@ -1392,6 +1459,65 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "900",
     fontSize: 16,
+  },
+
+  completeCard: {
+    position: "absolute",
+    left: 18,
+    right: 18,
+    top: "30%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+    alignItems: "center",
+    zIndex: 60,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 18,
+  },
+  completeIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "#19C37D",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  completeTitle: {
+    color: "#0F172A",
+    fontSize: 25,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  completeSub: {
+    color: "#64748B",
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 22,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  completeBtn: {
+    width: "100%",
+    minHeight: 54,
+    borderRadius: 17,
+    backgroundColor: "#12905C",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  completeBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 16,
+    textAlign: "center",
   },
 
   bottomCard: {

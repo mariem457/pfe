@@ -21,6 +21,8 @@ public class TruckResponseDto {
     private Truck.TruckStatus status;
     private Long assignedDriverId;
     private String assignedDriverName;
+    private Long zoneId;
+    private String zoneName;
     private Double lastKnownLat;
     private Double lastKnownLng;
     private OffsetDateTime lastStatusUpdate;
@@ -149,6 +151,22 @@ public class TruckResponseDto {
 
     public void setAssignedDriverName(String assignedDriverName) {
         this.assignedDriverName = assignedDriverName;
+    }
+
+    public Long getZoneId() {
+        return zoneId;
+    }
+
+    public void setZoneId(Long zoneId) {
+        this.zoneId = zoneId;
+    }
+
+    public String getZoneName() {
+        return zoneName;
+    }
+
+    public void setZoneName(String zoneName) {
+        this.zoneName = zoneName;
     }
 
     public Double getLastKnownLat() {

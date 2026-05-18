@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 
 export default function VerifyCodeScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -87,7 +88,7 @@ export default function VerifyCodeScreen() {
       } catch {}
 
       if (!res.ok) {
-        Alert.alert("Erreur", data?.message || "Code invalide ou expiré.");
+        Alert.alert("Erreur", alertMessageFr(data?.message, "Code invalide ou expiré."));
         return;
       }
 

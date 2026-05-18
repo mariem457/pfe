@@ -123,10 +123,20 @@ public class DriverService {
             return Collections.emptyList();
         }
 
-        Mission mission = missions.get(0);
+        Mission mission = missions.stream()
+                .filter(m -> "CREATED".equalsIgnoreCase(m.getStatus())
+                        || "IN_PROGRESS".equalsIgnoreCase(m.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        if (mission == null) {
+            return Collections.emptyList();
+        }
 
         return missionBinRepository.findByMissionIdOrderByVisitOrderAsc(mission.getId())
                 .stream()
+                .filter(mb -> !mb.isCollected())
+                .filter(mb -> mb.getAssignmentStatus() == MissionBin.AssignmentStatus.PLANNED)
                 .map(mb -> new DriverBinDto(
                         mission.getId(),
                         mb.getId(),
@@ -209,6 +219,23 @@ public class DriverService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         return getMyProfile(user.getId());
+    }
+
+    @Transactional
+    public void saveExpoPushTokenByUsernameOrEmail(String usernameOrEmail, String expoPushToken) {
+        if (expoPushToken == null || expoPushToken.isBlank()) {
+            throw new RuntimeException("Expo push token is required");
+        }
+
+        User user = userRepo.findByUsername(usernameOrEmail)
+                .or(() -> userRepo.findByEmail(usernameOrEmail))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Driver driver = driverRepo.findByUser_Id(user.getId())
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+
+        driver.setExpoPushToken(expoPushToken.trim());
+        driverRepo.save(driver);
     }
 
     private Long findTruckIdFromVehicleCode(String vehicleCode) {

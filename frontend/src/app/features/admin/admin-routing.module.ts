@@ -12,7 +12,6 @@ import { PublicReportsComponent } from './pages/public-reports/public-reports.co
 import { MissionsComponent } from './pages/missions/missions.component';
 import { TruckManagementComponent } from './pages/truck-management/truck-management.component';
 
-
 const routes: Routes = [
   {
     path: '',
@@ -24,14 +23,13 @@ const routes: Routes = [
       { path: 'trucks', component: TrucksComponent, data: { title: 'Trucks' } },
       { path: 'missions', component: MissionsComponent, data: { title: 'Missions' } },
       { path: 'optimisation', component: OptimisationComponent, data: { title: 'Optimisation' } },
-      
       { path: 'parametres', component: ParametreComponent, data: { title: 'Paramètres' } },
       { path: 'rapport', component: RapportComponent, data: { title: 'Rapport' } },
-      { 
-  path: 'truck-management', 
-  component: TruckManagementComponent, 
-  data: { title: 'Gestion des camions' } 
-},
+      {
+        path: 'truck-management',
+        component: TruckManagementComponent,
+        data: { title: 'Gestion des camions' }
+      },
       { path: 'public-reports', component: PublicReportsComponent, data: { title: 'Rapports Publics' } }
     ],
   },

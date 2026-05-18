@@ -20,6 +20,7 @@ import {
   useColorScheme,
 } from "react-native";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 
 export default function SignupScreen() {
   const isDark = useColorScheme() === "dark";
@@ -152,19 +153,20 @@ export default function SignupScreen() {
       if (!response.ok) {
         Alert.alert(
           "Erreur",
-          data?.message || raw || "Une erreur est survenue lors de l'inscription."
+          alertMessageFr(data?.message || raw, "Une erreur est survenue lors de l'inscription.")
         );
         return;
       }
 
       Alert.alert(
         "Succès",
-        data?.message ||
-          raw ||
-          "Compte créé. Un code de vérification a été envoyé par e-mail.",
+        alertMessageFr(
+          data?.message || raw,
+          "Compte créé. Un code de vérification a été envoyé par e-mail."
+        ),
         [
           {
-            text: "OK",
+            text: "D'accord",
             onPress: () =>
               router.push({
                 pathname: "/verify-email",

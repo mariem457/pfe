@@ -56,6 +56,12 @@ public class TruckRequestDto {
     @Positive(message = "Assigned driver id must be positive")
     private Long assignedDriverId;
 
+    @Positive(message = "Zone id must be positive")
+    private Long zoneId;
+
+    @Size(max = 255, message = "Zone name must not exceed 255 characters")
+    private String zoneName;
+
     public TruckRequestDto() {
     }
 
@@ -185,5 +191,21 @@ public class TruckRequestDto {
 
     public void setAssignedDriverId(Long assignedDriverId) {
         this.assignedDriverId = assignedDriverId;
+    }
+
+    public Long getZoneId() {
+        return zoneId;
+    }
+
+    public void setZoneId(Long zoneId) {
+        this.zoneId = zoneId;
+    }
+
+    public String getZoneName() {
+        return zoneName;
+    }
+
+    public void setZoneName(String zoneName) {
+        this.zoneName = zoneName;
     }
 }

@@ -5,6 +5,7 @@ import { GestionUtilisateursComponent } from './pages/gestion-utilisateurs/gesti
 import { GestionPoubellesComponent } from './pages/gestion-poubelles/gestion-poubelles.component';
 import { ControleSystemeComponent } from './pages/controle-systeme/controle-systeme.component';
 import { SecuriteComponent } from './pages/securite/securite.component';
+import { TruckManagementComponent } from './pages/truck-management/truck-management.component';
 const routes: Routes = [
   {
     path: '',
@@ -22,6 +23,10 @@ const routes: Routes = [
       {
         path: 'gestion-poubelles',
         component: GestionPoubellesComponent
+      },
+      {
+        path: 'truck-management',
+        component: TruckManagementComponent
       },
       {
         path: 'controle-systeme',

@@ -100,6 +100,108 @@
   line-height: 1;
 }
 
+.notif-wrap {
+  position: relative;
+}
+
+.notif-btn {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  box-shadow: 0 0 0 2px var(--card-color, #ffffff);
+}
+
+.notif-menu {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--card-color, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+  padding: 12px;
+  z-index: 1000;
+}
+
+.notif-title {
+  color: var(--text-color, #0f172a);
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.notif-empty {
+  color: var(--muted-color, #64748b);
+  font-size: 13px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.notif-item {
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--soft-bg, #f8fafc);
+  margin-bottom: 8px;
+}
+
+.notif-item:last-child {
+  margin-bottom: 0;
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-color, #0f172a);
+  font-size: 13px;
+}
+
+.notif-item-top strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-item-top span {
+  color: #ef4444;
+  font-weight: 900;
+  font-size: 11px;
+}
+
+.notif-item-title {
+  margin-top: 5px;
+  color: var(--text-color, #0f172a);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.notif-item-message {
+  margin-top: 4px;
+  color: var(--muted-color, #64748b);
+  font-size: 12px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .notify-dot {
   position: absolute;
   top: 8px;
@@ -129,6 +231,10 @@ body.dark-mode .icon-btn {
 body.dark-mode .icon-btn:hover {
   background: rgba(255, 255, 255, 0.09);
   border-color: var(--border-color, #334155);
+}
+
+body.dark-mode .notif-badge {
+  box-shadow: 0 0 0 2px var(--card-color, #111827);
 }
 
 @media (max-width: 768px) {

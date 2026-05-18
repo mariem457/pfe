@@ -60,14 +60,18 @@ public class MissionController {
     public ResponseEntity<MissionResponse> completeMission(@PathVariable Long missionId) {
         return ResponseEntity.ok(missionService.completeMission(missionId));
     }
-    
-    
-  
+
+    @PostMapping("/{missionId}/cancel")
+    public ResponseEntity<MissionResponse> cancelMission(@PathVariable Long missionId) {
+        return ResponseEntity.ok(missionService.cancelMission(missionId));
+    }
 
     @PostMapping("/{missionId}/bins/{missionBinId}/collect")
-    public ResponseEntity<MissionResponse> collectMissionBin(@PathVariable Long missionId,
-                                                             @PathVariable Long missionBinId,
-                                                             @RequestBody(required = false) MissionBinActionRequest request) {
+    public ResponseEntity<MissionResponse> collectMissionBin(
+            @PathVariable Long missionId,
+            @PathVariable Long missionBinId,
+            @RequestBody(required = false) MissionBinActionRequest request
+    ) {
         return ResponseEntity.ok(missionService.collectMissionBin(missionId, missionBinId, request));
     }
 }

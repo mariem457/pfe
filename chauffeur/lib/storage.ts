@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AUTH_KEY = "auth_data";
 const REMEMBER_EMAIL_KEY = "remember_email";
+const REMEMBERED_ACCOUNTS_KEY = "remembered_accounts";
 
 export type AuthData = {
   token: string;
@@ -11,6 +12,11 @@ export type AuthData = {
   username?: string;
   email?: string;
   truckId?: number;
+};
+
+export type RememberedAccount = {
+  email: string;
+  password: string;
 };
 
 export async function saveAuth(auth: AuthData): Promise<void> {
@@ -92,4 +98,56 @@ export async function getRememberedEmail(): Promise<string | null> {
 
 export async function removeRememberedEmail(): Promise<void> {
   await AsyncStorage.removeItem(REMEMBER_EMAIL_KEY);
+}
+
+export async function getRememberedAccounts(): Promise<RememberedAccount[]> {
+  try {
+    const value = await AsyncStorage.getItem(REMEMBERED_ACCOUNTS_KEY);
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (item) =>
+            typeof item?.email === "string" &&
+            typeof item?.password === "string"
+        )
+      : [];
+  } catch (error) {
+    console.log("Erreur lecture remembered_accounts:", error);
+    return [];
+  }
+}
+
+export async function saveRememberedAccount(
+  email: string,
+  password: string
+): Promise<void> {
+  const cleanEmail = email.trim();
+  if (!cleanEmail || !password) return;
+
+  const accounts = await getRememberedAccounts();
+  const nextAccounts = [
+    { email: cleanEmail, password },
+    ...accounts.filter(
+      (account) => account.email.toLowerCase() !== cleanEmail.toLowerCase()
+    ),
+  ].slice(0, 5);
+
+  await AsyncStorage.setItem(
+    REMEMBERED_ACCOUNTS_KEY,
+    JSON.stringify(nextAccounts)
+  );
+}
+
+export async function removeRememberedAccount(email: string): Promise<void> {
+  const cleanEmail = email.trim();
+  const accounts = await getRememberedAccounts();
+
+  await AsyncStorage.setItem(
+    REMEMBERED_ACCOUNTS_KEY,
+    JSON.stringify(
+      accounts.filter(
+        (account) => account.email.toLowerCase() !== cleanEmail.toLowerCase()
+      )
+    )
+  );
 }

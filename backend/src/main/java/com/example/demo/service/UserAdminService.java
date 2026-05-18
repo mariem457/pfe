@@ -24,10 +24,10 @@ public class UserAdminService {
 
     @Transactional
     public CreateUserResponse createMunicipalityUser(CreateMunicipalityUserRequest req) {
-
         if (userRepo.findByUsername(req.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
+
         if (userRepo.findByEmail(req.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
@@ -54,10 +54,10 @@ public class UserAdminService {
 
     @Transactional
     public CreateUserResponse createMaintenanceUser(CreateMaintenanceUserRequest req) {
-
         if (userRepo.findByUsername(req.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
+
         if (userRepo.findByEmail(req.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
@@ -86,9 +86,11 @@ public class UserAdminService {
         final String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#";
         SecureRandom rnd = new SecureRandom();
         StringBuilder sb = new StringBuilder(length);
+
         for (int i = 0; i < length; i++) {
             sb.append(chars.charAt(rnd.nextInt(chars.length())));
         }
+
         return sb.toString();
     }
 }

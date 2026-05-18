@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { BASE_URL } from "../lib/api";
+import { alertMessageFr } from "../lib/alertMessages";
 
 export default function ResetPasswordScreen() {
   const params = useLocalSearchParams<{ email?: string; code?: string }>();
@@ -102,15 +103,15 @@ export default function ResetPasswordScreen() {
       if (!response.ok) {
         Alert.alert(
           "Erreur",
-          data?.message || "Impossible de réinitialiser le mot de passe."
+          alertMessageFr(data?.message, "Impossible de réinitialiser le mot de passe.")
         );
         return;
       }
 
       Alert.alert(
         "Succès",
-        data?.message || "Mot de passe réinitialisé avec succès.",
-        [{ text: "OK", onPress: () => router.replace("/login") }]
+        alertMessageFr(data?.message, "Mot de passe réinitialisé avec succès."),
+        [{ text: "D'accord", onPress: () => router.replace("/login") }]
       );
     } catch {
       Alert.alert("Erreur", "Une erreur est survenue.");

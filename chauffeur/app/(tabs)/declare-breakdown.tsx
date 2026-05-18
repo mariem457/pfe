@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -20,6 +20,7 @@ import {
   useColorScheme,
 } from "react-native";
 import { BASE_URL } from "../../lib/api";
+import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId } from "../../lib/storage";
 import { declareTruckIncident, getCurrentMissionId } from "../../lib/truckApi";
 
@@ -29,14 +30,13 @@ const truckProblemTypes = [
   "Problème carburant",
   "Pneu crevé",
   "Problème GPS",
-  "QR code invalide alors qu'il est valide",
   "Accident",
   "Autre",
 ];
 
 const binProblemTypes = [
   "QR code pas clair",
-  "Poubelle en panne",
+  "QR code invalide alors qu'il est valide",
   "Poubelle bloquée",
   "Poubelle endommagée",
   "Accès impossible",
@@ -44,17 +44,48 @@ const binProblemTypes = [
   "Autre",
 ];
 
+function formatAddress(address: Location.LocationGeocodedAddress): string {
+  const parts = [
+    address.name,
+    address.street,
+    address.district,
+    address.city,
+    address.region,
+    address.country,
+  ].filter(Boolean);
+
+  return parts.join(", ");
+}
+
+function mapBinIssueType(type: string) {
+  if (type === "Poubelle bloquée" || type === "Accès impossible") {
+    return "BLOCKED";
+  }
+
+  if (type === "Poubelle endommagée" || type === "Poubelle en panne") {
+    return "DAMAGED";
+  }
+
+  if (type === "Capteur défectueux") {
+    return "SENSOR_ERROR";
+  }
+
+  return "OTHER";
+}
+
 export default function DeclareBreakdownScreen() {
   const isDark = useColorScheme() === "dark";
 
-  const { missionBinId, binCode, resumeIndex, context } = useLocalSearchParams<{
+  const { missionBinId, binCode, resumeIndex, context, isLastBin } = useLocalSearchParams<{
     missionBinId?: string;
     binCode?: string;
     resumeIndex?: string;
     context?: "truck" | "bin";
+    isLastBin?: string;
   }>();
 
   const isBinProblem = context === "bin" || !!missionBinId;
+  const isLastMissionBin = isLastBin === "1";
   const problemTypes = isBinProblem ? binProblemTypes : truckProblemTypes;
   const accentColor = isBinProblem ? "#F97316" : "#EF4444";
   const accentDark = isBinProblem ? "#EA580C" : "#DC2626";
@@ -111,7 +142,7 @@ export default function DeclareBreakdownScreen() {
           }
         : {
             title: "Signaler un problème camion",
-            subtitle: "Panne, GPS, QR valide refusé ou autre anomalie camion.",
+            subtitle: "Panne, GPS ou autre anomalie camion.",
             icon: "construct-outline" as const,
             typeLabel: "Type de problème camion",
             placeholder: "Décrivez le problème du camion...",
@@ -120,20 +151,7 @@ export default function DeclareBreakdownScreen() {
     [binCode, isBinProblem]
   );
 
-  function formatAddress(address: Location.LocationGeocodedAddress): string {
-    const parts = [
-      address.name,
-      address.street,
-      address.district,
-      address.city,
-      address.region,
-      address.country,
-    ].filter(Boolean);
-
-    return parts.join(", ");
-  }
-
-  async function loadCurrentLocation() {
+  const loadCurrentLocation = useCallback(async () => {
     try {
       setLoadingLocation(true);
 
@@ -175,11 +193,13 @@ export default function DeclareBreakdownScreen() {
     } finally {
       setLoadingLocation(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadCurrentLocation();
-  }, []);
+    if (!isBinProblem) {
+      loadCurrentLocation();
+    }
+  }, [isBinProblem, loadCurrentLocation]);
 
   function mapTruckIncidentType(type: string) {
     if (
@@ -196,6 +216,11 @@ export default function DeclareBreakdownScreen() {
   }
 
   async function submitBinProblem(token: string) {
+    const issueType = mapBinIssueType(selectedType);
+    const note = description.trim()
+      ? `${selectedType} - ${description.trim()}`
+      : selectedType;
+
     const response = await fetch(`${BASE_URL}/api/drivers/bin-scan`, {
       method: "POST",
       headers: {
@@ -205,28 +230,30 @@ export default function DeclareBreakdownScreen() {
       body: JSON.stringify({
         missionBinId: missionBinId ? Number(missionBinId) : null,
         binCode: binCode ?? null,
-        driverNote: `${selectedType} - ${description.trim()} - ${
-          location.trim() || "Localisation non détectée"
-        }`,
-        issueType: selectedType,
+        driverNote: note,
+        issueType,
       }),
     });
 
     const text = await response.text();
     if (!response.ok) {
+      console.log("BIN PROBLEM ERROR:", response.status, text);
       throw new Error(text || "Impossible de signaler cette poubelle.");
     }
   }
 
   async function submitTruckProblem() {
     const missionId = await getCurrentMissionId();
+    const descriptionParts = [
+      selectedType,
+      description.trim(),
+      location.trim() || "Localisation non detectee",
+    ].filter(Boolean);
 
     await declareTruckIncident({
       missionId,
       incidentType: mapTruckIncidentType(selectedType),
-      description: `${selectedType} - ${description.trim()} - ${
-        location.trim() || "Localisation non détectée"
-      }`,
+      description: descriptionParts.join(" - "),
       lat: coords.lat,
       lng: coords.lng,
     });
@@ -240,10 +267,6 @@ export default function DeclareBreakdownScreen() {
       return;
     }
 
-    if (!description.trim()) {
-      Alert.alert("Erreur", "Veuillez écrire une description.");
-      return;
-    }
 
     try {
       setLoading(true);
@@ -265,7 +288,7 @@ export default function DeclareBreakdownScreen() {
 
       Alert.alert("Succès", screenCopy.success, [
         {
-          text: isBinProblem ? "Continuer route" : "Quitter",
+          text: isBinProblem ? (isLastMissionBin ? "OK" : "Continuer route") : "Quitter",
           onPress: () => {
             if (isBinProblem) {
               router.replace({
@@ -274,6 +297,7 @@ export default function DeclareBreakdownScreen() {
                   actionDone: "report",
                   reportedBinId: missionBinId ?? "",
                   resumeIndex: resumeIndex ?? "0",
+                  missionComplete: isLastMissionBin ? "1" : "0",
                 },
               });
               return;
@@ -287,7 +311,7 @@ export default function DeclareBreakdownScreen() {
       console.log("Erreur déclaration problème:", error);
       Alert.alert(
         "Erreur",
-        error?.message || "Impossible d'envoyer le signalement."
+        alertMessageFr(error?.message, "Impossible d'envoyer le signalement.")
       );
     } finally {
       setLoading(false);
@@ -311,7 +335,10 @@ export default function DeclareBreakdownScreen() {
               keyboardDismissMode="on-drag"
               contentContainerStyle={styles.scrollContent}
             >
-              <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
+              <TouchableOpacity
+                style={styles.backRow}
+                onPress={() => router.replace("/(tabs)/dashboard")}
+              >
                 <Ionicons name="arrow-back" size={18} color={colors.backText} />
                 <Text style={[styles.backText, { color: colors.backText }]}>
                   Retour
@@ -375,9 +402,11 @@ export default function DeclareBreakdownScreen() {
                     ))}
                   </View>
 
-                  <Text style={[styles.label, { color: colors.subtext }]}>
-                    Localisation
-                  </Text>
+                  {!isBinProblem && (
+                    <>
+                      <Text style={[styles.label, { color: colors.subtext }]}>
+                        Localisation
+                      </Text>
 
                   <View
                     style={[
@@ -418,7 +447,9 @@ export default function DeclareBreakdownScreen() {
                         color={loadingLocation ? colors.placeholder : accentColor}
                       />
                     </TouchableOpacity>
-                  </View>
+                    </View>
+                  </>
+                )}
 
                   <Text style={[styles.label, { color: colors.subtext }]}>
                     Description
@@ -620,3 +651,5 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 });
+
+

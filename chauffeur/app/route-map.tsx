@@ -4,7 +4,7 @@ import { BlurView } from "expo-blur";
 import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
-import { sendTruckLocation } from "../lib/truckApi";
+import { sendTruckLocation, sendTruckLocationPoint } from "../lib/truckApi";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -374,31 +374,13 @@ export default function RouteMap() {
 
   async function sendPointToBackend(point: Point, speedKmh = 30, headingDeg = 0) {
     try {
-      const token = await getToken();
-      const userId = await getUserId();
-      if (!token || !userId) return;
-
-      const res = await fetchWithTimeout(
-        `${BASE_URL}/api/truck-locations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            driverId: Number(userId),
-            lat: point.latitude,
-            lng: point.longitude,
-            speedKmh,
-            headingDeg,
-            timestamp: new Date().toISOString(),
-          }),
-        },
-        7000
-      );
-
-      if (!res.ok) console.log("TRUCK LOCATION ERROR:", await res.text());
+      await sendTruckLocationPoint({
+        lat: point.latitude,
+        lng: point.longitude,
+        speedKmh,
+        headingDeg,
+        timestamp: new Date().toISOString(),
+      });
     } catch (e) {
       console.log("sendPointToBackend error:", e);
     }

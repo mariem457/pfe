@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export type FuelType = 'DIESEL' | 'ESSENCE' | 'ELECTRIC' | 'HYBRID';
+export type WasteType = 'GRAY' | 'GREEN' | 'YELLOW' | 'WHITE';
 
 export type TruckStatus =
   | 'AVAILABLE'
@@ -32,6 +33,7 @@ export interface TruckRequest {
   zoneName?: string | null;
   isActive?: boolean;
   assignedDriverId?: number | null;
+  supportedWasteTypes?: WasteType[];
 }
 
 export interface TruckResponse {
@@ -58,6 +60,7 @@ export interface TruckResponse {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  supportedWasteTypes?: WasteType[];
 }
 
 export interface TruckStatusUpdate {

@@ -1,12 +1,14 @@
 package com.example.demo.dto;
 
 import com.example.demo.entity.Truck;
+import com.example.demo.entity.Bin;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 public class TruckRequestDto {
 
@@ -61,6 +63,8 @@ public class TruckRequestDto {
 
     @Size(max = 255, message = "Zone name must not exceed 255 characters")
     private String zoneName;
+
+    private List<Bin.WasteType> supportedWasteTypes;
 
     public TruckRequestDto() {
     }
@@ -207,5 +211,13 @@ public class TruckRequestDto {
 
     public void setZoneName(String zoneName) {
         this.zoneName = zoneName;
+    }
+
+    public List<Bin.WasteType> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes;
     }
 }

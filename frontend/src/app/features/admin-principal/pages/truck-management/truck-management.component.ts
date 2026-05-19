@@ -2,7 +2,9 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TruckRequest, TruckResponse, TruckService, TruckStatus, FuelType, ZoneResponse } from '../../../../services/truck.service';
+import { TruckRequest, TruckResponse, TruckService, TruckStatus, FuelType, ZoneResponse, WasteType } from '../../../../services/truck.service';
+
+type WasteTypeChoice = WasteType | 'ALL';
 
 @Component({
   selector: 'app-truck-management',
@@ -42,6 +44,14 @@ export class TruckManagementComponent implements OnInit {
   ];
 
   fuelTypes: FuelType[] = ['DIESEL', 'ESSENCE', 'ELECTRIC', 'HYBRID'];
+  wasteTypeOptions: Array<{ value: WasteTypeChoice; label: string }> = [
+    { value: 'ALL', label: 'Tous les types' },
+    { value: 'GRAY', label: 'Déchets ménagers' },
+    { value: 'GREEN', label: 'Verre' },
+    { value: 'YELLOW', label: 'Recyclable' },
+    { value: 'WHITE', label: 'Papier' }
+  ];
+  selectedWasteType: WasteTypeChoice = 'ALL';
 
   form: TruckRequest = this.getEmptyForm();
 
@@ -108,6 +118,7 @@ export class TruckManagementComponent implements OnInit {
     this.editMode = false;
     this.selectedTruckId = null;
     this.form = this.getEmptyForm();
+    this.selectedWasteType = 'ALL';
     this.clearMessages();
   }
 
@@ -133,8 +144,10 @@ export class TruckManagementComponent implements OnInit {
       zoneId: truck.zoneId || null,
       zoneName: truck.zoneName || null,
       isActive: truck.isActive,
-      assignedDriverId: truck.assignedDriverId || null
+      assignedDriverId: truck.assignedDriverId || null,
+      supportedWasteTypes: truck.supportedWasteTypes || []
     };
+    this.selectedWasteType = this.resolveWasteTypeChoice(truck.supportedWasteTypes);
 
     this.clearMessages();
   }
@@ -144,6 +157,7 @@ export class TruckManagementComponent implements OnInit {
     this.editMode = false;
     this.selectedTruckId = null;
     this.form = this.getEmptyForm();
+    this.selectedWasteType = 'ALL';
     this.saving = false;
   }
 
@@ -203,8 +217,28 @@ export class TruckManagementComponent implements OnInit {
       zoneId: this.toNumberOrNull(this.form.zoneId),
       zoneName: this.cleanText(this.form.zoneName),
       isActive: this.form.isActive ?? true,
-      assignedDriverId: this.editMode ? this.toNumberOrNull(this.form.assignedDriverId) : null
+      assignedDriverId: this.toNumberOrNull(this.form.assignedDriverId),
+      supportedWasteTypes: this.resolveSupportedWasteTypes(this.selectedWasteType)
     };
+  }
+
+  private resolveSupportedWasteTypes(choice: WasteTypeChoice): WasteType[] {
+    if (choice === 'ALL') {
+      return ['GRAY', 'GREEN', 'YELLOW', 'WHITE'];
+    }
+
+    return [choice];
+  }
+
+  private resolveWasteTypeChoice(types?: WasteType[]): WasteTypeChoice {
+    const normalizedTypes = new Set((types || []).filter(Boolean));
+    const allTypes: WasteType[] = ['GRAY', 'GREEN', 'YELLOW', 'WHITE'];
+
+    if (allTypes.every((type) => normalizedTypes.has(type))) {
+      return 'ALL';
+    }
+
+    return allTypes.find((type) => normalizedTypes.has(type)) || 'ALL';
   }
 
   private cleanText(value: unknown): string | undefined {
@@ -377,6 +411,10 @@ export class TruckManagementComponent implements OnInit {
       case 'OUT_OF_SERVICE': return 'status out';
       default: return 'status';
     }
+  }
+
+  getWasteTypeLabel(types?: WasteType[]): string {
+    return this.wasteTypeOptions.find((option) => option.value === this.resolveWasteTypeChoice(types))?.label || '-';
   }
 
   clearMessages(): void {

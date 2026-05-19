@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.TruckRequestDto;
 import com.example.demo.dto.TruckResponseDto;
 import com.example.demo.dto.TruckStatusUpdateDto;
+import com.example.demo.entity.Bin;
 import com.example.demo.entity.Driver;
 import com.example.demo.entity.Truck;
 import com.example.demo.exception.BadRequestException;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -54,6 +56,9 @@ public class TruckServiceImpl implements TruckService {
 
         Truck truck = new Truck();
         mapTruckRequestToEntity(request, truck);
+        if (truck.getSupportedWasteTypes() == null || truck.getSupportedWasteTypes().isEmpty()) {
+            truck.setSupportedWasteTypes(defaultSupportedWasteTypes());
+        }
 
         if (truck.getStatus() == null) {
             truck.setStatus(Truck.TruckStatus.AVAILABLE);
@@ -223,6 +228,9 @@ public class TruckServiceImpl implements TruckService {
         if (request.getIsActive() != null) {
             truck.setIsActive(request.getIsActive());
         }
+        if (request.getSupportedWasteTypes() != null) {
+            truck.setSupportedWasteTypes(new ArrayList<>(request.getSupportedWasteTypes()));
+        }
 
         if (request.getAssignedDriverId() != null) {
             Driver driver = driverRepository.findById(request.getAssignedDriverId())
@@ -262,6 +270,7 @@ public class TruckServiceImpl implements TruckService {
         dto.setIsActive(truck.getIsActive());
         dto.setCreatedAt(truck.getCreatedAt());
         dto.setUpdatedAt(truck.getUpdatedAt());
+        dto.setSupportedWasteTypes(truck.getSupportedWasteTypes());
 
         if (truck.getAssignedDriver() != null) {
             dto.setAssignedDriverId(truck.getAssignedDriver().getId());
@@ -274,5 +283,14 @@ public class TruckServiceImpl implements TruckService {
         }
 
         return dto;
+    }
+
+    private List<Bin.WasteType> defaultSupportedWasteTypes() {
+        return new ArrayList<>(List.of(
+                Bin.WasteType.GRAY,
+                Bin.WasteType.GREEN,
+                Bin.WasteType.YELLOW,
+                Bin.WasteType.WHITE
+        ));
     }
 }

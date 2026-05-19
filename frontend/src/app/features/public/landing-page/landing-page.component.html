@@ -28,10 +28,10 @@
   </section>
 
   <!-- CAPABILITIES -->
-  <section class="capabilities-section">
+  <section id="features" class="capabilities-section">
     <div class="section-header">
-      <h2>Capacités clés du système</h2>
-      <p>Une solution complète pour moderniser la gestion urbaine des déchets</p>
+      <h2>Fonctionnalités de la plateforme</h2>
+      <p>WiseTrash réunit les outils essentiels pour suivre, organiser et améliorer la collecte des déchets.</p>
     </div>
 
     <div class="capabilities-grid">
@@ -39,21 +39,10 @@
         <div class="icon-box">
           <span class="material-icons">monitor_heart</span>
         </div>
-        <h3>Suivi en temps réel</h3>
+        <h3>Suivi intelligent des poubelles</h3>
         <p>
-          Des capteurs IoT intégrés mesurent le niveau de remplissage des
-          poubelles et transmettent les données en continu pour prévenir les débordements.
-        </p>
-      </div>
-
-      <div class="capability-card">
-        <div class="icon-box">
-          <span class="material-icons">psychology</span>
-        </div>
-        <h3>Prédictions IA</h3>
-        <p>
-          L’intelligence artificielle analyse les données de remplissage afin
-          d’anticiper les besoins de collecte et d’améliorer la planification.
+          Consultez l'état des poubelles, leur niveau de remplissage, leur batterie
+          et leur localisation afin d'intervenir au bon moment.
         </p>
       </div>
 
@@ -61,28 +50,61 @@
         <div class="icon-box">
           <span class="material-icons">route</span>
         </div>
-        <h3>Optimisation des trajets</h3>
+        <h3>Optimisation des tournées</h3>
         <p>
-          Les algorithmes calculent les itinéraires les plus efficaces selon
-          la localisation des poubelles et les conditions de circulation.
+          Planifiez automatiquement les trajets de collecte selon les priorités,
+          les distances, les bacs urgents et les ressources disponibles.
         </p>
       </div>
 
       <div class="capability-card">
         <div class="icon-box">
-          <span class="material-icons">local_shipping</span>
+          <span class="material-icons">phone_iphone</span>
         </div>
-        <h3>Suivi des collecteurs</h3>
+        <h3>Application chauffeur</h3>
         <p>
-          L’application mobile du chauffeur permet de remonter la position
-          et l’avancement des camions en temps réel.
+          Les chauffeurs consultent leurs missions, scannent les QR codes,
+          signalent les problèmes et partagent leur position GPS en temps réel.
+        </p>
+      </div>
+
+      <div class="capability-card">
+        <div class="icon-box">
+          <span class="material-icons">campaign</span>
+        </div>
+        <h3>Signalement citoyen</h3>
+        <p>
+          Les citoyens peuvent signaler une poubelle pleine, endommagée ou mal
+          placée avec une description et une localisation.
+        </p>
+      </div>
+
+      <div class="capability-card">
+        <div class="icon-box">
+          <span class="material-icons">notifications_active</span>
+        </div>
+        <h3>Alertes en temps réel</h3>
+        <p>
+          Recevez des alertes pour les bacs pleins, les problèmes QR code, les
+          pertes GPS, les pannes camion et les anomalies de collecte.
+        </p>
+      </div>
+
+      <div class="capability-card">
+        <div class="icon-box">
+          <span class="material-icons">dashboard</span>
+        </div>
+        <h3>Tableaux de bord</h3>
+        <p>
+          Les administrateurs suivent les camions, les missions, les utilisateurs,
+          les signalements et les indicateurs de performance.
         </p>
       </div>
     </div>
   </section>
 
   <!-- STEPS -->
-  <section class="steps-section">
+  <section id="signalement" class="steps-section">
     <div class="section-header">
       <h2>Comment faire un signalement</h2>
       <p>Un processus simple et rapide pour signaler un problème urbain</p>
@@ -169,7 +191,7 @@
     </div>
   </section>
 
-  <!-- CTA CONTACT -->
+  <!-- CTA -->
   <section class="cta-section">
     <div class="cta-box">
       <div class="cta-text">
@@ -181,8 +203,7 @@
       </div>
 
       <div class="cta-actions">
-        <button routerLink="/contact" class="btn btn-primary">Nous contacter</button>
-        <button routerLink="/about" class="btn btn-secondary">À propos</button>
+        <button routerLink="/about" class="btn btn-primary">À propos</button>
       </div>
     </div>
   </section>

@@ -1,8 +1,11 @@
 package com.example.demo.dto;
 
 import com.example.demo.entity.Truck;
+import com.example.demo.entity.Bin;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TruckResponseDto {
 
@@ -29,6 +32,7 @@ public class TruckResponseDto {
     private Boolean isActive;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private List<Bin.WasteType> supportedWasteTypes = new ArrayList<>();
 
     public TruckResponseDto() {
     }
@@ -215,5 +219,13 @@ public class TruckResponseDto {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<Bin.WasteType> getSupportedWasteTypes() {
+        return supportedWasteTypes;
+    }
+
+    public void setSupportedWasteTypes(List<Bin.WasteType> supportedWasteTypes) {
+        this.supportedWasteTypes = supportedWasteTypes != null ? supportedWasteTypes : new ArrayList<>();
     }
 }

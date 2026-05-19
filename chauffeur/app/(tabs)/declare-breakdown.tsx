@@ -242,6 +242,73 @@ export default function DeclareBreakdownScreen() {
     }
   }
 
+  async function markBinCollectedAfterProblem(token: string) {
+    const response = await fetch(`${BASE_URL}/api/drivers/bin-scan`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        missionBinId: missionBinId ? Number(missionBinId) : null,
+        binCode: binCode ?? null,
+        driverNote: "collecte effectuée après signalement",
+        issueType: null,
+        collectedAfterIssue: true,
+      }),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      console.log("BIN COLLECT AFTER PROBLEM ERROR:", response.status, text);
+      throw new Error(text || "Impossible de marquer cette poubelle comme collectée.");
+    }
+  }
+
+  function goBackToRoute(actionDone: "report" | "collect") {
+    router.replace({
+      pathname: "/route-map",
+      params: {
+        actionDone,
+        reportedBinId: actionDone === "report" ? missionBinId ?? "" : "",
+        collectedBinId: actionDone === "collect" ? missionBinId ?? "" : "",
+        resumeIndex: resumeIndex ?? "0",
+        missionComplete: isLastMissionBin ? "1" : "0",
+      },
+    });
+  }
+
+  function askIfBinWasCollected(token: string) {
+    Alert.alert(
+      "Signalement envoyé",
+      "Est-ce que vous avez collecté la poubelle ?",
+      [
+        {
+          text: "Non",
+          style: "cancel",
+          onPress: () => goBackToRoute("report"),
+        },
+        {
+          text: "Oui",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await markBinCollectedAfterProblem(token);
+              goBackToRoute("collect");
+            } catch (error: any) {
+              Alert.alert(
+                "Erreur",
+                alertMessageFr(error?.message, "Impossible de confirmer la collecte.")
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   async function submitTruckProblem() {
     const missionId = await getCurrentMissionId();
     const descriptionParts = [
@@ -282,6 +349,8 @@ export default function DeclareBreakdownScreen() {
 
       if (isBinProblem) {
         await submitBinProblem(token);
+        askIfBinWasCollected(token);
+        return;
       } else {
         await submitTruckProblem();
       }

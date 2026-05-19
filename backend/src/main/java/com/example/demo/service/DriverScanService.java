@@ -76,10 +76,13 @@ public class DriverScanService {
         Instant nowInstant = Instant.now();
 
         String issueType = normalizeBinIssueType(request.getIssueType());
+        boolean collectedAfterIssue = Boolean.TRUE.equals(request.getCollectedAfterIssue());
         MissionBin missionBin;
 
         if (issueType != null && !issueType.isBlank() && request.getMissionBinId() != null) {
             missionBin = findDriverMissionBinById(request.getMissionBinId(), driver.getId());
+        } else if (collectedAfterIssue && request.getMissionBinId() != null) {
+            missionBin = findDriverMissionBinById(request.getMissionBinId(), driver.getId(), true);
         } else {
             Bin bin = binRepository.findByBinCode(cleanCode)
                     .orElseThrow(() -> new ResourceNotFoundException("Poubelle introuvable pour ce code : " + cleanCode));
@@ -114,10 +117,14 @@ public class DriverScanService {
         missionBin.setCollectedAt(nowInstant);
         missionBin.setCollectedBy(driver);
         missionBin.setActualArrival(nowOffset);
-        missionBin.setIssueType(null);
+        if (!collectedAfterIssue) {
+            missionBin.setIssueType(null);
+        }
         missionBin.setDriverNote(request.getDriverNote());
         missionBin.setAssignmentStatus(MissionBin.AssignmentStatus.COLLECTED);
-        missionBin.setSkippedReason(null);
+        if (!collectedAfterIssue) {
+            missionBin.setSkippedReason(null);
+        }
 
         MissionBin saved = missionBinRepository.save(missionBin);
 
@@ -303,6 +310,10 @@ public class DriverScanService {
     }
 
     private MissionBin findDriverMissionBinById(Long missionBinId, Long driverId) {
+        return findDriverMissionBinById(missionBinId, driverId, false);
+    }
+
+    private MissionBin findDriverMissionBinById(Long missionBinId, Long driverId, boolean allowSkipped) {
         MissionBin missionBin = missionBinRepository.findById(missionBinId)
                 .orElseThrow(() -> new ResourceNotFoundException("Poubelle de mission introuvable : " + missionBinId));
 
@@ -321,7 +332,7 @@ public class DriverScanService {
             throw new ConflictException("Cette poubelle a deja ete collectee");
         }
 
-        if (assignmentStatus == MissionBin.AssignmentStatus.SKIPPED) {
+        if (!allowSkipped && assignmentStatus == MissionBin.AssignmentStatus.SKIPPED) {
             throw new ConflictException("Cette poubelle a deja ete signalee comme probleme");
         }
 

@@ -110,17 +110,12 @@
 
 .notif-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: 7px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   background: #ef4444;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 18px;
   box-shadow: 0 0 0 2px var(--card-color, #ffffff);
 }
 

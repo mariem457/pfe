@@ -22,25 +22,23 @@
         aria-label="Notifications"
       >
         <span class="material-icons">notifications</span>
-        <span *ngIf="unreadCount > 0" class="notif-badge">
-          {{ unreadCount > 99 ? '99+' : unreadCount }}
-        </span>
+        <span *ngIf="unreadCount > 0" class="notif-badge" aria-hidden="true"></span>
       </button>
 
       <div *ngIf="openNotifications" class="notif-menu">
-        <div class="notif-title">Alertes en temps reel</div>
+        <div class="notif-title">Alertes en temps réel</div>
 
         <div *ngIf="latestAlerts.length === 0" class="notif-empty">
-          Aucune alerte ouverte
+          Aucune alerte QR code ouverte
         </div>
 
         <div class="notif-item" *ngFor="let alert of latestAlerts">
           <div class="notif-item-top">
             <strong>{{ label(alert) }}</strong>
-            <span>{{ alert.severity }}</span>
+            <span>{{ severityLabel(alert.severity) }}</span>
           </div>
-          <div class="notif-item-title">{{ alert.title }}</div>
-          <div class="notif-item-message">{{ alert.message }}</div>
+          <div class="notif-item-title">{{ alertText(alert.title) }}</div>
+          <div class="notif-item-message">{{ alertText(alert.message) }}</div>
         </div>
       </div>
     </div>

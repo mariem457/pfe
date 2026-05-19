@@ -1,6 +1,19 @@
 ﻿import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "./api";
 import { getToken, getTruckId, getUserId } from "./storage";
+
+type TruckLocationPayload = {
+  driverId: number;
+  lat: number;
+  lng: number;
+  speedKmh: number | null;
+  headingDeg: number | null;
+  timestamp: string;
+};
+
+const OFFLINE_TRUCK_LOCATIONS_KEY = "offline_truck_locations";
+const MAX_OFFLINE_TRUCK_LOCATIONS = 500;
 
 async function fetchWithTimeout(
   url: string,
@@ -37,25 +50,132 @@ export async function sendTruckLocation() {
     accuracy: Location.Accuracy.High,
   });
 
-  const response = await fetch(`${BASE_URL}/api/truck-locations`, {
+  await sendTruckLocationPayload({
+    driverId: Number(userId),
+    lat: location.coords.latitude,
+    lng: location.coords.longitude,
+    speedKmh:
+      location.coords.speed != null ? location.coords.speed * 3.6 : null,
+    headingDeg: location.coords.heading ?? null,
+    timestamp: new Date(location.timestamp).toISOString(),
+  });
+}
+
+export async function sendTruckLocationPoint(params: {
+  lat: number;
+  lng: number;
+  speedKmh?: number | null;
+  headingDeg?: number | null;
+  timestamp?: string;
+}) {
+  const userId = await getUserId();
+
+  if (!userId) return;
+
+  await sendTruckLocationPayload({
+    driverId: Number(userId),
+    lat: params.lat,
+    lng: params.lng,
+    speedKmh: params.speedKmh ?? null,
+    headingDeg: params.headingDeg ?? null,
+    timestamp: params.timestamp ?? new Date().toISOString(),
+  });
+}
+
+async function sendTruckLocationPayload(payload: TruckLocationPayload) {
+  const token = await getToken();
+
+  if (!token) return;
+
+  const queuedLocations = await getQueuedTruckLocations();
+
+  if (queuedLocations.length > 0) {
+    const flushed = await flushQueuedTruckLocations(token, queuedLocations);
+    if (!flushed) {
+      await enqueueTruckLocation(payload);
+      return;
+    }
+  }
+
+  try {
+    await postTruckLocation(token, payload);
+  } catch (error) {
+    console.log("TRUCK LOCATION OFFLINE QUEUED:", error);
+    await enqueueTruckLocation(payload);
+  }
+}
+
+async function postTruckLocation(token: string, payload: TruckLocationPayload) {
+  const response = await fetchWithTimeout(`${BASE_URL}/api/truck-locations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      driverId: userId,
-      lat: location.coords.latitude,
-      lng: location.coords.longitude,
-      speedKmh:
-        location.coords.speed != null ? location.coords.speed * 3.6 : null,
-      headingDeg: location.coords.heading ?? null,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    console.log("TRUCK LOCATION ERROR:", await response.text());
+    throw new Error(await response.text());
   }
+}
+
+async function flushQueuedTruckLocations(
+  token: string,
+  queuedLocations: TruckLocationPayload[]
+) {
+  const remaining = [...queuedLocations];
+
+  while (remaining.length > 0) {
+    try {
+      await postTruckLocation(token, remaining[0]);
+      remaining.shift();
+      await saveQueuedTruckLocations(remaining);
+    } catch (error) {
+      console.log("TRUCK LOCATION QUEUE SYNC ERROR:", error);
+      await saveQueuedTruckLocations(remaining);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function enqueueTruckLocation(payload: TruckLocationPayload) {
+  const queuedLocations = await getQueuedTruckLocations();
+  await saveQueuedTruckLocations(
+    [...queuedLocations, payload].slice(-MAX_OFFLINE_TRUCK_LOCATIONS)
+  );
+}
+
+async function getQueuedTruckLocations(): Promise<TruckLocationPayload[]> {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_TRUCK_LOCATIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+
+    return Array.isArray(parsed)
+      ? parsed.filter(isTruckLocationPayload)
+      : [];
+  } catch (error) {
+    console.log("TRUCK LOCATION QUEUE READ ERROR:", error);
+    return [];
+  }
+}
+
+async function saveQueuedTruckLocations(payloads: TruckLocationPayload[]) {
+  await AsyncStorage.setItem(
+    OFFLINE_TRUCK_LOCATIONS_KEY,
+    JSON.stringify(payloads)
+  );
+}
+
+function isTruckLocationPayload(value: any): value is TruckLocationPayload {
+  return (
+    Number.isFinite(value?.driverId) &&
+    Number.isFinite(value?.lat) &&
+    Number.isFinite(value?.lng) &&
+    typeof value?.timestamp === "string"
+  );
 }
 
 export async function getCurrentMissionId(): Promise<number | null> {

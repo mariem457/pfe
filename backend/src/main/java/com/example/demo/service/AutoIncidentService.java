@@ -24,7 +24,7 @@ import java.util.Optional;
 public class AutoIncidentService {
 
     private static final int FUEL_LOW_PERCENT = 20;
-    private static final int GPS_TIMEOUT_MINUTES = 10;
+    private static final int GPS_TIMEOUT_MINUTES = 2;
     private static final int FUEL_RESOLVED_PERCENT = 25;
     private static final int GPS_RECOVERED_MINUTES = 2;
 
@@ -34,6 +34,7 @@ public class AutoIncidentService {
     private final TruckIncidentService truckIncidentService;
     private final SmartAlertService smartAlertService;
     private final MissionRepository missionRepository;
+    private final EmailService emailService;
 
     public AutoIncidentService(
             TruckRepository truckRepository,
@@ -41,7 +42,8 @@ public class AutoIncidentService {
             TruckIncidentRepository truckIncidentRepository,
             TruckIncidentService truckIncidentService,
             SmartAlertService smartAlertService,
-            MissionRepository missionRepository
+            MissionRepository missionRepository,
+            EmailService emailService
     ) {
         this.truckRepository = truckRepository;
         this.truckLocationRepository = truckLocationRepository;
@@ -49,6 +51,7 @@ public class AutoIncidentService {
         this.truckIncidentService = truckIncidentService;
         this.smartAlertService = smartAlertService;
         this.missionRepository = missionRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -356,6 +359,7 @@ public class AutoIncidentService {
         truckRepository.save(truck);
 
         smartAlertService.createTruckIncidentAlert(saved);
+        sendGpsLostEmailIfNeeded(saved);
 
         System.out.println(
                 "AUTO INCIDENT CREATED => truck="
@@ -367,5 +371,37 @@ public class AutoIncidentService {
         );
 
         return true;
+    }
+
+    private void sendGpsLostEmailIfNeeded(TruckIncident incident) {
+        if (incident == null || incident.getIncidentType() != TruckIncident.IncidentType.GPS_LOST) {
+            return;
+        }
+
+        Truck truck = incident.getTruck();
+        if (truck == null || truck.getAssignedDriver() == null || truck.getAssignedDriver().getUser() == null) {
+            return;
+        }
+
+        String email = truck.getAssignedDriver().getUser().getEmail();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        try {
+            emailService.sendGpsLostEmail(
+                    email,
+                    truck.getAssignedDriver().getFullName(),
+                    truck.getTruckCode(),
+                    GPS_TIMEOUT_MINUTES
+            );
+        } catch (Exception e) {
+            System.err.println("GPS_LOST EMAIL ERROR => truckId="
+                    + truck.getId()
+                    + ", driverId="
+                    + truck.getAssignedDriver().getId()
+                    + ", error="
+                    + e.getMessage());
+        }
     }
 }

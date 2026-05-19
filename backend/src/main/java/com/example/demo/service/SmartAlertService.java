@@ -224,15 +224,15 @@ public class SmartAlertService {
         }
 
         String type = incident.getIncidentType() != null
-                ? incident.getIncidentType().name()
-                : "INCIDENT";
+                ? incidentTypeLabel(incident.getIncidentType())
+                : "Incident";
 
         return truckCode + " - " + type;
     }
 
     private String buildIncidentMessage(TruckIncident incident) {
         if (incident.getDescription() != null && !incident.getDescription().isBlank()) {
-            return incident.getDescription();
+            return translateIncidentText(incident.getDescription());
         }
 
         String truckCode = incident.getTruck() != null && incident.getTruck().getTruckCode() != null
@@ -240,6 +240,30 @@ public class SmartAlertService {
                 : "camion";
 
         return "Incident détecté sur " + truckCode + ".";
+    }
+
+    private String incidentTypeLabel(TruckIncident.IncidentType type) {
+        return switch (type) {
+            case BREAKDOWN -> "Panne";
+            case FUEL_LOW -> "Carburant faible";
+            case GPS_LOST -> "Perte GPS";
+            case TRAFFIC_BLOCK -> "Blocage de circulation";
+            case DELAY -> "Retard";
+            case OVERLOAD -> "Surcharge";
+            case DRIVER_UNAVAILABLE -> "Chauffeur indisponible";
+            default -> "Incident";
+        };
+    }
+
+    private String translateIncidentText(String text) {
+        return text
+                .replace("BREAKDOWN", "panne")
+                .replace("FUEL_LOW", "carburant faible")
+                .replace("GPS_LOST", "perte GPS")
+                .replace("TRAFFIC_BLOCK", "blocage de circulation")
+                .replace("DELAY", "retard")
+                .replace("OVERLOAD", "surcharge")
+                .replace("DRIVER_UNAVAILABLE", "chauffeur indisponible");
     }
 
     private String buildIncidentRecommendation(TruckIncident incident) {

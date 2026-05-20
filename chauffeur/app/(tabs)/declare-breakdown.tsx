@@ -73,6 +73,34 @@ function mapBinIssueType(type: string) {
   return "OTHER";
 }
 
+function responseErrorMessage(text: string, fallback: string) {
+  const trimmed = text.trim();
+
+  if (!trimmed) return fallback;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed?.message || parsed?.detail || parsed?.error || fallback;
+  } catch {
+    return trimmed;
+  }
+}
+
+function submitErrorMessage(error: unknown) {
+  const raw = error instanceof Error ? error.message : "";
+  const parsed = responseErrorMessage(raw, "");
+
+  if (/network request failed|failed to fetch/i.test(parsed)) {
+    return `Impossible de joindre le serveur (${BASE_URL}). Vérifiez que le backend est lancé et que le téléphone est sur le même Wi-Fi.`;
+  }
+
+  if (parsed) {
+    return parsed;
+  }
+
+  return "Impossible d'envoyer le signalement.";
+}
+
 export default function DeclareBreakdownScreen() {
   const isDark = useColorScheme() === "dark";
 
@@ -238,7 +266,7 @@ export default function DeclareBreakdownScreen() {
     const text = await response.text();
     if (!response.ok) {
       console.log("BIN PROBLEM ERROR:", response.status, text);
-      throw new Error(text || "Impossible de signaler cette poubelle.");
+      throw new Error(responseErrorMessage(text, "Impossible de signaler cette poubelle."));
     }
   }
 
@@ -380,7 +408,7 @@ export default function DeclareBreakdownScreen() {
       console.log("Erreur déclaration problème:", error);
       Alert.alert(
         "Erreur",
-        alertMessageFr(error?.message, "Impossible d'envoyer le signalement.")
+        submitErrorMessage(error)
       );
     } finally {
       setLoading(false);

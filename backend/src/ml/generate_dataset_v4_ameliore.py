@@ -346,14 +346,67 @@ df = df.sort_values(["bin_id", "time"]).reset_index(drop=True)
 
 df["has_anomaly"] = (df["anomaly_type"] != "none").astype(int)
 
-df["time_to_full"] = np.where(
-    df["fill_level"].notna() & (df["fill_rate"] > 0),
-    (100 - df["fill_level"]) / df["fill_rate"],
-    np.nan
+# ─── REAL FUTURE TIME_TO_FULL ────────────────────────────────────────────────
+# Objectif:
+# time_to_full ne sera plus calculé par formule.
+# Il sera extrait du futur réel de chaque bac:
+# "dans combien d'heures ce bac atteint 90% ?"
+
+CRITICAL_FILL_LEVEL = 90
+MAX_TIME_TO_FULL_HOURS = 48
+
+def compute_real_future_time_to_full(group):
+    group = group.sort_values("time").copy()
+    fill_values = group["fill_level"].values
+    times = group["time"].values
+
+    result = []
+
+    for i in range(len(group)):
+        current_fill = fill_values[i]
+
+        # Si valeur manquante, on ne sait pas calculer
+        if pd.isna(current_fill):
+            result.append(np.nan)
+            continue
+
+        # Si déjà critique
+        if current_fill >= CRITICAL_FILL_LEVEL:
+            result.append(0.0)
+            continue
+
+        found = False
+
+        # On cherche dans les 48 prochaines heures
+        for j in range(i + 1, min(i + MAX_TIME_TO_FULL_HOURS + 1, len(group))):
+            future_fill = fill_values[j]
+
+            if pd.isna(future_fill):
+                continue
+
+            if future_fill >= CRITICAL_FILL_LEVEL:
+                delta_hours = (
+                    pd.to_datetime(times[j]) - pd.to_datetime(times[i])
+                ).total_seconds() / 3600.0
+
+                result.append(delta_hours)
+                found = True
+                break
+
+        # Si le bac n'atteint pas 90% dans 48h
+        # on met 48h = non urgent dans l'horizon opérationnel
+        if not found:
+            result.append(float(MAX_TIME_TO_FULL_HOURS))
+
+    group["time_to_full"] = result
+    return group
+
+
+df = (
+    df.groupby("bin_id", group_keys=False)
+      .apply(compute_real_future_time_to_full)
+      .reset_index(drop=True)
 )
-
-df["time_to_full"] = df["time_to_full"].clip(lower=0, upper=240)
-
 # ─── VALIDATION ───────────────────────────────────────────────────────────────
 df_check = df[df["anomaly_type"] == "none"].copy()
 df_check["fill_level_next"] = df_check.groupby("bin_id")["fill_level"].shift(-1)

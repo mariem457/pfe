@@ -1,16 +1,69 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import { router } from "expo-router";
+import React, { useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { Alert, AppState, Linking } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { AppColors } from "@/constants/app-colors";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { requireDriverLocation } from "@/lib/locationRequirement";
+import { removeAuth } from "@/lib/storage";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const scheme = colorScheme ?? "light";
   const colors = AppColors[scheme];
   const isDark = scheme === "dark";
+  const alertVisibleRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function verifyLocationAccess() {
+      const requirement = await requireDriverLocation();
+
+      if (cancelled || requirement.ok || alertVisibleRef.current) return;
+
+      alertVisibleRef.current = true;
+      await removeAuth();
+      router.replace("/login");
+
+      Alert.alert(
+        "Localisation obligatoire",
+        requirement.message ?? "Activez la localisation pour continuer.",
+        [
+          {
+            text: "OK",
+            style: "cancel",
+            onPress: () => {
+              alertVisibleRef.current = false;
+            },
+          },
+          {
+            text: "Paramètres",
+            onPress: () => {
+              alertVisibleRef.current = false;
+              Linking.openSettings();
+            },
+          },
+        ]
+      );
+    }
+
+    verifyLocationAccess();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        verifyLocationAccess();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <Tabs

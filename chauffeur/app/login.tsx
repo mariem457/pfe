@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  Linking,
   useColorScheme,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { BASE_URL } from "../lib/api";
 import { alertMessageFr } from "../lib/alertMessages";
+import { requireDriverLocation } from "../lib/locationRequirement";
 import { registerDriverPushToken } from "../lib/phoneNotifications";
 import {
   getRememberedAccounts,
@@ -137,6 +139,19 @@ export default function LoginScreen() {
       }
 
       const data: LoginResponse = await response.json();
+
+      const locationRequirement = await requireDriverLocation();
+      if (!locationRequirement.ok) {
+        Alert.alert(
+          "Localisation obligatoire",
+          locationRequirement.message ?? "Activez la localisation pour continuer.",
+          [
+            { text: "Annuler", style: "cancel" },
+            { text: "Paramètres", onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
 
       await saveAuth({
         token: data.token,

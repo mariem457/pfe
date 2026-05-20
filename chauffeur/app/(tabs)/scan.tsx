@@ -39,14 +39,45 @@ export default function ScanScreen() {
     setLastCode(null);
   }
 
+  function extractBinCode(raw: string) {
+    const trimmed = raw.trim();
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      const value =
+        parsed?.binCode ??
+        parsed?.bin_code ??
+        parsed?.code ??
+        parsed?.id ??
+        parsed?.binId;
+
+      if (value != null) return String(value).trim();
+    } catch {}
+
+    try {
+      const url = new URL(trimmed);
+      const value =
+        url.searchParams.get("binCode") ??
+        url.searchParams.get("bin_code") ??
+        url.searchParams.get("code") ??
+        url.searchParams.get("id") ??
+        url.pathname.split("/").filter(Boolean).pop();
+
+      if (value) return value.trim();
+    } catch {}
+
+    return trimmed;
+  }
+
   const handleScan = async ({ data }: { data: string }) => {
     if (scanned || loading) return;
 
     setScanned(true);
-    setLastCode(data);
+    const scannedCode = extractBinCode(data);
+    setLastCode(scannedCode);
 
     try {
-      if (expectedBinCode && data.trim() !== expectedBinCode.trim()) {
+      if (expectedBinCode && scannedCode !== expectedBinCode.trim()) {
         Alert.alert(
           "QR code invalide",
           `Ce QR code ne correspond pas à cette poubelle.\n\nPoubelle attendue: ${expectedBinCode}`,
@@ -92,7 +123,7 @@ export default function ScanScreen() {
         },
         body: JSON.stringify({
           missionBinId: missionBinId ? Number(missionBinId) : null,
-          binCode: data,
+          binCode: scannedCode,
           driverNote: "collecte effectuée",
           issueType: null,
         }),
@@ -115,7 +146,7 @@ export default function ScanScreen() {
         "Succès",
         alertMessageFr(
           result?.message,
-          `Poubelle ${result?.binCode || data} collectée avec succès`
+          `Poubelle ${result?.binCode || scannedCode} collectée avec succès`
         ),
         [
           {

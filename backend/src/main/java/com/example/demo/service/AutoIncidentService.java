@@ -34,7 +34,7 @@ public class AutoIncidentService {
     private final TruckIncidentService truckIncidentService;
     private final SmartAlertService smartAlertService;
     private final MissionRepository missionRepository;
-    private final EmailService emailService;
+    private final DriverNotificationService driverNotificationService;
 
     public AutoIncidentService(
             TruckRepository truckRepository,
@@ -43,7 +43,7 @@ public class AutoIncidentService {
             TruckIncidentService truckIncidentService,
             SmartAlertService smartAlertService,
             MissionRepository missionRepository,
-            EmailService emailService
+            DriverNotificationService driverNotificationService
     ) {
         this.truckRepository = truckRepository;
         this.truckLocationRepository = truckLocationRepository;
@@ -51,7 +51,7 @@ public class AutoIncidentService {
         this.truckIncidentService = truckIncidentService;
         this.smartAlertService = smartAlertService;
         this.missionRepository = missionRepository;
-        this.emailService = emailService;
+        this.driverNotificationService = driverNotificationService;
     }
 
     @Transactional
@@ -275,6 +275,16 @@ public class AutoIncidentService {
             return false;
         }
 
+        Optional<Mission> activeMission = missionRepository
+                .findTopByTruckAndStatusInOrderByCreatedAtDesc(
+                        truck,
+                        List.of("IN_PROGRESS")
+                );
+
+        if (activeMission.isEmpty()) {
+            return false;
+        }
+
         Optional<TruckLocation> latestLocation =
                 truckLocationRepository.findLatestByDriverId(truck.getAssignedDriver().getId());
 
@@ -359,7 +369,7 @@ public class AutoIncidentService {
         truckRepository.save(truck);
 
         smartAlertService.createTruckIncidentAlert(saved);
-        sendGpsLostEmailIfNeeded(saved);
+        sendGpsLostAppNotificationIfNeeded(saved);
 
         System.out.println(
                 "AUTO INCIDENT CREATED => truck="
@@ -373,33 +383,16 @@ public class AutoIncidentService {
         return true;
     }
 
-    private void sendGpsLostEmailIfNeeded(TruckIncident incident) {
+    private void sendGpsLostAppNotificationIfNeeded(TruckIncident incident) {
         if (incident == null || incident.getIncidentType() != TruckIncident.IncidentType.GPS_LOST) {
             return;
         }
 
-        Truck truck = incident.getTruck();
-        if (truck == null || truck.getAssignedDriver() == null || truck.getAssignedDriver().getUser() == null) {
-            return;
-        }
-
-        String email = truck.getAssignedDriver().getUser().getEmail();
-        if (email == null || email.isBlank()) {
-            return;
-        }
-
         try {
-            emailService.sendGpsLostEmail(
-                    email,
-                    truck.getAssignedDriver().getFullName(),
-                    truck.getTruckCode(),
-                    GPS_TIMEOUT_MINUTES
-            );
+            driverNotificationService.contactDriverForIncident(incident.getId(), null);
         } catch (Exception e) {
-            System.err.println("GPS_LOST EMAIL ERROR => truckId="
-                    + truck.getId()
-                    + ", driverId="
-                    + truck.getAssignedDriver().getId()
+            System.err.println("GPS_LOST APP NOTIFICATION ERROR => incidentId="
+                    + incident.getId()
                     + ", error="
                     + e.getMessage());
         }

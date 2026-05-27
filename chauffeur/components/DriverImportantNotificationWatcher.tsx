@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
 import { BASE_URL } from "../lib/api";
-import { DriverNotification } from "../lib/driverNotifications";
+import { DriverNotification, isGpsLostNotification } from "../lib/driverNotifications";
 import { showImportantPhoneNotification } from "../lib/phoneNotifications";
 import { getToken } from "../lib/storage";
 
@@ -63,7 +63,9 @@ export function DriverImportantNotificationWatcher() {
         if (!response.ok) return;
 
         const data: DriverNotification[] = await response.json();
-        const list = Array.isArray(data) ? data : [];
+        const list = (Array.isArray(data) ? data : []).filter(
+          (item) => !isGpsLostNotification(item)
+        );
         if (list.length === 0) return;
 
         const newest = list[0];

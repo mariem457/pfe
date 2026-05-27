@@ -24,6 +24,7 @@ import {
   DriverNotification,
   DriverNotificationType,
   getDriverNotificationText,
+  isGpsLostNotification,
 } from "../../lib/driverNotifications";
 import { getToken } from "../../lib/storage";
 
@@ -71,16 +72,7 @@ export default function NotificationsScreen() {
     loadNotifications();
   }, []);
 
-  function isGpsLostNotification(item: DriverNotification) {
-    const text = `${item.type} ${item.title} ${item.message}`.toUpperCase();
-    return text.includes("GPS_LOST") || text.includes("GPS-LOST");
-  }
-
   function shouldShowGreenDot(item: DriverNotification) {
-    if (isGpsLostNotification(item)) {
-      return item.status !== "RESPONDED";
-    }
-
     return !item.read;
   }
 
@@ -103,7 +95,8 @@ export default function NotificationsScreen() {
       }
 
       const data = await response.json();
-      setNotifications(Array.isArray(data) ? data : []);
+      const list: DriverNotification[] = Array.isArray(data) ? data : [];
+      setNotifications(list.filter((item) => !isGpsLostNotification(item)));
     } catch (error: any) {
       Alert.alert(
         "Erreur",
@@ -298,7 +291,7 @@ export default function NotificationsScreen() {
                           {getTimeAgo(item.createdAt)}
                         </Text>
                       </View>
-                      {(item.type === "INCIDENT_CONTACT" || isGpsLostNotification(item)) &&
+                      {item.type === "INCIDENT_CONTACT" &&
                         item.status !== "RESPONDED" && (
                         <View style={styles.quickActions}>
                           <TouchableOpacity
@@ -324,7 +317,7 @@ export default function NotificationsScreen() {
                             onPress={() => respondQuickly(item.id, "NEED_ASSISTANCE")}
                           >
                             <Text style={[styles.quickBtnText, { color: colors.orangeText }]}>
-                              Besoin d'assistance
+                              Besoin d&apos;assistance
                             </Text>
                           </TouchableOpacity>
                         </View>

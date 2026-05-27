@@ -22,6 +22,11 @@ export type DriverNotification = {
   respondedAt?: string | null;
 };
 
+export function isGpsLostNotification(notification: DriverNotification) {
+  const raw = `${notification.type} ${notification.title} ${notification.message}`.toUpperCase();
+  return raw.includes("GPS_LOST") || raw.includes("GPS-LOST");
+}
+
 function formatTruckCode(value?: string | null) {
   if (!value) return "Camion";
   return value.replace(/^TRUCK/i, "Camion");
@@ -93,12 +98,8 @@ export function getDriverNotificationText(notification: DriverNotification) {
 }
 
 export function isPhoneNotificationImportant(notification: DriverNotification) {
-  const raw = `${notification.type} ${notification.title} ${notification.message}`.toUpperCase();
-
   return (
     notification.type === "INCIDENT_CONTACT" ||
-    notification.type === "TRUCK_BREAKDOWN_HANDLED" ||
-    raw.includes("GPS_LOST") ||
-    raw.includes("GPS-LOST")
+    notification.type === "TRUCK_BREAKDOWN_HANDLED"
   );
 }

@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/zones/**").hasAnyRole("ADMIN", "MUNICIPALITY")
                         .requestMatchers("/api/municipality/**").hasAnyRole("ADMIN", "MUNICIPALITY")
 
+                        .requestMatchers(HttpMethod.POST, "/api/alerts/*/treat-qr-code").hasRole("ADMIN")
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/anomalies/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")
                         .requestMatchers("/api/kpi/**").hasAnyRole("ADMIN", "MUNICIPALITY", "DRIVER", "MAINTENANCE")

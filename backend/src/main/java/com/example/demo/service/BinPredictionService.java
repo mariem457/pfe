@@ -30,4 +30,33 @@ public class BinPredictionService {
 
         repo.save(p);
     }
+
+    public void saveCombined(
+            Long binId,
+            BinTelemetry telemetry,
+            PredictionResult fillResult,
+            TimeToThresholdPredictionResult timeResult
+    ) {
+        BinPrediction p = new BinPrediction();
+
+        p.setBinId(binId);
+        p.setTelemetry(telemetry);
+
+        p.setPredictedFillNext(BigDecimal.valueOf(fillResult.getPredictedFillNext()));
+        p.setPredictedHours(BigDecimal.valueOf(timeResult.getPredictedHours()));
+
+        /*
+         * Ici on garde le score du modèle time_to_full,
+         * car l'optimisation dépend fortement de l'urgence temporelle.
+         */
+        p.setAlertStatus(timeResult.getAlertStatus());
+        p.setPriorityScore(BigDecimal.valueOf(timeResult.getPriorityScore()));
+        p.setShouldCollect(timeResult.isShouldCollect());
+
+        p.setActualFillNext(null);
+        p.setErrorValue(null);
+        p.setCreatedAt(OffsetDateTime.now());
+
+        repo.save(p);
+    }
 }

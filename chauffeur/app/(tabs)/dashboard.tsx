@@ -19,6 +19,7 @@ import {
   DriverNotification,
   DriverNotificationType,
   getDriverNotificationText,
+  isGpsLostNotification,
 } from "../../lib/driverNotifications";
 import { getToken, getUserId, saveTruckId } from "../../lib/storage";
 import { getMyTruckIncidents, sendTruckLocation } from "../../lib/truckApi";
@@ -292,7 +293,9 @@ export default function Dashboard() {
         }
 
         const data: DriverNotification[] = await response.json();
-        const list = Array.isArray(data) ? data : [];
+        const list = (Array.isArray(data) ? data : []).filter(
+          (item) => !isGpsLostNotification(item)
+        );
 
         setHasUnreadNotifications(list.some((item) => !item.read));
 

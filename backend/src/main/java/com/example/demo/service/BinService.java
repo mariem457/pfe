@@ -14,6 +14,8 @@ import com.example.demo.repository.BinTelemetryRepository;
 import com.example.demo.repository.BinTimePredictionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,27 +34,24 @@ public class BinService {
     private final BinRepository binRepository;
     private final BinTelemetryRepository binTelemetryRepository;
     private final ZoneService zoneService;
-    private final BinPriorityService binPriorityService;
-    private final BinTimePredictionService binTimePredictionService;
     private final BinPredictionRepository binPredictionRepository;
     private final BinTimePredictionRepository binTimePredictionRepository;
+    private final PythonPredictionService pythonPredictionService;
 
     public BinService(
             BinRepository binRepository,
             BinTelemetryRepository binTelemetryRepository,
             ZoneService zoneService,
-            BinPriorityService binPriorityService,
-            BinTimePredictionService binTimePredictionService,
             BinPredictionRepository binPredictionRepository,
-            BinTimePredictionRepository binTimePredictionRepository
+            BinTimePredictionRepository binTimePredictionRepository,
+            PythonPredictionService pythonPredictionService
     ) {
         this.binRepository = binRepository;
         this.binTelemetryRepository = binTelemetryRepository;
         this.zoneService = zoneService;
-        this.binPriorityService = binPriorityService;
-        this.binTimePredictionService = binTimePredictionService;
         this.binPredictionRepository = binPredictionRepository;
         this.binTimePredictionRepository = binTimePredictionRepository;
+        this.pythonPredictionService = pythonPredictionService;
     }
 
     @Transactional(readOnly = true)
@@ -176,8 +175,6 @@ public class BinService {
 
         System.out.println("Bin found id=" + bin.getId());
 
-        Optional<BinTelemetry> previousOpt = binTelemetryRepository.findTopByBinOrderByTimestampDesc(bin);
-
         BinTelemetry telemetry = new BinTelemetry();
         telemetry.setBin(bin);
         telemetry.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : Instant.now());
@@ -189,7 +186,7 @@ public class BinService {
         telemetry.setCollected(dto.getCollected() != null ? dto.getCollected() : false);
 
         String src = dto.getSource();
-        if (!"MQTT_REAL".equals(src) && !"MQTT_SIM".equals(src)) {
+        if (!"MQTT_REAL".equals(src) && !"MQTT_SIM".equals(src) && !"PY_SIM".equals(src)) {
             src = "MQTT_SIM";
         }
         telemetry.setSource(src);
@@ -199,105 +196,28 @@ public class BinService {
 
         System.out.println("Telemetry saved in DB id=" + saved.getId());
 
-        BinTelemetry previousTelemetry = previousOpt.orElse(null);
+        runPredictionAfterCommit(saved.getId());
+    }
 
-        BinTelemetry secondPreviousTelemetry = previousTelemetry != null
-                ? binTelemetryRepository
-                .findTopByBinIdAndIdNotOrderByTimestampDesc(bin.getId(), previousTelemetry.getId())
-                .orElse(null)
-                : null;
-
-        double hour = saved.getTimestamp()
-                .atZone(ZoneId.systemDefault())
-                .getHour();
-
-        double fillDelta = 0.0;
-        double fillRatePerHour = 0.0;
-
-        if (previousTelemetry != null) {
-            double currentFill = saved.getFillLevel();
-            double previousFill = previousTelemetry.getFillLevel();
-
-            fillDelta = Math.max(0.0, currentFill - previousFill);
-
-            long seconds = saved.getTimestamp().getEpochSecond()
-                    - previousTelemetry.getTimestamp().getEpochSecond();
-
-            double hoursDiff = seconds / 3600.0;
-
-            if (hoursDiff > 0) {
-                fillRatePerHour = fillDelta / hoursDiff;
-            }
+    private void runPredictionAfterCommit(Long telemetryId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    runPredictionSafely(telemetryId);
+                }
+            });
+            return;
         }
 
-        double fillLevelLag1 = previousTelemetry != null
-                ? previousTelemetry.getFillLevel()
-                : saved.getFillLevel();
+        runPredictionSafely(telemetryId);
+    }
 
-        double fillLevelLag2 = secondPreviousTelemetry != null
-                ? secondPreviousTelemetry.getFillLevel()
-                : fillLevelLag1;
-
-        double fillRateLag1 = 0.0;
-        if (previousTelemetry != null && secondPreviousTelemetry != null) {
-            fillRateLag1 = Math.max(
-                    0.0,
-                    previousTelemetry.getFillLevel() - secondPreviousTelemetry.getFillLevel()
-            );
-        }
-
-        double weightKgLag1 = previousTelemetry != null && previousTelemetry.getWeightKg() != null
-                ? previousTelemetry.getWeightKg().doubleValue()
-                : (saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0);
-
-        double rssiLag1 = previousTelemetry != null
-                ? previousTelemetry.getRssi()
-                : (saved.getRssi() != null ? saved.getRssi() : 0);
-
+    private void runPredictionSafely(Long telemetryId) {
         try {
-            System.out.println("BEFORE model1 prediction");
-
-            binPriorityService.predictAndSave(
-                    bin.getId(),
-                    saved,
-                    hour,
-                    saved.getFillLevel(),
-                    fillDelta,
-                    saved.getBatteryLevel() != null ? saved.getBatteryLevel() : 0,
-                    saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0,
-                    saved.getRssi() != null ? saved.getRssi() : 0,
-                    Boolean.TRUE.equals(saved.getCollected()),
-                    fillLevelLag1,
-                    fillLevelLag2,
-                    fillRateLag1,
-                    weightKgLag1,
-                    rssiLag1
-            );
-
-            System.out.println("AFTER model1 prediction");
+            pythonPredictionService.runPredictionForTelemetry(telemetryId);
         } catch (Exception e) {
-            System.err.println("MODEL 1 FAILED for telemetryId=" + saved.getId() + ": " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        try {
-            System.out.println("BEFORE model2 prediction");
-
-            binTimePredictionService.predictAndSave(
-                    bin.getId(),
-                    saved.getId(),
-                    hour,
-                    saved.getFillLevel(),
-                    fillRatePerHour,
-                    saved.getBatteryLevel() != null ? saved.getBatteryLevel() : 0,
-                    saved.getWeightKg() != null ? saved.getWeightKg().doubleValue() : 0.0,
-                    saved.getRssi() != null ? saved.getRssi() : 0,
-                    Boolean.TRUE.equals(saved.getCollected())
-            );
-
-            System.out.println("AFTER model2 prediction");
-        } catch (Exception e) {
-            System.err.println("MODEL 2 FAILED for telemetryId=" + saved.getId() + ": " + e.getMessage());
+            System.err.println("XGBoost prediction failed for telemetryId=" + telemetryId + ": " + e.getMessage());
             e.printStackTrace();
         }
     }

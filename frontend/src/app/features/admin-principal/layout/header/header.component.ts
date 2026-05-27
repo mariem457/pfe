@@ -16,6 +16,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   openNotifications = false;
   unreadCount = 0;
   latestAlerts: AlertDto[] = [];
+  treatingAlertIds = new Set<number>();
 
   private readonly readAlertsStorageKey = 'admin-principal-read-alert-ids';
   private openAlertIds: number[] = [];
@@ -118,6 +119,26 @@ export class HeaderComponent implements OnInit, OnDestroy {
       .replace(/\bALERTE-/g, 'Alerte ');
   }
 
+  treatQrCodeProblem(alert: AlertDto, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!alert?.id || this.treatingAlertIds.has(alert.id)) return;
+
+    this.treatingAlertIds.add(alert.id);
+    this.alertService.treatQrCodeProblem(alert.id).subscribe({
+      next: () => {
+        this.openAlertIds = this.openAlertIds.filter(id => id !== alert.id);
+        this.latestAlerts = this.latestAlerts.filter(a => a.id !== alert.id);
+        this.syncUnreadCount();
+      },
+      error: err => {
+        console.error('Erreur traitement alerte QR code:', err);
+      },
+      complete: () => {
+        this.treatingAlertIds.delete(alert.id);
+      }
+    });
+  }
+
   private loadAlerts(): void {
     this.alertService.getOpenAlerts().subscribe({
       next: alerts => {
@@ -168,8 +189,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private isQrCodeProblemAlert(alert: AlertDto): boolean {
     const type = (alert.alertType || '').trim().toUpperCase();
-    const text = `${alert.title || ''} ${alert.message || ''}`.toLowerCase();
 
-    return type === 'TRUCK_QR_CODE_PROBLEM' || text.includes('qr code') || text.includes('qrcode');
+    return type === 'TRUCK_QR_CODE_PROBLEM' || type === 'DRIVER_QR_CODE_PROBLEM';
   }
 }

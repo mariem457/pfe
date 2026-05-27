@@ -197,6 +197,24 @@
   overflow: hidden;
 }
 
+.notif-treat-btn {
+  margin-top: 10px;
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.notif-treat-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .notify-dot {
   position: absolute;
   top: 8px;

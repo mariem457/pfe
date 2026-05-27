@@ -1,4 +1,3 @@
-// PythonTimePredictionService.java
 package com.example.demo.service;
 
 import org.springframework.stereotype.Service;
@@ -7,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,9 +26,10 @@ public class PythonTimePredictionService {
     ) {
         try {
             String scriptPath = resolveScriptPath("predict_hours.py");
+            String pythonExe = resolvePythonPath();
 
             ProcessBuilder processBuilder = new ProcessBuilder(
-                    "python",
+                    pythonExe,
                     scriptPath,
                     String.valueOf(hour),
                     String.valueOf(fillLevel),
@@ -45,6 +46,7 @@ public class PythonTimePredictionService {
 
             System.out.println("========== PYTHON MODEL 2 START ==========");
             System.out.println("Working directory = " + workingDir.getAbsolutePath());
+            System.out.println("Python executable = " + pythonExe);
             System.out.println("Script path = " + scriptPath);
 
             Process process = processBuilder.start();
@@ -69,13 +71,16 @@ public class PythonTimePredictionService {
             System.out.println("========== PYTHON MODEL 2 END ==========");
 
             if (exitCode != 0 || output.isBlank()) {
-                throw new RuntimeException("Python model 2 failed. ExitCode=" + exitCode + ", Output=" + output);
+                throw new RuntimeException(
+                        "Python model 2 failed. ExitCode=" + exitCode + ", Output=" + output
+                );
             }
 
             String[] lines = output.split("\\R");
-            String lastLine = lines[lines.length - 1].trim();
+            String lastLine = findLastPredictionLine(lines);
 
             String[] parts = lastLine.split(",");
+
             if (parts.length < 4) {
                 throw new RuntimeException("Unexpected Python model 2 output: " + lastLine);
             }
@@ -97,6 +102,49 @@ public class PythonTimePredictionService {
             e.printStackTrace();
             throw new RuntimeException("Error running Python time prediction", e);
         }
+    }
+
+    private String findLastPredictionLine(String[] lines) {
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String candidate = lines[i].trim();
+
+            if (candidate.isBlank()) {
+                continue;
+            }
+
+            String[] parts = candidate.split(",");
+
+            if (parts.length >= 4 && isDouble(parts[0].trim()) && isDouble(parts[2].trim())) {
+                return candidate;
+            }
+        }
+
+        throw new RuntimeException("No valid prediction line found in Python model 2 output.");
+    }
+
+    private boolean isDouble(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String resolvePythonPath() {
+        Path root = Paths.get(System.getProperty("user.dir"));
+
+        List<Path> candidates = List.of(
+                root.resolve("src/ml/ml-venv/Scripts/python.exe"),
+                root.resolve("ml/ml-venv/Scripts/python.exe")
+        );
+
+        return candidates.stream()
+                .filter(Files::exists)
+                .findFirst()
+                .map(Path::toAbsolutePath)
+                .map(Path::toString)
+                .orElse("python");
     }
 
     private String resolveScriptPath(String fileName) {

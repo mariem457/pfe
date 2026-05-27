@@ -347,7 +347,8 @@ public class DriverScanService {
         String normalized = issueType.trim().toUpperCase();
 
         if (
-                "BLOCKED".equals(normalized)
+                "QR_CODE".equals(normalized)
+                        || "BLOCKED".equals(normalized)
                         || "DAMAGED".equals(normalized)
                         || "SENSOR_ERROR".equals(normalized)
                         || "OTHER".equals(normalized)
@@ -356,6 +357,9 @@ public class DriverScanService {
         }
 
         String lower = issueType.trim().toLowerCase();
+        if (lower.contains("qr code") || lower.contains("qrcode")) {
+            return "QR_CODE";
+        }
         if (lower.contains("bloqu") || lower.contains("acces") || lower.contains("accès")) {
             return "BLOCKED";
         }

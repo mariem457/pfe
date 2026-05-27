@@ -50,6 +50,15 @@ public class AlertController {
         String username = principal != null ? principal.getName() : null;
         return alertService.resolve(id, username);
     }
+
+    @PostMapping("/{id}/treat-qr-code")
+    public AlertResponse treatQrCodeProblem(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        String username = principal != null ? principal.getName() : null;
+        return alertService.treatQrCodeProblem(id, username);
+    }
     @PostMapping("/{id}/create-exception-mission")
     public List<MissionResponse> createExceptionMission(@PathVariable Long id) {
         return routingOptimizationService.planExceptionMissionFromAlert(id);

@@ -134,7 +134,9 @@ public class AlertService {
         alert.setResolvedAt(Instant.now());
 
         if (username != null && !username.isBlank()) {
-            userRepo.findByUsername(username).ifPresent(alert::setResolvedBy);
+            userRepo.findByUsername(username)
+                    .or(() -> userRepo.findByEmail(username))
+                    .ifPresent(alert::setResolvedBy);
         }
 
         alertRepo.save(alert);
@@ -146,6 +148,62 @@ public class AlertService {
         }
 
         return toResponse(alert);
+    }
+
+    @Transactional
+    public AlertResponse treatQrCodeProblem(Long alertId, String username) {
+        Alert alert = alertRepo.findByIdWithRelations(alertId);
+
+        if (alert == null) {
+            throw new RuntimeException("Alert not found: " + alertId);
+        }
+
+        if (!isAdminQrCodeProblemAlert(alert)) {
+            throw new RuntimeException("Cette alerte n'est pas un probleme QR code chauffeur.");
+        }
+
+        AlertResponse resolvedResponse = resolve(alertId, username);
+
+        Long entityId = alert.getEntityId() != null ? alert.getEntityId() : alert.getId();
+        String entityType = alert.getEntityType() != null ? alert.getEntityType() : "SYSTEM";
+        String municipalType = "MUNICIPAL_QR_CODE_PROBLEM";
+
+        boolean exists = alertRepo.existsByEntityTypeAndEntityIdAndAlertTypeAndResolvedFalse(
+                entityType,
+                entityId,
+                municipalType
+        );
+
+        if (exists) {
+            return resolvedResponse;
+        }
+
+        Alert municipalAlert = new Alert();
+        municipalAlert.setAlertType(municipalType);
+        municipalAlert.setSeverity(alert.getSeverity() != null ? alert.getSeverity() : "HIGH");
+        municipalAlert.setEntityType(entityType);
+        municipalAlert.setEntityId(entityId);
+        municipalAlert.setBin(alert.getBin());
+        municipalAlert.setTruck(alert.getTruck());
+        municipalAlert.setMission(alert.getMission());
+        municipalAlert.setIncident(alert.getIncident());
+        municipalAlert.setTitle("Probleme QR code traite par admin");
+        municipalAlert.setMessage(buildMunicipalQrMessage(alert));
+        municipalAlert.setRecommendation("Municipalite: verifier le QR code sur terrain, remplacer l'etiquette si necessaire, puis resoudre cette alerte.");
+        municipalAlert.setActionType("MUNICIPAL_QR_REVIEW");
+        municipalAlert.setResolved(false);
+
+        Alert saved = alertRepo.save(municipalAlert);
+        Alert loaded = alertRepo.findCreatedAlertWithRelations(saved.getId());
+        AlertResponse response = toResponse(loaded);
+
+        try {
+            alertRealtimeService.publishCreated(response);
+        } catch (Exception e) {
+            System.out.println("Realtime failed (ignore): " + e.getMessage());
+        }
+
+        return response;
     }
 
     public AlertDetailsResponse getAlertDetails(Long alertId) {
@@ -237,5 +295,20 @@ public class AlertService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private boolean isAdminQrCodeProblemAlert(Alert alert) {
+        String type = alert.getAlertType() != null ? alert.getAlertType().trim().toUpperCase() : "";
+        return "TRUCK_QR_CODE_PROBLEM".equals(type) || "DRIVER_QR_CODE_PROBLEM".equals(type);
+    }
+
+    private String buildMunicipalQrMessage(Alert source) {
+        String target = source.getBin() != null && source.getBin().getBinCode() != null
+                ? "Poubelle " + source.getBin().getBinCode()
+                : source.getTruck() != null && source.getTruck().getTruckCode() != null
+                ? "Camion " + source.getTruck().getTruckCode()
+                : "Element concerne";
+
+        return target + ". Signalement QR code valide par l'admin principal. Detail initial: " + source.getMessage();
     }
 }

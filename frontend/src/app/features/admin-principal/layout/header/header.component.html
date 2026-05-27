@@ -39,6 +39,14 @@
           </div>
           <div class="notif-item-title">{{ alertText(alert.title) }}</div>
           <div class="notif-item-message">{{ alertText(alert.message) }}</div>
+          <button
+            class="notif-treat-btn"
+            type="button"
+            [disabled]="treatingAlertIds.has(alert.id)"
+            (click)="treatQrCodeProblem(alert, $event)"
+          >
+            {{ treatingAlertIds.has(alert.id) ? 'Traitement...' : 'Traité' }}
+          </button>
         </div>
       </div>
     </div>

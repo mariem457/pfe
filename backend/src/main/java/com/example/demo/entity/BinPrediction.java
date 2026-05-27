@@ -29,6 +29,9 @@ public class BinPrediction {
     @Column(name = "predicted_fill_next", precision = 10, scale = 2)
     private BigDecimal predictedFillNext;
 
+    @Column(name = "predicted_hours", precision = 10, scale = 2)
+    private BigDecimal predictedHours;
+
     @Column(name = "alert_status")
     private String alertStatus;
 
@@ -83,6 +86,14 @@ public class BinPrediction {
 
     public void setPredictedFillNext(BigDecimal predictedFillNext) {
         this.predictedFillNext = predictedFillNext;
+    }
+
+    public BigDecimal getPredictedHours() {
+        return predictedHours;
+    }
+
+    public void setPredictedHours(BigDecimal predictedHours) {
+        this.predictedHours = predictedHours;
     }
 
     public String getAlertStatus() {

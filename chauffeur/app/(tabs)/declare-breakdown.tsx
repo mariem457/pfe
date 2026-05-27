@@ -58,6 +58,10 @@ function formatAddress(address: Location.LocationGeocodedAddress): string {
 }
 
 function mapBinIssueType(type: string) {
+  if (type === "QR code pas clair" || type === "QR code invalide alors qu'il est valide") {
+    return "QR_CODE";
+  }
+
   if (type === "Poubelle bloquée" || type === "Accès impossible") {
     return "BLOCKED";
   }

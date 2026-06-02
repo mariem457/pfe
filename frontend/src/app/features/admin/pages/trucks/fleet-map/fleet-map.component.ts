@@ -1601,6 +1601,21 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
   }
 
+  wasteTypeColorLabel(wasteType?: string | null): string {
+    switch ((wasteType || '').toUpperCase()) {
+      case 'GRAY':
+        return 'Gris';
+      case 'GREEN':
+        return 'Vert';
+      case 'YELLOW':
+        return 'Jaune';
+      case 'WHITE':
+        return 'Blanc';
+      default:
+        return wasteType || '—';
+    }
+  }
+
   private getBinColor(bin: any): string {
     return this.getWasteTypeColor(bin?.wasteType);
   }

@@ -105,7 +105,7 @@
       </div>
 
       <div class="bin-side-meta">
-        <div><strong>Type de déchet :</strong> {{ bin.wasteType || '—' }}</div>
+        <div><strong>Type de déchet :</strong> {{ wasteTypeColorLabel(bin.wasteType) }}</div>
         
         <div><strong>Niveau de remplissage :</strong> {{ bin.fillLevel ?? '—' }}<span *ngIf="bin.fillLevel != null">%</span></div>
                <div><strong>Niveau de batterie :</strong> {{ bin.batteryLevel ?? '—' }}<span *ngIf="bin.batteryLevel != null">%</span></div>
@@ -120,27 +120,6 @@
           <strong>Temps avant remplissage :</strong>
           {{ bin.hoursToFull ?? '—' }}
           <span *ngIf="bin.hoursToFull != null"> h</span>
-        </div>
-
-                <div>
-          <strong>Score IA :</strong>
-          {{ bin.priorityScore ?? '—' }}
-        </div>
-
-        <div>
-          <strong>Statut IA :</strong>
-          {{ bin.alertStatus || '—' }}
-        </div>
-
-        <div>
-          <strong>Collecte recommandée :</strong>
-          {{
-            bin.shouldCollect === true
-              ? 'Oui'
-              : bin.shouldCollect === false
-                ? 'Non'
-                : '—'
-          }}
         </div>
 
         <div><strong>Statut :</strong> {{ bin.status || '—' }}</div>

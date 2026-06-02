@@ -156,6 +156,7 @@
           <th>Code</th>
           <th>Zone</th>
           <th>Type déchet</th>
+          <th>Type du bac</th>
           <th>Remplissage</th>
           <th>État</th>
           <th>Statut</th>
@@ -180,7 +181,9 @@
             <span class="it-zoneChip">{{ r.zone }}</span>
           </td>
 
-          <td>{{ r.wasteType }}</td>
+          <td>{{ wasteTypeLabel(r.wasteType) }}</td>
+
+          <td>{{ binTypeLabel(r.type) }}</td>
 
           <td>
             <div class="it-fill">
@@ -329,8 +332,8 @@
         <div class="it-field">
           <label>Type du bac</label>
           <select [(ngModel)]="form.type" [disabled]="modalMode === 'view'">
-            <option value="SIM">SIM</option>
-            <option value="REAL">REAL</option>
+            <option value="SIM">Bac simulé</option>
+            <option value="REAL">Bac réel</option>
           </select>
         </div>
 

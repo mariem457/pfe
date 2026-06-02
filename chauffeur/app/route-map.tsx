@@ -19,8 +19,8 @@ import { getToken, getUserId } from "../lib/storage";
 import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.1.209:8081";
-const OSRM_URL = "http://192.168.1.209:5000";
+const BASE_URL = "http://192.168.0.8:8081";
+const OSRM_URL = "http://192.168.0.8:5000";
 
 const DEV_MODE_PARIS = true;
 const LAST_ROUTE_INDEX_KEY = "wise_last_route_index";

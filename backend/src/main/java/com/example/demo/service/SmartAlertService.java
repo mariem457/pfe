@@ -91,7 +91,8 @@ public class SmartAlertService {
             return;
         }
 
-        String alertType = "DRIVER_BIN_ISSUE";
+        String issueType = missionBin.getIssueType() != null ? missionBin.getIssueType() : "OTHER";
+        String alertType = "QR_CODE".equals(issueType) ? "DRIVER_QR_CODE_PROBLEM" : "DRIVER_BIN_ISSUE";
 
         boolean exists = alertRepository.existsByEntityTypeAndEntityIdAndAlertTypeAndResolvedFalse(
                 "MISSION_BIN",
@@ -224,15 +225,15 @@ public class SmartAlertService {
         }
 
         String type = incident.getIncidentType() != null
-                ? incident.getIncidentType().name()
-                : "INCIDENT";
+                ? incidentTypeLabel(incident.getIncidentType())
+                : "Incident";
 
         return truckCode + " - " + type;
     }
 
     private String buildIncidentMessage(TruckIncident incident) {
         if (incident.getDescription() != null && !incident.getDescription().isBlank()) {
-            return incident.getDescription();
+            return translateIncidentText(incident.getDescription());
         }
 
         String truckCode = incident.getTruck() != null && incident.getTruck().getTruckCode() != null
@@ -240,6 +241,30 @@ public class SmartAlertService {
                 : "camion";
 
         return "Incident détecté sur " + truckCode + ".";
+    }
+
+    private String incidentTypeLabel(TruckIncident.IncidentType type) {
+        return switch (type) {
+            case BREAKDOWN -> "Panne";
+            case FUEL_LOW -> "Carburant faible";
+            case GPS_LOST -> "Perte GPS";
+            case TRAFFIC_BLOCK -> "Blocage de circulation";
+            case DELAY -> "Retard";
+            case OVERLOAD -> "Surcharge";
+            case DRIVER_UNAVAILABLE -> "Chauffeur indisponible";
+            default -> "Incident";
+        };
+    }
+
+    private String translateIncidentText(String text) {
+        return text
+                .replace("BREAKDOWN", "panne")
+                .replace("FUEL_LOW", "carburant faible")
+                .replace("GPS_LOST", "perte GPS")
+                .replace("TRAFFIC_BLOCK", "blocage de circulation")
+                .replace("DELAY", "retard")
+                .replace("OVERLOAD", "surcharge")
+                .replace("DRIVER_UNAVAILABLE", "chauffeur indisponible");
     }
 
     private String buildIncidentRecommendation(TruckIncident incident) {
@@ -301,6 +326,10 @@ public class SmartAlertService {
                 ? missionBin.getBin().getBinCode()
                 : "Poubelle";
 
+        if ("QR_CODE".equals(missionBin.getIssueType())) {
+            return binCode + " - Probleme QR code signale par chauffeur";
+        }
+
         return binCode + " - Problème signalé par chauffeur";
     }
 
@@ -320,6 +349,7 @@ public class SmartAlertService {
         String issueType = missionBin.getIssueType() != null ? missionBin.getIssueType() : "OTHER";
 
         return switch (issueType) {
+            case "QR_CODE" -> "Verifier le QR code signale par le chauffeur et corriger ou remplacer l'etiquette si necessaire.";
             case "BLOCKED" -> "Vérifier l'accès à la poubelle et envoyer une équipe si nécessaire.";
             case "DAMAGED" -> "Planifier une intervention de maintenance pour inspecter ou remplacer la poubelle.";
             case "SENSOR_ERROR" -> "Vérifier le capteur de la poubelle et créer une intervention maintenance.";

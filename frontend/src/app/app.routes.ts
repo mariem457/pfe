@@ -9,14 +9,12 @@ import { roleGuard } from './core/guards/role.guard';
 import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-password.component';
 import { ResetPasswordComponent } from './features/auth/reset-password/reset-password.component';
 import { AboutComponent } from './features/public/about/about.component';
-import { ContactComponent } from './features/public/contact/contact.component';
 export const routes: Routes = [
   { path: '', component: LandingPageComponent },
   { path: 'login', component: LoginPageComponent },
   { path: 'rapport-user', component: RapportUserComponent },
   { path: 'admin/users', component: GestionUtilisateursComponent },
   { path: 'about', component: AboutComponent },
-  { path: 'contact', component: ContactComponent },
   
 
   

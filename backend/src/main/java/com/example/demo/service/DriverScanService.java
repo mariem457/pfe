@@ -76,11 +76,15 @@ public class DriverScanService {
         OffsetDateTime nowOffset = OffsetDateTime.now();
         Instant nowInstant = Instant.now();
 
-        String issueType = normalizeBinIssueType(request.getIssueType());
+        String issueType = request != null ? normalizeBinIssueType(request.getIssueType()) : null;
+        boolean collectedAfterIssue = request != null && Boolean.TRUE.equals(request.getCollectedAfterIssue());
+
         MissionBin missionBin;
 
-        if (issueType != null && !issueType.isBlank() && request.getMissionBinId() != null) {
+        if (issueType != null && !issueType.isBlank() && request != null && request.getMissionBinId() != null) {
             missionBin = findDriverMissionBinById(request.getMissionBinId(), driver.getId());
+        } else if (collectedAfterIssue && request != null && request.getMissionBinId() != null) {
+            missionBin = findDriverMissionBinById(request.getMissionBinId(), driver.getId(), true);
         } else {
             Bin bin = binRepository.findByBinCode(cleanCode)
                     .orElseThrow(() -> new ResourceNotFoundException("Poubelle introuvable pour ce code : " + cleanCode));
@@ -88,13 +92,15 @@ public class DriverScanService {
             missionBin = findPlannedMissionBin(bin.getBinCode(), driver.getId());
         }
 
+        String driverNote = request != null ? request.getDriverNote() : null;
+
         if (issueType != null && !issueType.isBlank()) {
             missionBin.setCollected(false);
             missionBin.setCollectedAt(null);
             missionBin.setCollectedBy(null);
             missionBin.setActualArrival(nowOffset);
             missionBin.setIssueType(issueType);
-            missionBin.setDriverNote(request.getDriverNote());
+            missionBin.setDriverNote(driverNote);
             missionBin.setAssignmentStatus(MissionBin.AssignmentStatus.SKIPPED);
             missionBin.setSkippedReason(issueType);
 
@@ -112,10 +118,17 @@ public class DriverScanService {
         missionBin.setCollectedAt(nowInstant);
         missionBin.setCollectedBy(driver);
         missionBin.setActualArrival(nowOffset);
-        missionBin.setIssueType(null);
-        missionBin.setDriverNote(request.getDriverNote());
+
+        if (!collectedAfterIssue) {
+            missionBin.setIssueType(null);
+        }
+
+        missionBin.setDriverNote(driverNote);
         missionBin.setAssignmentStatus(MissionBin.AssignmentStatus.COLLECTED);
-        missionBin.setSkippedReason(null);
+
+        if (!collectedAfterIssue) {
+            missionBin.setSkippedReason(null);
+        }
 
         MissionBin saved = missionBinRepository.save(missionBin);
 
@@ -300,6 +313,10 @@ public class DriverScanService {
     }
 
     private MissionBin findDriverMissionBinById(Long missionBinId, Long driverId) {
+        return findDriverMissionBinById(missionBinId, driverId, false);
+    }
+
+    private MissionBin findDriverMissionBinById(Long missionBinId, Long driverId, boolean allowSkipped) {
         MissionBin missionBin = missionBinRepository.findById(missionBinId)
                 .orElseThrow(() -> new ResourceNotFoundException("Poubelle de mission introuvable : " + missionBinId));
 
@@ -319,7 +336,7 @@ public class DriverScanService {
             throw new ConflictException("Cette poubelle a deja ete collectee");
         }
 
-        if (assignmentStatus == MissionBin.AssignmentStatus.SKIPPED) {
+        if (!allowSkipped && assignmentStatus == MissionBin.AssignmentStatus.SKIPPED) {
             throw new ConflictException("Cette poubelle a deja ete signalee comme probleme");
         }
 
@@ -334,7 +351,8 @@ public class DriverScanService {
         String normalized = issueType.trim().toUpperCase();
 
         if (
-                "BLOCKED".equals(normalized)
+                "QR_CODE".equals(normalized)
+                        || "BLOCKED".equals(normalized)
                         || "DAMAGED".equals(normalized)
                         || "SENSOR_ERROR".equals(normalized)
                         || "OTHER".equals(normalized)
@@ -343,6 +361,10 @@ public class DriverScanService {
         }
 
         String lower = issueType.trim().toLowerCase();
+
+        if (lower.contains("qr code") || lower.contains("qrcode")) {
+            return "QR_CODE";
+        }
 
         if (lower.contains("bloqu") || lower.contains("acces") || lower.contains("accès")) {
             return "BLOCKED";

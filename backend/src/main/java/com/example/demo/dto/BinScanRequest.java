@@ -6,6 +6,7 @@ public class BinScanRequest {
     private String binCode;
     private String driverNote;
     private String issueType;
+    private Boolean collectedAfterIssue;
 
     public Long getMissionBinId() {
         return missionBinId;
@@ -37,5 +38,13 @@ public class BinScanRequest {
 
     public void setIssueType(String issueType) {
         this.issueType = issueType;
+    }
+
+    public Boolean getCollectedAfterIssue() {
+        return collectedAfterIssue;
+    }
+
+    public void setCollectedAfterIssue(Boolean collectedAfterIssue) {
+        this.collectedAfterIssue = collectedAfterIssue;
     }
 }

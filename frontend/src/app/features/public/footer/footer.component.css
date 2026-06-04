@@ -7,9 +7,9 @@
 }
 
 .footerpage .footer-container {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 40px;
+  display: flex;
+  justify-content: center;
+  text-align: center;
 }
 
 .footerpage .footer-col {
@@ -19,7 +19,8 @@
 .footerpage .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 0;
 }
 
 .footerpage .logo h3 {
@@ -56,9 +57,15 @@
 
 .footerpage .footer-col p,
 .footerpage .footer-col ul li,
+.footerpage .footer-col a,
 .footerpage .footer-bottom p {
   color: var(--muted-color);
   font-size: 14px;
+}
+
+.footerpage .footer-col a {
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .footerpage .footer-col ul {
@@ -76,6 +83,10 @@
 .footerpage .footer-col ul li:hover {
   color: #10b981;
   transform: translateX(2px);
+}
+
+.footerpage .footer-col ul li:hover a {
+  color: #10b981;
 }
 
 .footerpage hr {
@@ -102,8 +113,7 @@
   }
 
   .footerpage .footer-container {
-    grid-template-columns: 1fr;
-    gap: 28px;
+    justify-content: center;
   }
 
   .footerpage .footer-col--brand p {
@@ -113,7 +123,8 @@
 .footerpage .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 0;
 }
 
 .footerpage .logo h3 {
@@ -124,8 +135,8 @@
 }
 
 .footerpage .logo-img {
-  width: 100px;
-  height: 100px;
+  width: 105px;
+  height: 105px;
   object-fit: contain;
   border-radius: 12px;
   display: block;

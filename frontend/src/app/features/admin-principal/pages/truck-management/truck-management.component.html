@@ -116,6 +116,15 @@
       </label>
 
       <label>
+        Type de déchet collecté
+        <select [(ngModel)]="selectedWasteType">
+          <option *ngFor="let waste of wasteTypeOptions" [value]="waste.value">
+            {{ waste.label }}
+          </option>
+        </select>
+      </label>
+
+      <label>
         Capacité réservoir (L)
         <input type="number" [(ngModel)]="form.tankCapacityLiters" />
       </label>
@@ -164,7 +173,7 @@
         </select>
       </label>
 
-      <label *ngIf="editMode">
+      <label>
         ID chauffeur affecté
         <input type="number" [(ngModel)]="form.assignedDriverId" />
       </label>
@@ -200,6 +209,7 @@
             <th>Code</th>
             <th>Matricule</th>
             <th>Marque / Modèle</th>
+            <th>Type déchet</th>
             <th>Capacité</th>
             <th>Chauffeur</th>
             <th>Statut</th>
@@ -221,6 +231,8 @@
               <br />
               <small>{{ truck.model || '-' }}</small>
             </td>
+
+            <td>{{ getWasteTypeLabel(truck.supportedWasteTypes) }}</td>
 
             <td>
               <div>{{ truck.maxLoadKg || 0 }} Kg</div>
@@ -260,7 +272,7 @@
           </tr>
 
           <tr *ngIf="filteredTrucks.length === 0">
-            <td colspan="8" class="empty">
+            <td colspan="9" class="empty">
               Aucun camion trouvé.
             </td>
           </tr>

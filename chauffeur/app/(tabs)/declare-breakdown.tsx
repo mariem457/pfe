@@ -58,6 +58,10 @@ function formatAddress(address: Location.LocationGeocodedAddress): string {
 }
 
 function mapBinIssueType(type: string) {
+  if (type === "QR code pas clair" || type === "QR code invalide alors qu'il est valide") {
+    return "QR_CODE";
+  }
+
   if (type === "Poubelle bloquée" || type === "Accès impossible") {
     return "BLOCKED";
   }
@@ -71,6 +75,34 @@ function mapBinIssueType(type: string) {
   }
 
   return "OTHER";
+}
+
+function responseErrorMessage(text: string, fallback: string) {
+  const trimmed = text.trim();
+
+  if (!trimmed) return fallback;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed?.message || parsed?.detail || parsed?.error || fallback;
+  } catch {
+    return trimmed;
+  }
+}
+
+function submitErrorMessage(error: unknown) {
+  const raw = error instanceof Error ? error.message : "";
+  const parsed = responseErrorMessage(raw, "");
+
+  if (/network request failed|failed to fetch/i.test(parsed)) {
+    return `Impossible de joindre le serveur (${BASE_URL}). Vérifiez que le backend est lancé et que le téléphone est sur le même Wi-Fi.`;
+  }
+
+  if (parsed) {
+    return parsed;
+  }
+
+  return "Impossible d'envoyer le signalement.";
 }
 
 export default function DeclareBreakdownScreen() {
@@ -238,8 +270,75 @@ export default function DeclareBreakdownScreen() {
     const text = await response.text();
     if (!response.ok) {
       console.log("BIN PROBLEM ERROR:", response.status, text);
-      throw new Error(text || "Impossible de signaler cette poubelle.");
+      throw new Error(responseErrorMessage(text, "Impossible de signaler cette poubelle."));
     }
+  }
+
+  async function markBinCollectedAfterProblem(token: string) {
+    const response = await fetch(`${BASE_URL}/api/drivers/bin-scan`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        missionBinId: missionBinId ? Number(missionBinId) : null,
+        binCode: binCode ?? null,
+        driverNote: "collecte effectuée après signalement",
+        issueType: null,
+        collectedAfterIssue: true,
+      }),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      console.log("BIN COLLECT AFTER PROBLEM ERROR:", response.status, text);
+      throw new Error(text || "Impossible de marquer cette poubelle comme collectée.");
+    }
+  }
+
+  function goBackToRoute(actionDone: "report" | "collect") {
+    router.replace({
+      pathname: "/route-map",
+      params: {
+        actionDone,
+        reportedBinId: actionDone === "report" ? missionBinId ?? "" : "",
+        collectedBinId: actionDone === "collect" ? missionBinId ?? "" : "",
+        resumeIndex: resumeIndex ?? "0",
+        missionComplete: isLastMissionBin ? "1" : "0",
+      },
+    });
+  }
+
+  function askIfBinWasCollected(token: string) {
+    Alert.alert(
+      "Signalement envoyé",
+      "Est-ce que vous avez collecté la poubelle ?",
+      [
+        {
+          text: "Non",
+          style: "cancel",
+          onPress: () => goBackToRoute("report"),
+        },
+        {
+          text: "Oui",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await markBinCollectedAfterProblem(token);
+              goBackToRoute("collect");
+            } catch (error: any) {
+              Alert.alert(
+                "Erreur",
+                alertMessageFr(error?.message, "Impossible de confirmer la collecte.")
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function submitTruckProblem() {
@@ -282,6 +381,8 @@ export default function DeclareBreakdownScreen() {
 
       if (isBinProblem) {
         await submitBinProblem(token);
+        askIfBinWasCollected(token);
+        return;
       } else {
         await submitTruckProblem();
       }
@@ -311,7 +412,7 @@ export default function DeclareBreakdownScreen() {
       console.log("Erreur déclaration problème:", error);
       Alert.alert(
         "Erreur",
-        alertMessageFr(error?.message, "Impossible d'envoyer le signalement.")
+        submitErrorMessage(error)
       );
     } finally {
       setLoading(false);

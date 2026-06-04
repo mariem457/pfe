@@ -24,4 +24,5 @@ Thumbs.db
 
 # Expo / React Native
 .expo/
-.expo-shared/
+.expo-shared/backend/src/ml/ml-venv/ 
+backend/uploads/ 

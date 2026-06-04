@@ -1,6 +1,6 @@
 package com.example.demo.service;
 
-
+import com.example.demo.dto.routing.RoutingIncidentDto;
 import com.example.demo.entity.Alert;
 import com.example.demo.repository.AlertRepository;
 
@@ -834,6 +834,27 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 remainingMissionBins
         );
 
+        List<RoutingIncidentDto> activeIncidentsForRouting = buildActiveIncidentsForRouting();
+        routingRequest.setActiveIncidents(activeIncidentsForRouting);
+
+        System.out.println(
+                "REPLAN DEBUG => activeIncidents sent to Python = "
+                        + (activeIncidentsForRouting == null ? 0 : activeIncidentsForRouting.size())
+        );
+
+        if (activeIncidentsForRouting != null) {
+            activeIncidentsForRouting.forEach(i ->
+                    System.out.println(
+                            "REPLAN INCIDENT SENT => truckId="
+                                    + i.getTruckId()
+                                    + ", type="
+                                    + i.getType()
+                                    + ", severity="
+                                    + i.getSeverity()
+                    )
+            );
+        }
+
         RoutingResponseDto routingResponse = pythonRoutingClient.optimizeRoutes(routingRequest);
 
         if (routingResponse == null || routingResponse.getMissions() == null || routingResponse.getMissions().isEmpty()) {
@@ -903,6 +924,52 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 .collect(Collectors.toSet());
     }
 
+    private List<RoutingIncidentDto> buildActiveIncidentsForRouting() {
+        List<TruckIncident> activeIncidents;
+
+        try {
+            activeIncidents = truckIncidentRepository.findByStatusIn(
+                    List.of(
+                            TruckIncident.IncidentStatus.OPEN,
+                            TruckIncident.IncidentStatus.IN_PROGRESS
+                    )
+            );
+        } catch (Exception e) {
+            System.out.println("REPLAN DEBUG => could not load active incidents: " + e.getMessage());
+            return List.of();
+        }
+
+        if (activeIncidents == null || activeIncidents.isEmpty()) {
+            return List.of();
+        }
+
+        return activeIncidents.stream()
+                .filter(incident -> incident != null)
+                .filter(incident -> incident.getTruck() != null)
+                .filter(incident -> incident.getTruck().getId() != null)
+                .map(incident -> {
+                    RoutingIncidentDto dto = new RoutingIncidentDto();
+                    dto.setId(incident.getId());
+                    dto.setTruckId(incident.getTruck().getId());
+
+                    dto.setType(
+                            incident.getIncidentType() != null
+                                    ? incident.getIncidentType().name()
+                                    : "OTHER"
+                    );
+
+                    dto.setSeverity(
+                            incident.getSeverity() != null
+                                    ? incident.getSeverity().name()
+                                    : "MEDIUM"
+                    );
+
+                    dto.setDescription(incident.getDescription());
+
+                    return dto;
+                })
+                .toList();
+    }
     private boolean isBlockingIncident(TruckIncident incident) {
         if (incident == null || incident.getIncidentType() == null) {
             return false;
@@ -1013,6 +1080,10 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             return false;
         }
 
+        if (truck.getAssignedDriver() == null || truck.getAssignedDriver().getId() == null) {
+            return false;
+        }
+
         if (truck.getMaxLoadKg() == null) {
             return false;
         }
@@ -1109,6 +1180,12 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
             throw new BadRequestException("Truck is null while resolving driver");
         }
 
+        // 1) الحل الصحيح: استعمال السائق المربوط مباشرة بال camion
+        if (truck.getAssignedDriver() != null && truck.getAssignedDriver().getId() != null) {
+            return truck.getAssignedDriver();
+        }
+
+        // 2) fallback قديم: البحث باستعمال vehicleCode
         if (truck.getTruckCode() == null || truck.getTruckCode().isBlank()) {
             throw new BadRequestException("Truck code is missing for truck id: " + truck.getId());
         }
@@ -1122,7 +1199,7 @@ public class DynamicReplanningServiceImpl implements DynamicReplanningService {
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException(
                         "Truck " + truck.getId()
-                                + " has no assigned driver. Expected vehicle_code="
+                                + " has no assigned driver. Expected assigned_driver_id or vehicle_code="
                                 + truckCode
                 ));
     }

@@ -2,7 +2,6 @@ package com.example.demo.service;
 
 import com.example.demo.dto.AutoIncidentRunResponse;
 import com.example.demo.entity.Mission;
-import com.example.demo.dto.TruckIncidentRequestDto;
 import com.example.demo.entity.Truck;
 import com.example.demo.entity.TruckIncident;
 import com.example.demo.entity.TruckLocation;
@@ -27,11 +26,11 @@ public class AutoIncidentService {
     private static final int GPS_TIMEOUT_MINUTES = 10;
     private static final int FUEL_RESOLVED_PERCENT = 25;
     private static final int GPS_RECOVERED_MINUTES = 2;
+    private static final int DELAY_GRACE_MINUTES = 15;
 
     private final TruckRepository truckRepository;
     private final TruckLocationRepository truckLocationRepository;
     private final TruckIncidentRepository truckIncidentRepository;
-    private final TruckIncidentService truckIncidentService;
     private final SmartAlertService smartAlertService;
     private final MissionRepository missionRepository;
 
@@ -39,14 +38,12 @@ public class AutoIncidentService {
             TruckRepository truckRepository,
             TruckLocationRepository truckLocationRepository,
             TruckIncidentRepository truckIncidentRepository,
-            TruckIncidentService truckIncidentService,
             SmartAlertService smartAlertService,
             MissionRepository missionRepository
     ) {
         this.truckRepository = truckRepository;
         this.truckLocationRepository = truckLocationRepository;
         this.truckIncidentRepository = truckIncidentRepository;
-        this.truckIncidentService = truckIncidentService;
         this.smartAlertService = smartAlertService;
         this.missionRepository = missionRepository;
     }
@@ -58,13 +55,16 @@ public class AutoIncidentService {
         int created = 0;
 
         for (Truck truck : trucks) {
-           
 
             if (detectOverload(truck)) {
                 created++;
             }
 
             if (detectGpsLost(truck)) {
+                created++;
+            }
+
+            if (detectDelay(truck)) {
                 created++;
             }
         }
@@ -296,6 +296,61 @@ public class AutoIncidentService {
                 "Incident automatique: aucune localisation reçue depuis plus de "
                         + GPS_TIMEOUT_MINUTES
                         + " minutes."
+        );
+    }
+    private boolean detectDelay(Truck truck) {
+        if (truck == null || truck.getId() == null) {
+            return false;
+        }
+
+        Mission activeMission = missionRepository
+                .findTopByTruckAndStatusInOrderByCreatedAtDesc(
+                        truck,
+                        List.of("IN_PROGRESS", "STARTED")
+                )
+                .orElse(null);
+
+        if (activeMission == null) {
+            return false;
+        }
+        if (activeMission.getMissionStatusDetail() == Mission.MissionStatusDetail.PARTIALLY_REASSIGNED
+                || activeMission.getMissionStatusDetail() == Mission.MissionStatusDetail.REPLANNED) {
+            return false;
+        }
+        if (activeMission.getEstimatedDurationMin() == null
+                || activeMission.getEstimatedDurationMin() <= 0) {
+            return false;
+        }
+
+        Instant startTime = activeMission.getStartedAt() != null
+                ? activeMission.getStartedAt()
+                : activeMission.getCreatedAt();
+
+        if (startTime == null) {
+            return false;
+        }
+
+        long elapsedMinutes = Duration.between(startTime, Instant.now()).toMinutes();
+        long allowedMinutes = activeMission.getEstimatedDurationMin() + DELAY_GRACE_MINUTES;
+
+        if (elapsedMinutes <= allowedMinutes) {
+            return false;
+        }
+
+        String description =
+                "Incident automatique: retard important détecté sur la mission "
+                        + activeMission.getMissionCode()
+                        + ". Durée estimée: "
+                        + activeMission.getEstimatedDurationMin()
+                        + " min, durée écoulée: "
+                        + elapsedMinutes
+                        + " min.";
+
+        return createIfNotExists(
+                truck,
+                TruckIncident.IncidentType.DELAY,
+                TruckIncident.Severity.HIGH,
+                description
         );
     }
 

@@ -55,14 +55,13 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     private final RouteStopRepository routeStopRepository;
     private final RoutingPayloadBuilderService routingPayloadBuilderService;
     private final PythonRoutingClient pythonRoutingClient;
-    private final FuelStationRepository fuelStationRepository;
+   
     private final PostponedBinRepository postponedBinRepository;
     private final SmartRoutingDecisionService smartRoutingDecisionService;
     private final RoutingExecutionLogRepository routingExecutionLogRepository;
     private final DriverRepository driverRepository;
     private final AlertRepository alertRepository;
-    private final FuelManagementService fuelManagementService;
-    private final FuelStationService fuelStationService;
+  
     
 
     public RoutingOptimizationServiceImpl(
@@ -74,15 +73,13 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             RoutePlanRepository routePlanRepository,
             RouteStopRepository routeStopRepository,
             RoutingPayloadBuilderService routingPayloadBuilderService,
-            PythonRoutingClient pythonRoutingClient,
-            FuelStationRepository fuelStationRepository,
+            PythonRoutingClient pythonRoutingClient,   
             PostponedBinRepository postponedBinRepository,
             SmartRoutingDecisionService smartRoutingDecisionService,
             RoutingExecutionLogRepository routingExecutionLogRepository,
             DriverRepository driverRepository,
-            AlertRepository alertRepository,
-            FuelManagementService fuelManagementService,
-            FuelStationService fuelStationService
+            AlertRepository alertRepository
+          
     ) {
         this.truckRepository = truckRepository;
         this.binRepository = binRepository;
@@ -93,14 +90,13 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         this.routeStopRepository = routeStopRepository;
         this.routingPayloadBuilderService = routingPayloadBuilderService;
         this.pythonRoutingClient = pythonRoutingClient;
-        this.fuelStationRepository = fuelStationRepository;
+       
         this.postponedBinRepository = postponedBinRepository;
         this.smartRoutingDecisionService = smartRoutingDecisionService;
         this.routingExecutionLogRepository = routingExecutionLogRepository;
         this.driverRepository = driverRepository;
         this.alertRepository = alertRepository;
-        this.fuelManagementService = fuelManagementService;
-        this.fuelStationService = fuelStationService;
+        
     }
 
     @Override
@@ -125,20 +121,11 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
                 + ", includeOpportunistic=" + decision.isIncludeOpportunistic()
                 + ", strategy=" + decision.getStrategy()
                 + ", reason=" + decision.getReason());
-
         if (decision.isRefuelOnly()) {
-            RoutingRequestDto refuelRoutingRequest =
-                    routingPayloadBuilderService.buildRoutingRequest(routingCandidateTrucks, decision);
-
-            RoutingResponseDto refuelResponse = new RoutingResponseDto();
-            refuelResponse.setMatrixSource("REFUEL_ONLY");
-            refuelResponse.setExcludedTrucks(buildRefuelOnlyExcludedTrucks(routingCandidateTrucks));
-            refuelResponse.setRecommendedFuelStations(
-                    routingPayloadBuilderService.getLastRecommendedFuelStations()
-            );
-
-            saveExecutionLog(decision, refuelRoutingRequest, refuelResponse, 0);
-            return refuelResponse;
+            RoutingResponseDto skipped = new RoutingResponseDto();
+            skipped.setMatrixSource("REFUEL_DISABLED");
+            saveExecutionLog(decision, null, skipped, 0);
+            return skipped;
         }
 
         if (!decision.isShouldOptimize()) {
@@ -210,35 +197,8 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         List<MissionResponse> savedMissions = new ArrayList<>();
 
         if (decision.isRefuelOnly()) {
-            RoutingRequestDto refuelRoutingRequest =
-                    routingPayloadBuilderService.buildRoutingRequest(routingCandidateTrucks, decision);
-
-            RoutingResponseDto refuelResponse = new RoutingResponseDto();
-            refuelResponse.setMatrixSource("REFUEL_ONLY");
-            refuelResponse.setExcludedTrucks(buildRefuelOnlyExcludedTrucks(routingCandidateTrucks));
-            refuelResponse.setRecommendedFuelStations(
-                    routingPayloadBuilderService.getLastRecommendedFuelStations()
-            );
-
-            saveExcludedRefuelMissions(
-                    refuelResponse,
-                    routingCandidateTrucks,
-                    refuelRoutingRequest,
-                    savedMissions
-            );
-
-            saveExecutionLog(
-                    decision,
-                    refuelRoutingRequest,
-                    refuelResponse,
-                    savedMissions.size()
-            );
-
-            if (savedMissions.isEmpty()) {
-                throw new BadRequestException("Refuel-only decision produced no missions");
-            }
-
-            return savedMissions;
+            saveExecutionLog(decision, null, null, 0);
+            throw new BadRequestException("Refuel-only mode is disabled in this version.");
         }
 
         if (!decision.isShouldOptimize()) {
@@ -278,12 +238,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             }
         }
 
-        saveExcludedRefuelMissions(
-                routingResponse,
-                routingCandidateTrucks,
-                routingRequest,
-                savedMissions
-        );
+ 
 
         saveDroppedBins(routingRequest, routingResponse);
 
@@ -423,116 +378,23 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         routingExecutionLogRepository.save(log);
     }
 
-    private List<ExcludedTruckDto> buildRefuelOnlyExcludedTrucks(List<Truck> trucks) {
-        List<ExcludedTruckDto> excluded = new ArrayList<>();
+  
 
-        for (Truck truck : trucks) {
-            if (truck == null || truck.getId() == null) {
-                continue;
-            }
 
-            ExcludedTruckDto dto = new ExcludedTruckDto();
-            dto.setTruckId(truck.getId());
-            dto.setReason("REFUEL_ONLY_DECISION");
-            excluded.add(dto);
-        }
-
-        return excluded;
-    }
-
-    private void saveExcludedRefuelMissions(
-            RoutingResponseDto routingResponse,
-            List<Truck> routingCandidateTrucks,
-            RoutingRequestDto routingRequest,
-            List<MissionResponse> savedMissions
-    ) {
-        if (routingResponse.getExcludedTrucks() == null) {
-            return;
-        }
-
-        for (ExcludedTruckDto excludedTruck : routingResponse.getExcludedTrucks()) {
-            if (excludedTruck.getTruckId() == null) {
-                continue;
-            }
-
-            if (excludedTruck.getReason() == null || !excludedTruck.getReason().contains("REFUEL")) {
-                continue;
-            }
-
-            Truck truck = routingCandidateTrucks.stream()
-                    .filter(t -> excludedTruck.getTruckId().equals(t.getId()))
-                    .findFirst()
-                    .orElse(null);
-
-            if (truck == null) {
-                continue;
-            }
-
-            RecommendedFuelStationDto stationDto =
-                    findRecommendedFuelStationForTruck(routingResponse, truck.getId());
-
-            if (stationDto == null) {
-                continue;
-            }
-
-            Mission mission = saveRefuelOnlyMission(truck, routingRequest, stationDto);
-            savedMissions.add(mapMissionToResponse(mission));
-        }
-    }
-
-    private Mission saveRefuelOnlyMission(
-            Truck truck,
-            RoutingRequestDto routingRequest,
-            RecommendedFuelStationDto stationDto
-    ) {
-        Driver driver = resolveDriverForTruck(truck);
-        Depot depot = resolveActiveDepot();
-
-        FuelStation fuelStation = fuelStationRepository.findById(stationDto.getStationId())
-                .orElseThrow();
-
-        Mission mission = new Mission();
-        mission.setMissionCode(generateMissionCode());
-        mission.setDriver(driver);
-        mission.setTruck(truck);
-        mission.setDepot(depot);
-        mission.setZone(truck.getZone());
-        mission.setStatus("CREATED");
-        mission.setMissionStatusDetail(Mission.MissionStatusDetail.PLANNED);
-        mission.setPriority("HIGH");
-        mission.setPlannedDate(LocalDate.now());
-        mission.setCreatedAt(Instant.now());
-        mission.setNotes("Auto-generated refuel mission");
-
-        Mission savedMission = missionRepository.save(mission);
-
-        RoutePlan routePlan = new RoutePlan();
-        routePlan.setMission(savedMission);
-        routePlan.setTruck(truck);
-        routePlan.setDepot(depot);
-        routePlan.setPlanType(RoutePlan.PlanType.EMERGENCY);
-        routePlan.setPlanStatus(RoutePlan.PlanStatus.PLANNED);
-        RoutePlan savedPlan = routePlanRepository.save(routePlan);
-
-        RouteStop fuelStop = new RouteStop();
-        fuelStop.setRoutePlan(savedPlan);
-        fuelStop.setStopOrder(1);
-        fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
-        fuelStop.setFuelStation(fuelStation);
-        fuelStop.setLat(fuelStation.getLat());
-        fuelStop.setLng(fuelStation.getLng());
-        fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-        fuelStop.setNotes("Auto-generated refuel stop");
-        routeStopRepository.save(fuelStop);
-
-        return savedMission;
-    }
 
     private boolean isRoutingCandidate(Truck truck) {
         return truck != null
                 && truck.getIsActive() != null
                 && truck.getIsActive()
-                && truck.getStatus() == Truck.TruckStatus.AVAILABLE;
+                && truck.getStatus() == Truck.TruckStatus.AVAILABLE
+                && hasDriverForTruck(truck)
+                && truck.getSupportedWasteTypes() != null
+                && !truck.getSupportedWasteTypes().isEmpty();
+    }
+    private boolean hasDriverForTruck(Truck truck) {
+        return truck != null
+                && truck.getAssignedDriver() != null
+                && truck.getAssignedDriver().getId() != null;
     }
 
     private Mission saveMissionFromRouting(
@@ -680,49 +542,7 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
         depotStart.setNotes("Route start from depot");
         routeStopRepository.save(depotStart);
 
-        RecommendedFuelStationDto stationDto =
-                findRecommendedFuelStationForTruck(routingResponse, truck.getId());
-
-        double routeDistanceKm = routingMissionDto.getTotalDistanceKm() != null
-                ? routingMissionDto.getTotalDistanceKm()
-                : 0.0;
-
-        boolean cannotSafelyCompleteRoute =
-                routeDistanceKm > 0 && !fuelManagementService.canSafelyCompleteRoute(truck, routeDistanceKm);
-
-        if (stationDto == null && cannotSafelyCompleteRoute) {
-            FuelStation nearestStation = fuelStationService.findNearestCompatibleStation(truck);
-
-            if (nearestStation != null) {
-                stationDto = new RecommendedFuelStationDto();
-                stationDto.setTruckId(truck.getId());
-                stationDto.setStationId(nearestStation.getId());
-                stationDto.setStationName(nearestStation.getName());
-                stationDto.setLat(nearestStation.getLat());
-                stationDto.setLng(nearestStation.getLng());
-            }
-        }
-
-        if (stationDto != null) {
-            FuelStation fs = fuelStationRepository.findById(stationDto.getStationId()).orElseThrow();
-
-            RouteStop fuelStop = new RouteStop();
-            fuelStop.setRoutePlan(savedPlan);
-            fuelStop.setStopOrder(nextOrder++);
-            fuelStop.setStopType(RouteStop.StopType.FUEL_STATION);
-            fuelStop.setFuelStation(fs);
-            fuelStop.setLat(fs.getLat());
-            fuelStop.setLng(fs.getLng());
-            fuelStop.setStatus(RouteStop.StopStatus.PLANNED);
-            fuelStop.setNotes(
-                    "Recommended fuel stop | safeAutonomyKm="
-                            + fuelManagementService.calculateEstimatedAutonomyKm(truck)
-                            + " | routeDistanceKm="
-                            + routeDistanceKm
-            );
-            routeStopRepository.save(fuelStop);
-        }
-
+    
         if (routingMissionDto.getStops() != null) {
             List<RoutingStopDto> orderedStops = routingMissionDto.getStops().stream()
                     .sorted(Comparator.comparing(
@@ -878,22 +698,13 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
             throw new BadRequestException("Truck is null while resolving driver");
         }
 
-        if (truck.getTruckCode() == null || truck.getTruckCode().isBlank()) {
-            throw new BadRequestException("Truck code is missing for truck id: " + truck.getId());
+        if (truck.getAssignedDriver() != null && truck.getAssignedDriver().getId() != null) {
+            return truck.getAssignedDriver();
         }
 
-        String truckCode = truck.getTruckCode().trim();
-
-        return driverRepository.findAll()
-                .stream()
-                .filter(driver -> driver.getVehicleCode() != null)
-                .filter(driver -> driver.getVehicleCode().trim().equalsIgnoreCase(truckCode))
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException(
-                        "Truck " + truck.getId()
-                                + " has no assigned driver. Expected vehicle_code="
-                                + truckCode
-                ));
+        throw new BadRequestException(
+                "Truck " + truck.getId() + " has no assigned driver."
+        );
     }
 
     private Depot resolveActiveDepot() {
@@ -911,7 +722,9 @@ public class RoutingOptimizationServiceImpl implements RoutingOptimizationServic
     }
 
     private String generateMissionCode() {
-        return "MIS-" + System.currentTimeMillis();
+        return "MIS-" + System.currentTimeMillis()
+                + "-"
+                + java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
     private MissionResponse mapMissionToResponse(Mission mission) {

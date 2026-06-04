@@ -204,10 +204,10 @@ def zone_has_eligible_truck(eligible_trucks, bin_zone) -> bool:
 
 
 def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int]:
-    compatible_vehicle_indices = []
-
     bin_zone = getattr(bin_dto, "zoneId", None)
-    has_truck_in_same_zone = zone_has_eligible_truck(eligible_trucks, bin_zone)
+
+    same_zone_compatible = []
+    other_zone_compatible = []
 
     for vehicle_index, truck in enumerate(eligible_trucks):
         if not is_truck_compatible_with_bin(truck, bin_dto):
@@ -215,17 +215,17 @@ def get_compatible_vehicle_indices_for_bin(eligible_trucks, bin_dto) -> list[int
 
         truck_zone = getattr(truck, "zoneId", None)
 
-        # الحالة العادية: zone hard
-        if has_truck_in_same_zone:
-            if truck_zone == bin_zone:
-                compatible_vehicle_indices.append(int(vehicle_index))
-
-        # emergency fallback: ما فما حتى camion eligible في نفس zone
-        # نخلي camions من zones أخرى يخدمو bin
+        if bin_zone is not None and truck_zone == bin_zone:
+            same_zone_compatible.append(int(vehicle_index))
         else:
-            compatible_vehicle_indices.append(int(vehicle_index))
+            other_zone_compatible.append(int(vehicle_index))
 
-    return compatible_vehicle_indices
+    # First choice: compatible truck in the same zone
+    if same_zone_compatible:
+        return same_zone_compatible
+
+    # Fallback: compatible truck from another zone
+    return other_zone_compatible
 
 
 def normalize_category(bin_dto) -> str:
@@ -674,15 +674,24 @@ def build_response_from_solution(
                         total_time += extra_time
                     else:
                         print(
-                            f"[SMART DISPOSAL] skipped binId={selected_bin.id} because disposal is not efficient "
+                            f"[FORCED DISPOSAL] inserting disposal before binId={selected_bin.id} "
+                            f"to avoid dropping mandatory bin "
                             f"| currentLoad={round(current_load, 2)}kg "
                             f"| capacity={round(capacity, 2)}kg "
-                            f"| binLoad={round(bin_load, 2)}kg "
-                            f"| upcomingBins={upcoming_bins_count}",
+                            f"| binLoad={round(bin_load, 2)}kg",
                             flush=True,
                         )
-                        index = next_index
-                        continue
+
+                        order, current_load, extra_dist, extra_time = add_disposal_stop_if_needed(
+                            request=request,
+                            stops=stops,
+                            ordered_points=ordered_points,
+                            order=order,
+                            current_load=current_load,
+                            waste_type=last_waste_type,
+                        )
+                        total_dist += extra_dist
+                        total_time += extra_time
 
                 served_bin_ids.add(selected_bin.id)
 
@@ -958,9 +967,12 @@ def solve_single_pass(
                 f"wasteType={getattr(bin_dto, 'wasteType', None)}, "
                 f"zoneId={getattr(bin_dto, 'zoneId', None)}, "
                 f"clusterId={getattr(bin_dto, 'clusterId', None)}. "
-                f"Bin will be handled by category rules.",
+                f"Bin will be dropped because no compatible truck exists.",
                 flush=True,
             )
+
+            routing.AddDisjunction([node_index], 1)
+            continue
         print(
             f"TIME WINDOWS DISABLED TEMPORARILY -> binId={bin_dto.id}",
             flush=True,
@@ -968,7 +980,7 @@ def solve_single_pass(
 
        
         if category != "MANDATORY" and not is_bin_urgent(bin_dto):
-              routing.AddDisjunction([node_index], penalty)
+            routing.AddDisjunction([node_index], penalty)
 
         print(
             f"Bin configured -> "
@@ -993,9 +1005,15 @@ def solve_single_pass(
         )
 
     params = pywrapcp.DefaultRoutingSearchParameters()
-    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+
+    # Better for many mandatory stops than PATH_CHEAPEST_ARC
+    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
+
+    # Continue improving the solution
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-    params.time_limit.seconds = 20
+
+    params.time_limit.seconds = 35
+    params.log_search = False
 
     print("Solving OR-Tools routing problem...", flush=True)
     solution = routing.SolveWithParameters(params)
@@ -1010,8 +1028,7 @@ def solve_single_pass(
             recommendedFuelStations=[],
             droppedBinIds=[b.id for b in request.bins],
         )
-
-    return build_response_from_solution(
+    response = build_response_from_solution(
         request=request,
         eligible_trucks=eligible_trucks,
         excluded_trucks=excluded_trucks,
@@ -1023,6 +1040,14 @@ def solve_single_pass(
         routing=routing,
         manager=manager,
     )
+
+    if response.droppedBinIds:
+        print(
+            f"WARNING: dropped bins after solution = {response.droppedBinIds}",
+            flush=True,
+        )
+
+    return response
 
 
 def count_served_mandatory(response: RoutingResponseDto, mandatory_bin_ids: set[int]) -> int:

@@ -9,24 +9,81 @@
     <div class="notif-wrap">
       <button class="icon-btn notif-btn" type="button" (click)="toggleMenu()">
         <mat-icon>notifications</mat-icon>
+
         <span *ngIf="unreadCount > 0" class="notif-badge">
           {{ unreadCount > 99 ? '99+' : unreadCount }}
         </span>
       </button>
 
       <div *ngIf="openMenu" class="notif-menu">
-        <div class="notif-title">Alertes en temps réel</div>
+        <div class="notif-head">
+          <div class="notif-headIcon">
+            <mat-icon>notifications_active</mat-icon>
+          </div>
 
-        <div *ngIf="latestAlerts.length === 0" class="notif-empty">
-          Aucune alerte ouverte
+          <div>
+            <div class="notif-title">Alertes du jour</div>
+            <div class="notif-subtitle">Aujourd’hui · toutes les entités</div>
+          </div>
         </div>
 
-        <div class="notif-item" *ngFor="let a of latestAlerts">
-          <div class="notif-item-top">
-            <strong>{{ label(a) }}</strong>
-            <span>{{ a.severity }}</span>
+        <div class="notif-summary">
+          <div>
+            <strong>{{ todayAlerts.length }}</strong>
+            <span>Total</span>
           </div>
-          <div class="notif-item-title">{{ a.title }}</div>
+
+          <div>
+            <strong>{{ urgentAlertsCount }}</strong>
+            <span>Urgentes</span>
+          </div>
+
+          <div>
+            <strong>{{ mediumAlertsCount }}</strong>
+            <span>Moyennes</span>
+          </div>
+        </div>
+
+        <div class="notif-tabs">
+          <button
+            *ngFor="let c of alertCategories"
+            type="button"
+            [class.active]="selectedAlertCategory === c.key"
+            (click)="selectedAlertCategory = c.key">
+            {{ c.label }}
+          </button>
+        </div>
+
+        <div *ngIf="filteredTodayAlerts.length === 0" class="notif-empty">
+          <mat-icon>check_circle</mat-icon>
+          <span>Aucune alerte pour cette catégorie aujourd’hui</span>
+        </div>
+
+        <div class="notif-list" *ngIf="filteredTodayAlerts.length > 0">
+          <article
+            class="notif-item"
+            *ngFor="let a of filteredTodayAlerts"
+            [ngClass]="severityClass(a)">
+
+            <div class="notif-itemIcon">
+              <mat-icon>{{ entityIcon(a) }}</mat-icon>
+            </div>
+
+            <div class="notif-itemContent">
+              <div class="notif-itemTop">
+                <strong>{{ label(a) }}</strong>
+                <span>{{ severityLabel(a.severity) }}</span>
+              </div>
+
+              <p>{{ a.message || a.title }}</p>
+
+              <div class="notif-meta">
+                <span>{{ entityLabel(a) }}</span>
+                <span>·</span>
+                <span>{{ timeAgo(a.createdAt) }}</span>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </div>

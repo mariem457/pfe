@@ -203,6 +203,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private map?: L.Map;
   private trucksSub?: Subscription;
   private binsSub?: Subscription;
+  private hasInitialAutoFit = false;
+  private userMovedMap = false;
 
   private parisPolygon?: L.LatLng[];
   private pendingAddMarker?: L.Marker;
@@ -278,8 +280,8 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
       this.loadParisBoundary()
         .then(() => {
-          this.fitToDataArea();
-          this.lockMapToParis();
+          this.fitToDataAreaOnce();
+this.lockMapToParis();
         })
         .catch((e) => console.error('GeoJSON error:', e))
         .finally(() => {
@@ -307,7 +309,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
           setTimeout(() => {
             this.applyPendingFocus();
             this.map?.invalidateSize();
-            this.fitToDataArea();
+            this.fitToDataAreaOnce();
           }, 300);
         });
 
@@ -321,21 +323,23 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     if (changes['initialTrucks'] && this.map) {
       this.renderInitialTrucks();
     }
+
     if (changes['truckRoutes'] && this.map) {
       this.renderTruckRoutes();
     }
+
     if (changes['reports'] && this.map && this.showReports) {
       this.loadReportsOnMap();
 
       setTimeout(() => {
         this.applyPendingFocus();
-        this.fitToDataArea();
+        this.fitToDataAreaOnce();
       }, 100);
     }
 
     if (changes['showBins'] && this.map) {
       this.refreshBinVisualisation();
-      this.fitToDataArea();
+      this.fitToDataAreaOnce();
     }
 
     if (
@@ -352,7 +356,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       ) && this.map
     ) {
       this.renderMissionBins();
-      this.fitToDataArea();
+      this.fitToDataAreaOnce();
     }
   }
 
@@ -369,13 +373,13 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   setDisplayMode(mode: MapDisplayMode): void {
     this.displayMode = mode;
     this.refreshBinVisualisation();
-    this.fitToDataArea();
+    this.fitToDataAreaOnce();
   }
 
   setHeatMetric(metric: HeatMetricMode): void {
     this.heatMetric = metric;
     this.renderHeatLayer();
-    this.fitToDataArea();
+    this.fitToDataAreaOnce();
   }
 
   closeAddBinModal(): void {
@@ -475,7 +479,6 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       });
     }
   }
-
   private initMap(): void {
     const container = document.getElementById('fleetMap');
 
@@ -489,6 +492,9 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       this.map = undefined;
     }
 
+    this.hasInitialAutoFit = false;
+    this.userMovedMap = false;
+
     this.map = L.map('fleetMap', {
       center: [48.840, 2.300],
       zoom: 13,
@@ -499,6 +505,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(this.map);
+
+    this.map.on('zoomstart dragstart', () => {
+      this.userMovedMap = true;
+    });
   }
 
   private async loadParisBoundary(): Promise<void> {
@@ -549,6 +559,15 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.map.fitBounds(bounds, { padding: [20, 20] });
   }
 
+
+  private fitToDataAreaOnce(): void {
+    if (this.hasInitialAutoFit || this.userMovedMap) {
+      return;
+    }
+
+    this.fitToDataArea();
+    this.hasInitialAutoFit = true;
+  }
   private fitToDataArea(): void {
     if (!this.map) return;
 
@@ -730,7 +749,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
         this.refreshBinVisualisation();
         this.renderMissionBins();
-        this.fitToDataArea();
+        this.fitToDataAreaOnce();
 
         setTimeout(() => {
           this.applyPendingFocus();
@@ -906,9 +925,9 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       .filter(p => p.lat != null && p.lng != null);
 
     if (!bins.length && !routeCoords.length && !routeStops.length && !snapped.length && !collectionCoords.length && !transferCoords.length) {
-      this.fitToDataArea();
-      return;
-    }
+  this.fitToDataAreaOnce();
+  return;
+}
 
     const boundsPoints: L.LatLngExpression[] = [];
 
@@ -1227,9 +1246,10 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       boundsPoints.push(...fallbackLatLngs);
     }
 
-    if (boundsPoints.length) {
+    if (boundsPoints.length && !this.hasInitialAutoFit && !this.userMovedMap) {
       const bounds = L.latLngBounds(boundsPoints);
       this.map!.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
+      this.hasInitialAutoFit = true;
     }
   }
 
@@ -1371,10 +1391,11 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       boundsPoints.push([bin.lat, bin.lng]);
     });
 
-    if (boundsPoints.length) {
-      const bounds = L.latLngBounds(boundsPoints);
-      this.map.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
-    }
+   if (boundsPoints.length && !this.hasInitialAutoFit && !this.userMovedMap) {
+  const bounds = L.latLngBounds(boundsPoints);
+  this.map.fitBounds(bounds.pad(0.08), { padding: [20, 20] });
+  this.hasInitialAutoFit = true;
+}
   }
 
   private findMissionBinByBinId(binId: number | null): FleetMapMissionBinItem | null {
@@ -1424,9 +1445,7 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
       if (marker) {
         this.map.setView([target.lat, target.lng], 17, { animate: true });
-        setTimeout(() => {
-          marker.openPopup();
-        }, 250);
+       
         this.mapFocusService.clearTarget();
         return;
       }
@@ -1482,30 +1501,15 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       }
 
       if (this.temporaryFocusMarker) {
-        this.temporaryFocusMarker.removeFrom(this.map);
-        this.temporaryFocusMarker = undefined;
-      }
+  this.temporaryFocusMarker.removeFrom(this.map);
+  this.temporaryFocusMarker = undefined;
+}
 
-      this.temporaryFocusMarker = L.marker([target.lat, target.lng], {
-        zIndexOffset: 4000
-      }).addTo(this.map);
+this.map.setView([target.lat, target.lng], 17, {
+  animate: true
+});
 
-      this.temporaryFocusMarker.bindPopup(`
-        <div style="min-width:220px">
-          <div style="font-weight:700; margin-bottom:6px;">${target.code ?? 'Poubelle sélectionnée'}</div>
-          <div><b>Zone:</b> ${target.zone ?? '—'}</div>
-          <div><b>Latitude:</b> ${target.lat.toFixed(6)}</div>
-          <div><b>Longitude:</b> ${target.lng.toFixed(6)}</div>
-        </div>
-      `);
-
-      setTimeout(() => {
-        this.temporaryFocusMarker?.openPopup();
-      }, 250);
-
-      this.mapFocusService.clearTarget();
-    }
-  }
+this.mapFocusService.clearTarget();}}
 
   private clearBinMarkers(): void {
     if (!this.map) return;
@@ -1801,10 +1805,11 @@ export class FleetMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       boundsPoints.push([Number(truck.lat), Number(truck.lng)]);
     });
 
-    if (boundsPoints.length) {
-      const bounds = L.latLngBounds(boundsPoints);
-      this.map.fitBounds(bounds.pad(0.15), { padding: [30, 30] });
-    }
+   if (boundsPoints.length && !this.hasInitialAutoFit && !this.userMovedMap) {
+  const bounds = L.latLngBounds(boundsPoints);
+  this.map.fitBounds(bounds.pad(0.15), { padding: [30, 30] });
+  this.hasInitialAutoFit = true;
+}
   }
   private startRealtime(): void {
     this.realtime.connect({

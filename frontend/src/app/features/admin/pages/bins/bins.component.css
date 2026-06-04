@@ -1306,3 +1306,34 @@ body.dark-mode .it-drawerRecommendation p {
 .it-statCard--danger {
   border-color: #e4ebf3;
 }
+/* ===== BINS ACTIONS CLEAN MODE ===== */
+
+.it-headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.it-actionsCell {
+  width: 170px;
+}
+
+.it-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.it-actionBtn--map {
+  background: #dbeafe !important;
+  color: #2563eb !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.it-actionBtn--light {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}

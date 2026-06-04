@@ -9,10 +9,7 @@ import {
   TruckItem,
   MissionRouteResponse,
 } from '../../../../services/truck-dashboard.service';
-import {
-  DriverNotificationService,
-  DriverNotificationResponse
-} from '../../../../services/driver-notification.service';
+
 import {
   TruckIncident,
   TruckIncidentService,
@@ -51,12 +48,12 @@ interface TruckCard {
 export class TrucksComponent implements OnInit, OnDestroy {
   missionColors = ['#2563eb', '#059669', '#7c3aed', '#f97316', '#475569', '#ef4444'];
 
-  kpis = [
-    { icon: 'local_shipping', label: 'Camions actifs', value: '0' },
-    { icon: 'assignment', label: 'Missions en cours', value: '0' },
-    { icon: 'warning', label: 'Incidents ouverts', value: '0' },
-    { icon: 'smart_toy', label: 'Auto-détectés', value: '0' },
-  ];
+ kpis = [
+  { icon: 'local_shipping', label: 'Camions actifs', value: '0' },
+  { icon: 'assignment', label: 'Missions en cours', value: '0' },
+  { icon: 'warning', label: 'Incidents ouverts', value: '0' },
+  { icon: 'smart_toy', label: 'Incidents automatiques', value: '0' },
+];
 
   trucks: TruckCard[] = [];
   missionTrucks: TruckCard[] = [];
@@ -71,20 +68,19 @@ export class TrucksComponent implements OnInit, OnDestroy {
   loadingIncidents = false;
   runningAutoDetection = false;
   replanningIncidentId: number | null = null;
-  resolvedIncidentId: number | null = null;
+showReplanSuccess = false;
+resolvedIncidentId: number | null = null;
 
   autoDetectionMessage = '';
   private alertSub = new Subscription();
   private refreshTimer: any;
-contactingIncidentId: number | null = null;
-notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {};
-  constructor(
-    private dashboardService: TruckDashboardService,
-    private incidentService: TruckIncidentService,
-    private replanService: RoutingReplanService,
-    private alertService: AlertService,
-    private driverNotificationService: DriverNotificationService
-  ) { }
+
+constructor(
+  private dashboardService: TruckDashboardService,
+  private incidentService: TruckIncidentService,
+  private replanService: RoutingReplanService,
+  private alertService: AlertService
+) { }
 
   ngOnInit(): void {
     this.loadDashboard();
@@ -231,11 +227,11 @@ notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {
         label: 'Incidents ouverts',
         value: this.openIncidents.length.toString(),
       },
-      {
-        icon: 'smart_toy',
-        label: 'Incidents auto',
-        value: autoCount.toString(),
-      },
+     {
+  icon: 'smart_toy',
+  label: 'Incidents automatiques',
+  value: autoCount.toString(),
+},
     ];
   }
 
@@ -282,7 +278,7 @@ notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {
         this.openIncidents = (data || []).filter(i =>
   !['FUEL_LOW', 'OVERLOAD'].includes(i.incidentType)
 );
-        this.openIncidents.forEach(i => this.loadIncidentNotification(i));
+        
         this.buildIncidentMap();
         this.loadingIncidents = false;
         this.updateKpis();
@@ -362,54 +358,80 @@ notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {
       });
   }
 
-  replanIncident(incident: TruckIncident): void {
-    if (this.replanningIncidentId === incident.id) return;
+ replanIncident(incident: TruckIncident): void {
+  if (this.replanningIncidentId === incident.id) return;
 
-    if (!incident.missionId) {
-      alert('Impossible de replanifier: missionId manquant pour cet incident.');
-      return;
-    }
-
-    if (!incident.truckId) {
-      alert('Impossible de replanifier: truckId manquant.');
-      return;
-    }
-
-    this.replanningIncidentId = incident.id;
-
-    this.replanService
-      .replanMission(incident.missionId, {
-        affectedTruckId: incident.truckId,
-        incidentType: incident.incidentType,
-        reason: incident.description || 'Incident camion',
-      })
-      .subscribe({
-        next: () => {
-          this.incidentService
-            .resolveIncident(
-              incident.id,
-              incident.description || 'Incident replanifié avec succès'
-            )
-            .subscribe({
-              next: () => {
-                this.replanningIncidentId = null;
-                this.loadOpenIncidents();
-                this.loadDashboard();
-              },
-              error: () => {
-                this.replanningIncidentId = null;
-                this.loadOpenIncidents();
-                this.loadDashboard();
-              },
-            });
-        },
-        error: (err: any) => {
-          console.error('REPLAN ERROR:', err);
-          alert('Erreur lors de la replanification.');
-          this.replanningIncidentId = null;
-        },
-      });
+  if (!incident.missionId) {
+    alert('Impossible de replanifier: missionId manquant pour cet incident.');
+    return;
   }
+
+  if (!incident.truckId) {
+    alert('Impossible de replanifier: truckId manquant.');
+    return;
+  }
+
+  this.replanningIncidentId = incident.id;
+  this.showReplanSuccess = false;
+
+  this.replanService
+    .replanMission(incident.missionId, {
+      affectedTruckId: incident.truckId,
+      incidentType: incident.incidentType,
+      reason: incident.description || 'Incident camion',
+    })
+    .subscribe({
+      next: () => {
+        this.incidentService
+          .resolveIncident(
+            incident.id,
+            incident.description || 'Incident replanifié avec succès'
+          )
+          .subscribe({
+            next: () => {
+              this.replanningIncidentId = null;
+              this.showReplanSuccess = true;
+
+              this.loadOpenIncidents();
+              this.loadTruckAlerts();
+              this.loadDashboard();
+
+              setTimeout(() => {
+                this.showReplanSuccess = false;
+              }, 2500);
+            },
+            error: (err: any) => {
+              console.error('Resolve incident after replan error:', err);
+
+              this.replanningIncidentId = null;
+              this.showReplanSuccess = true;
+
+              this.loadOpenIncidents();
+              this.loadTruckAlerts();
+              this.loadDashboard();
+
+              setTimeout(() => {
+                this.showReplanSuccess = false;
+              }, 2500);
+            },
+          });
+      },
+      error: (err: any) => {
+        console.error('REPLAN ERROR FULL:', err);
+
+        const message =
+          err?.error?.message ||
+          err?.error?.error ||
+          (typeof err?.error === 'string' ? err.error : null) ||
+          err?.message ||
+          'Erreur inconnue lors de la replanification.';
+
+        this.replanningIncidentId = null;
+        this.showReplanSuccess = false;
+        alert(message);
+      },
+    });
+}
 
   getTruckStatusLabel(status: string): string {
     switch (status) {
@@ -567,71 +589,30 @@ notificationByIncident: { [incidentId: number]: DriverNotificationResponse } = {
 
 shouldShowManualReplan(incident: TruckIncident): boolean {
   return !!incident.missionId &&
-    ['BREAKDOWN', 'DRIVER_UNAVAILABLE', 'TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType) &&
+    ['TRAFFIC_BLOCK', 'DELAY'].includes(incident.incidentType) &&
     !this.replanningIncidentId;
 }
 
 
-contactDriver(incident: TruckIncident): void {
-  if (!incident?.id) return;
+getFleetAlertTitle(alert: AlertDto): string {
+  const truck = alert.truckCode || 'Camion';
+  const type = alert.alertType || '';
 
-  this.contactingIncidentId = incident.id;
-
-  const message = this.buildDriverContactMessage(incident);
-
-  this.driverNotificationService.contactDriver(incident.id, message).subscribe({
-    next: (notification) => {
-      this.contactingIncidentId = null;
-      this.notificationByIncident[incident.id] = notification;
-      this.autoDetectionMessage = `Notification envoyée au chauffeur du camion ${incident.truckCode}.`;
-    },
-    error: (err) => {
-      console.error('Contact driver error:', err);
-      this.contactingIncidentId = null;
-      alert('Impossible de contacter le chauffeur.');
-    }
-  });
-}
-
-loadIncidentNotification(incident: TruckIncident): void {
-  if (!incident?.id) return;
-
-  this.driverNotificationService.getLatestByIncident(incident.id).subscribe({
-    next: (notification) => {
-      if (notification) {
-        this.notificationByIncident[incident.id] = notification;
-      }
-    },
-    error: () => {}
-  });
-}
-
-getDriverResponseLabel(response?: string | null): string {
-  switch (response) {
-    case 'POSITION_CONFIRMED':
-      return 'Position confirmée';
-    case 'PROBLEM_RESOLVED':
-      return 'Problème résolu';
-    case 'NEED_ASSISTANCE':
-      return 'Besoin d’assistance';
+  switch (type) {
+    case 'TRUCK_BREAKDOWN':
+      return `${truck} - Panne`;
+    case 'TRUCK_GPS_LOST':
+      return `${truck} - GPS perdu`;
+    case 'TRUCK_OVERLOAD':
+      return `${truck} - Surcharge`;
+    case 'TRUCK_TRAFFIC_BLOCK':
+      return `${truck} - Trafic bloqué`;
+    case 'TRUCK_DELAY':
+      return `${truck} - Retard`;
+    case 'DRIVER_UNAVAILABLE':
+      return `${truck} - Chauffeur indisponible`;
     default:
-      return 'En attente de réponse';
-  }
-}
-
-private buildDriverContactMessage(incident: TruckIncident): string {
-  switch (incident.incidentType) {
-    case 'GPS_LOST':
-      return 'Perte GPS détectée. Merci de vérifier votre connexion et confirmer votre position.';
-    
-     
-    case 'BREAKDOWN':
-      return 'Panne camion signalée. Merci de confirmer si vous avez besoin d’assistance.';
-    case 'TRAFFIC_BLOCK':
-    case 'DELAY':
-      return 'Retard ou blocage détecté. Merci de confirmer votre situation.';
-    default:
-      return 'Incident détecté. Merci de confirmer votre situation.';
+      return alert.title || 'Alerte flotte';
   }
 }
 }

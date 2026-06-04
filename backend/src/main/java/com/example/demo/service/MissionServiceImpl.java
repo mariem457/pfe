@@ -50,7 +50,7 @@ public class MissionServiceImpl implements MissionService {
     private static final double PREEMPTIVE_REFUEL_MARGIN_KM = 2.0;
     private static final double MAX_ALLOWED_LEG_KM = 80.0;
     private static final double MAX_ALLOWED_DISTANCE_FROM_FIRST_POINT_KM = 50.0;
-    private static final boolean ENABLE_AUTO_MISSION_CHAINING = true;
+    private static final boolean ENABLE_AUTO_MISSION_CHAINING = false;
 
     private final MissionRepository missionRepository;
     private final MissionBinRepository missionBinRepository;

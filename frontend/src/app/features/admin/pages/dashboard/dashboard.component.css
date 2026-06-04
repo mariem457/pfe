@@ -1829,3 +1829,116 @@ body.dark-mode .it-kpiCard {
     grid-column: auto !important;
   }
 }
+
+
+/* ===== FIX MAP + ALERTS ROW ===== */
+
+.it-midRow {
+  display: grid !important;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+/* map w alerts yab9aw fi nafs row */
+.it-panel--map,
+.it-panel--alerts {
+  min-width: 0 !important;
+  height: 100% !important;
+}
+
+/* alerts ma عادش تدخل في charts */
+.it-panel--alerts {
+  position: relative !important;
+  z-index: 1 !important;
+  max-height: 520px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* charts yabdew baad midRow moch ta7t alerts */
+.it-chartsRow {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  width: 100% !important;
+  position: relative !important;
+  z-index: 0 !important;
+  clear: both !important;
+}
+
+/* map height stable */
+.it-panel--map app-fleet-map {
+  display: block !important;
+  width: 100% !important;
+  min-height: 520px !important;
+}
+
+/* responsive */
+@media (max-width: 1300px) {
+  .it-midRow {
+    grid-template-columns: 1fr !important;
+  }
+
+  .it-panel--alerts {
+    max-height: none !important;
+  }
+
+  .it-chartsRow {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* ===== FINAL FIX: alerts ma عادش تتمدّد للوطا ===== */
+
+.it-midRow {
+  display: grid !important;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr) !important;
+  gap: 16px !important;
+  align-items: start !important;
+  width: 100% !important;
+}
+
+/* المهم: نحي أي تمديد قديم */
+.it-panel--alerts {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 520px !important;
+  align-self: start !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* map وحدها عندها height */
+.it-panel--map {
+  height: auto !important;
+  min-height: 0 !important;
+  align-self: start !important;
+  overflow: hidden !important;
+}
+
+.it-panel--map app-fleet-map {
+  display: block !important;
+  width: 100% !important;
+}
+
+/* charts لازم تجي تحت الصف كامل */
+.it-chartsRow {
+  margin-top: 0 !important;
+  clear: both !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* responsive */
+@media (max-width: 1300px) {
+  .it-midRow {
+    grid-template-columns: 1fr !important;
+  }
+
+  .it-panel--alerts {
+    max-height: none !important;
+  }
+}

@@ -302,7 +302,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         }
 
         return switch (incidentType) {
-            case BREAKDOWN, FUEL_LOW, TRAFFIC_BLOCK, DELAY, DRIVER_UNAVAILABLE -> true;
+            case BREAKDOWN, DRIVER_UNAVAILABLE-> true;
             default -> false;
         };
     }
@@ -324,7 +324,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
         switch (incidentType) {
             case BREAKDOWN -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
             case FUEL_LOW -> truck.setStatus(Truck.TruckStatus.REFUELING);
-            case GPS_LOST -> truck.setStatus(Truck.TruckStatus.BREAKDOWN);
+            
             case DRIVER_UNAVAILABLE, OVERLOAD -> truck.setStatus(Truck.TruckStatus.UNAVAILABLE);
             default -> {
             }

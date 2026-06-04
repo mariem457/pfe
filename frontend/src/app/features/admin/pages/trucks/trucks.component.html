@@ -1,4 +1,30 @@
 <section class="it-trk">
+  <div class="it-replanOverlay" *ngIf="replanningIncidentId !== null">
+  <div class="it-replanBox">
+    <div class="it-replanSpinner"></div>
+
+    <div>
+      <div class="it-replanTitle">Replanification en cours...</div>
+      <div class="it-replanText">
+        Veuillez patienter pendant le recalcul de la mission et la réaffectation des bacs restants.
+      </div>
+    </div>
+  </div>
+</div>
+<div class="it-successOverlay" *ngIf="showReplanSuccess">
+  <div class="it-successBox">
+    <div class="it-successIcon">
+      <span class="material-icons">check_circle</span>
+    </div>
+
+    <div>
+      <div class="it-successTitle">Replanification terminée</div>
+      <div class="it-successText">
+        Les missions ont été mises à jour avec succès.
+      </div>
+    </div>
+  </div>
+</div>
   <div class="it-trkHead">
     <div>
       <h1 class="it-trkTitle">Suivi de la flotte</h1>
@@ -58,7 +84,9 @@
               <div class="it-fleetAlertCode">
                 {{ a.truckCode || (a.entityType + '-' + a.entityId) || 'Alerte' }}
               </div>
-              <div class="it-fleetAlertTitle">{{ a.title }}</div>
+              <div class="it-fleetAlertTitle">
+                {{ getFleetAlertTitle(a) }}
+              </div>
             </div>
 
             <span class="it-fleetAlertSeverity">
@@ -116,7 +144,7 @@
             </div>
           </div>
 
-          <span class="it-autoBadge" *ngIf="incident.autoDetected">Auto</span>
+          <span class="it-autoBadge" *ngIf="incident.autoDetected">Automatique</span>
           <span class="it-manualBadge" *ngIf="!incident.autoDetected">Manuel</span>
         </div>
 
@@ -138,14 +166,16 @@
           </div>
         </div>
         <div class="it-incidentActions">
-          <span class="it-autoResolveInfo" *ngIf="['GPS_LOST', 'FUEL_LOW', 'OVERLOAD'].includes(incident.incidentType)">
-            Résolution automatique dès retour à la normale
-          </span>
+          <span class="it-autoResolveInfo" *ngIf="incident.incidentType === 'GPS_LOST'">
+  Résolution automatique dès retour à la normale.
+  Si la perte persiste, contactez le chauffeur par téléphone.
+</span>
 
-          <button type="button" class="it-contactBtn" (click)="contactDriver(incident)"
-            [disabled]="contactingIncidentId === incident.id">
-            {{ contactingIncidentId === incident.id ? 'Envoi...' : 'Contacter chauffeur' }}
-          </button>
+<span class="it-autoResolveInfo" *ngIf="['FUEL_LOW', 'OVERLOAD'].includes(incident.incidentType)">
+  Résolution automatique dès retour à la normale
+</span>
+
+          
 
           <button type="button" class="it-replanBtn it-replanBtn--secondary" *ngIf="shouldShowManualReplan(incident)"
             (click)="replanIncident(incident)" [disabled]="replanningIncidentId === incident.id">
@@ -153,22 +183,6 @@
           </button>
         </div>
 
-        <div class="it-driverResponse" *ngIf="notificationByIncident[incident.id]">
-          <span class="material-icons">forum</span>
-
-          <div>
-            <strong>Communication chauffeur</strong>
-
-            <p *ngIf="notificationByIncident[incident.id].status !== 'RESPONDED'">
-              Notification envoyée — en attente de réponse.
-            </p>
-
-            <p *ngIf="notificationByIncident[incident.id].status === 'RESPONDED'">
-              Réponse chauffeur :
-              <b>{{ getDriverResponseLabel(notificationByIncident[incident.id].response) }}</b>
-            </p>
-          </div>
-        </div>
       </article>
 
       <div class="it-incidentEmpty" *ngIf="openIncidents.length === 0">
@@ -225,7 +239,7 @@
           </span>
           <span>
             <span class="material-icons">speed</span>
-            ETA {{ t.etaMins || 0 }} min
+            Arrivée estimée {{ t.etaMins || 0 }} min
           </span>
           <span>
             <span class="material-icons">local_gas_station</span>

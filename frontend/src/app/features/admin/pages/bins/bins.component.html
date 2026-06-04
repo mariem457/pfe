@@ -16,13 +16,6 @@
         Actualiser
       </button>
 
-      <button class="it-primaryBtn" type="button" (click)="openCreateModal()">
-        Ajouter un bac
-      </button>
-
-      <button class="it-exportBtn" type="button" (click)="exportCsv()">
-        Exporter
-      </button>
     </div>
   </div>
 
@@ -246,17 +239,13 @@
                 Voir
               </button>
 
-              <button class="it-actionBtn it-actionBtn--light" type="button" (click)="openEditModal(r)">
-                Modifier
-              </button>
+             
 
               <button class="it-actionBtn it-actionBtn--map" type="button" (click)="openMap(r)">
                 Carte
               </button>
 
-              <button class="it-actionBtn it-actionBtn--dark" type="button" (click)="toggleActivation(r)">
-                {{ r.isActive ? 'Désactiver' : 'Activer' }}
-              </button>
+              
             </div>
           </td>
         </tr>
@@ -378,13 +367,7 @@
           Fermer
         </button>
 
-        <button
-          *ngIf="modalMode !== 'view'"
-          class="it-primaryBtn"
-          type="button"
-          (click)="saveBin()">
-          {{ modalMode === 'create' ? 'Ajouter' : 'Enregistrer' }}
-        </button>
+       
       </div>
     </div>
   </div>

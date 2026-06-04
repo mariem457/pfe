@@ -78,6 +78,10 @@ export class AlertService {
     return this.http.patch<AlertDto>(`${this.baseUrl}/${alertId}/resolve`, {});
   }
 
+  treatQrCodeProblem(alertId: number): Observable<AlertDto> {
+    return this.http.post<AlertDto>(`${this.baseUrl}/${alertId}/treat-qr-code`, {});
+  }
+
   getAlertDetails(alertId: number): Observable<AlertDetailsDto> {
     return this.http.get<AlertDetailsDto>(`${this.baseUrl}/${alertId}`);
   }

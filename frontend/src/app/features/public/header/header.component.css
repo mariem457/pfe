@@ -1,8 +1,8 @@
 .public-header {
   width: calc(100% - 100px);
   max-width: 10000px;
-  margin: 18px auto 0;
-  padding: 14px 28px;
+  margin: 14px auto 0;
+  padding: 2px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -22,7 +22,7 @@
 }
 
 .logo-img {
-  height: 95px;
+  height: 122px;
   width: auto;
   object-fit: contain;
   display: block;
@@ -141,7 +141,7 @@ body.dark-mode .btn-outline {
 @media (max-width: 1700px) {
   .public-header {
     width: calc(100% - 600px);
-    padding: 14px 28px;
+    padding: 2px 28px;
     flex-wrap: wrap;
     justify-content: center;
   }
@@ -158,12 +158,12 @@ body.dark-mode .btn-outline {
 @media (max-width: 640px) {
   .public-header {
     width: calc(100% - 24px);
-    padding: 14px 18px;
+    padding: 2px 18px;
     border-radius: 20px;
   }
 
   .logo-img {
-    height: 72px;
+    height: 96px;
   }
 
   .header-actions {

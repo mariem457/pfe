@@ -67,8 +67,8 @@ public class TruckLocationService {
     public TruckLocationResponse save(TruckLocationRequest in) {
         validateInput(in);
 
-        log.info("Truck location received: driverId={}, lat={}, lng={}, speed={}, heading={}",
-                in.driverId, in.lat, in.lng, in.speedKmh, in.headingDeg);
+        log.info("Truck location received: driverId={}, lat={}, lng={}, speed={}, heading={}, timestamp={}",
+                in.driverId, in.lat, in.lng, in.speedKmh, in.headingDeg, in.timestamp);
 
         Driver driver = resolveDriverFromRequest(in.driverId);
 
@@ -80,7 +80,7 @@ public class TruckLocationService {
         location.setLng(in.lng);
         location.setSpeedKmh(in.speedKmh == null ? null : BigDecimal.valueOf(in.speedKmh));
         location.setHeadingDeg(in.headingDeg == null ? null : BigDecimal.valueOf(in.headingDeg));
-        location.setTimestamp(Instant.now());
+        location.setTimestamp(in.timestamp != null ? in.timestamp : Instant.now());
 
         TruckLocation saved = truckLocationRepository.save(location);
 

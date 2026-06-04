@@ -524,7 +524,10 @@ export class BinsComponent implements OnInit {
         !q ||
         r.id.toLowerCase().includes(q) ||
         r.zone.toLowerCase().includes(q) ||
-        r.wasteType.toLowerCase().includes(q);
+        r.wasteType.toLowerCase().includes(q) ||
+        this.wasteTypeLabel(r.wasteType).toLowerCase().includes(q) ||
+        r.type.toLowerCase().includes(q) ||
+        this.binTypeLabel(r.type).toLowerCase().includes(q);
 
       const matchStatus =
         this.statusFilter === 'All' ? true : r.status === this.statusFilter;
@@ -603,6 +606,24 @@ export class BinsComponent implements OnInit {
     return isActive ? 'Actif' : 'Inactif';
   }
 
+  binTypeLabel(type?: string | null): string {
+    switch ((type || '').toUpperCase()) {
+      case 'SIM': return 'Bac simulé';
+      case 'REAL': return 'Bac réel';
+      default: return type || '—';
+    }
+  }
+
+  wasteTypeLabel(type?: string | null): string {
+    switch ((type || '').toUpperCase()) {
+      case 'GRAY': return 'Déchets ménagers';
+      case 'GREEN': return 'Déchets organiques';
+      case 'YELLOW': return 'Emballages recyclables';
+      case 'WHITE': return 'Verre';
+      default: return type || '—';
+    }
+  }
+
   alertTypeLabel(type?: string | null): string {
     switch ((type || '').toUpperCase()) {
       case 'BIN_FULL': return 'Bac plein';
@@ -679,6 +700,7 @@ export class BinsComponent implements OnInit {
       'Code du bac',
       'Zone',
       'Type de déchet',
+      'Type du bac',
       'Niveau de remplissage',
       'État opérationnel',
       'État administratif',
@@ -691,7 +713,8 @@ export class BinsComponent implements OnInit {
       [
         r.id,
         r.zone,
-        r.wasteType,
+        this.wasteTypeLabel(r.wasteType),
+        this.binTypeLabel(r.type),
         `${r.fill}%`,
         r.status,
         this.activityLabel(r.isActive),

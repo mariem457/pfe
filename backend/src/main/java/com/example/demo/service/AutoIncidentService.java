@@ -23,7 +23,7 @@ import java.util.Optional;
 public class AutoIncidentService {
 
     private static final int FUEL_LOW_PERCENT = 20;
-    private static final int GPS_TIMEOUT_MINUTES = 10;
+    private static final int GPS_TIMEOUT_MINUTES = 2;
     private static final int FUEL_RESOLVED_PERCENT = 25;
     private static final int GPS_RECOVERED_MINUTES = 2;
     private static final int DELAY_GRACE_MINUTES = 15;
@@ -33,19 +33,22 @@ public class AutoIncidentService {
     private final TruckIncidentRepository truckIncidentRepository;
     private final SmartAlertService smartAlertService;
     private final MissionRepository missionRepository;
+    private final DriverNotificationService driverNotificationService;
 
     public AutoIncidentService(
             TruckRepository truckRepository,
             TruckLocationRepository truckLocationRepository,
             TruckIncidentRepository truckIncidentRepository,
             SmartAlertService smartAlertService,
-            MissionRepository missionRepository
+            MissionRepository missionRepository,
+            DriverNotificationService driverNotificationService
     ) {
         this.truckRepository = truckRepository;
         this.truckLocationRepository = truckLocationRepository;
         this.truckIncidentRepository = truckIncidentRepository;
         this.smartAlertService = smartAlertService;
         this.missionRepository = missionRepository;
+        this.driverNotificationService = driverNotificationService;
     }
 
     @Transactional
@@ -272,6 +275,16 @@ public class AutoIncidentService {
             return false;
         }
 
+        Optional<Mission> activeMission = missionRepository
+                .findTopByTruckAndStatusInOrderByCreatedAtDesc(
+                        truck,
+                        List.of("IN_PROGRESS")
+                );
+
+        if (activeMission.isEmpty()) {
+            return false;
+        }
+
         Optional<TruckLocation> latestLocation =
                 truckLocationRepository.findLatestByDriverId(truck.getAssignedDriver().getId());
 
@@ -411,6 +424,7 @@ public class AutoIncidentService {
         truckRepository.save(truck);
 
         smartAlertService.createTruckIncidentAlert(saved);
+        sendGpsLostAppNotificationIfNeeded(saved);
 
         System.out.println(
                 "AUTO INCIDENT CREATED => truck="
@@ -422,5 +436,20 @@ public class AutoIncidentService {
         );
 
         return true;
+    }
+
+    private void sendGpsLostAppNotificationIfNeeded(TruckIncident incident) {
+        if (incident == null || incident.getIncidentType() != TruckIncident.IncidentType.GPS_LOST) {
+            return;
+        }
+
+        try {
+            driverNotificationService.contactDriverForIncident(incident.getId(), null);
+        } catch (Exception e) {
+            System.err.println("GPS_LOST APP NOTIFICATION ERROR => incidentId="
+                    + incident.getId()
+                    + ", error="
+                    + e.getMessage());
+        }
     }
 }

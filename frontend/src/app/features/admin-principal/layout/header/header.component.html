@@ -40,6 +40,7 @@
           <div class="notif-item-title">{{ alertText(alert.title) }}</div>
           <div class="notif-item-message">{{ alertText(alert.message) }}</div>
           <button
+            *ngIf="canTreatQrCodeProblem(alert)"
             class="notif-treat-btn"
             type="button"
             [disabled]="treatingAlertIds.has(alert.id)"

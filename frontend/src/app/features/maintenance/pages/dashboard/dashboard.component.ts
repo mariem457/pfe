@@ -20,6 +20,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   tasks: any[] = [];
   treatedTasks: any[] = [];
   taskView: 'open' | 'treated' = 'open';
+  private treatedGeneratedTaskIds = new Set<number>();
 
   totalSensors = 0;
 
@@ -143,7 +144,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.maintenanceService.getAlerts().subscribe({
       next: (alerts) => {
         this.tasks = (alerts || []).filter((alert: any) =>
-          this.isMaintenanceAlert(alert)
+          this.isMaintenanceAlert(alert) && !this.isTreatedGeneratedTask(alert)
         );
         this.tasksLoading = false;
       },
@@ -159,6 +160,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.maintenanceService.resolveAlert(task.id).subscribe({
       next: () => {
+        if (task.generated) {
+          this.treatedGeneratedTaskIds.add(Number(task.id));
+        }
+
         this.tasks = this.tasks.filter((item) => item.id !== task.id);
         this.treatedTasks = [task, ...this.treatedTasks];
         this.taskView = 'treated';
@@ -235,6 +240,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ].includes(type);
   }
 
+  private isTreatedGeneratedTask(task: any): boolean {
+    return !!task?.generated && this.treatedGeneratedTaskIds.has(Number(task.id));
+  }
+
   getTaskTitle(task: any): string {
     return task?.title || task?.alertTitle || 'Alerte technique';
   }
@@ -291,25 +300,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
       background: this.buildDonutGradient([
         this.batteriesNormal,
         this.batteriesFaibles,
-        this.batteriesCritiques,
-        this.batteriesSansDonnees + this.batteriesEnPanne
+        this.batteriesCritiques + this.batteriesEnPanne,
+        this.batteriesSansDonnees
       ])
     };
   }
 
   getSensorDonutStyle(): Record<string, string> {
     return {
-      background: this.buildDonutGradient([
-        this.sensorsActifs,
-        this.sensorsInactifs,
-        this.sensorsEnPanne,
-        this.sensorsSansDonnees
-      ])
+      background: this.buildDonutGradient(
+        [
+          this.sensorsActifs,
+          this.sensorsEnPanne,
+          this.sensorsSansDonnees
+        ],
+        ['#14b8a6', '#ef4444', '#cbd5e1']
+      )
     };
   }
 
-  private buildDonutGradient(values: number[]): string {
-    const colors = ['#14b8a6', '#f59e0b', '#ef4444', '#cbd5e1'];
+  private buildDonutGradient(values: number[], colors = ['#14b8a6', '#f59e0b', '#ef4444', '#cbd5e1']): string {
     const total = values.reduce((sum, value) => sum + value, 0);
 
     if (total <= 0) {
@@ -356,7 +366,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const status = this.getSensorStatus(sensor);
 
       if (status === 'ACTIF') this.sensorsActifs++;
-      else if (status === 'INACTIF') this.sensorsInactifs++;
       else if (status === 'EN PANNE') this.sensorsEnPanne++;
       else this.sensorsSansDonnees++;
     });
@@ -396,11 +405,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getSensorStatus(sensor: any): string {
     const rawStatus = (sensor?.status || '').toString().toUpperCase();
+    const batteryStatus = this.getBatteryStatus(sensor);
 
     if (
       rawStatus.includes('OFFLINE') ||
       rawStatus.includes('HORS_SERVICE') ||
-      rawStatus.includes('ERROR')
+      rawStatus.includes('ERROR') ||
+      batteryStatus === 'EN PANNE'
     ) {
       return 'EN PANNE';
     }

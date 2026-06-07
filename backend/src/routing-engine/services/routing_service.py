@@ -35,7 +35,7 @@ DISPOSAL_SERVICE_TIME_MINUTES = 5
 MORNING_START_MINUTE_OF_DAY = 14 * 60
 EVENING_START_MINUTE_OF_DAY = 14 * 60
 
-MAX_PASS2_BINS = 90
+MAX_PASS2_BINS = 100
 DISPOSAL_LOAD_RATIO_THRESHOLD = 0.75
 MIN_BINS_AFTER_DISPOSAL = 2
 URGENT_DISPOSAL_LOAD_RATIO_THRESHOLD = 0.50
@@ -64,78 +64,12 @@ def normalize_text(value) -> str:
 
 
 
-def waste_family(waste_type: str | None) -> str:
-    wt = normalize_text(waste_type)
-
-    if wt in {"GRAY", "GREY", "GREEN"}:
-        return "ORGANIC"
-
-    if wt == "YELLOW":
-        return "YELLOW"
-
-    if wt == "WHITE":
-        return "WHITE"
-
-    return "UNKNOWN"
 
 
-def split_bins_by_waste_family(bins):
-    grouped = {}
-
-    for b in bins or []:
-        family = waste_family(getattr(b, "wasteType", None))
-        grouped.setdefault(family, []).append(b)
-
-    return grouped
 
 
-def build_family_request(original_request: RoutingRequestDto, selected_bins) -> RoutingRequestDto:
-    return RoutingRequestDto(
-        depot=original_request.depot,
-        trafficMode=original_request.trafficMode,
-        currentRun=original_request.currentRun,
-        bins=selected_bins,
-        trucks=original_request.trucks,
-        disposalSites=original_request.disposalSites,
-        activeIncidents=original_request.activeIncidents,
-    )
 
 
-def merge_family_responses(responses, all_input_bin_ids):
-    missions = []
-    excluded_trucks = []
-    warning_trucks = []
-    recommended_fuel_stations = []
-    served_bin_ids = set()
-    matrix_sources = []
-
-    for response in responses:
-        if response is None:
-            continue
-
-        missions.extend(response.missions or [])
-        excluded_trucks.extend(response.excludedTrucks or [])
-        warning_trucks.extend(response.warningTrucks or [])
-        recommended_fuel_stations.extend(response.recommendedFuelStations or [])
-
-        if response.matrixSource:
-            matrix_sources.append(response.matrixSource)
-
-        for mission in response.missions or []:
-            for stop in mission.stops or []:
-                if stop.stopType == "BIN_PICKUP" and stop.binId is not None:
-                    served_bin_ids.add(stop.binId)
-
-    dropped_bin_ids = sorted(set(all_input_bin_ids) - served_bin_ids)
-
-    return RoutingResponseDto(
-        missions=missions,
-        matrixSource="+".join(sorted(set(matrix_sources))) if matrix_sources else "NONE",
-        excludedTrucks=excluded_trucks,
-        warningTrucks=warning_trucks,
-        recommendedFuelStations=recommended_fuel_stations,
-        droppedBinIds=dropped_bin_ids,
-    )
 
 
 
@@ -1251,44 +1185,16 @@ def optimize_routing_core(request: RoutingRequestDto) -> RoutingResponseDto:
 
 
 
+
+
+
+
+
+
 def optimize_routing(request: RoutingRequestDto) -> RoutingResponseDto:
-    grouped_bins = split_bins_by_waste_family(request.bins)
-
     print(
-        "Waste family split => "
-        + ", ".join([f"{family}={len(bins)}" for family, bins in grouped_bins.items()]),
+        "Waste family split disabled: using global optimization with truck waste-type compatibility.",
         flush=True,
     )
 
-    if len(grouped_bins) <= 1:
-        return optimize_routing_core(request)
-
-    responses = []
-    all_input_bin_ids = [b.id for b in request.bins or []]
-
-    family_order = ["ORGANIC", "YELLOW", "WHITE", "UNKNOWN"]
-
-    for family in family_order:
-        family_bins = grouped_bins.get(family, [])
-
-        if not family_bins:
-            continue
-
-        print(
-            f"Starting optimization for waste family={family} | bins={len(family_bins)}",
-            flush=True,
-        )
-
-        family_request = build_family_request(request, family_bins)
-        family_response = optimize_routing_core(family_request)
-        responses.append(family_response)
-
-    merged = merge_family_responses(responses, all_input_bin_ids)
-
-    print(
-        f"Waste family merged response => missions={len(merged.missions)}, "
-        f"dropped={len(merged.droppedBinIds)}",
-        flush=True,
-    )
-
-    return merged
+    return optimize_routing_core(request)

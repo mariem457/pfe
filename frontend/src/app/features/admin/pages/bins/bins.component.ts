@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-
+import { Subscription } from 'rxjs';
+import { RealtimeService, BinTelemetryMsg } from '../../../../services/realtime.service';
 import { BinService } from '../../../../services/bin.service';
 import { MapFocusService } from '../../../../services/map-focus.service';
 import { AlertService, AlertDto } from '../../../../services/alert.service';
@@ -63,13 +64,14 @@ type ModalMode = 'create' | 'edit' | 'view';
   templateUrl: './bins.component.html',
   styleUrls: ['./bins.component.css'],
 })
-export class BinsComponent implements OnInit {
+export class BinsComponent implements OnInit, OnDestroy {
   constructor(
     private binService: BinService,
     private alertService: AlertService,
     private router: Router,
     private route: ActivatedRoute,
-    private mapFocusService: MapFocusService
+    private mapFocusService: MapFocusService,
+    private realtimeService: RealtimeService
   ) {}
 
   stats = {
@@ -112,11 +114,66 @@ export class BinsComponent implements OnInit {
   showAlertsDrawer = false;
   selectedAlertBin: BinRow | null = null;
   resolvingAlertId: number | null = null;
+  private realtimeSub = new Subscription();
 
   ngOnInit(): void {
-    this.reloadBins();
-    this.consumePickedLocationFromQuery();
+  this.reloadBins();
+  this.consumePickedLocationFromQuery();
+  this.initRealtimeTelemetry();
   }
+  ngOnDestroy(): void {
+  this.realtimeSub.unsubscribe();
+}
+
+
+private initRealtimeTelemetry(): void {
+  this.realtimeService.connectAll();
+
+  this.realtimeSub.add(
+    this.realtimeService.binTelemetry$.subscribe((msg) => {
+      if (!msg?.binCode) return;
+      this.applyTelemetryUpdate(msg);
+    })
+  );
+}
+
+private applyTelemetryUpdate(msg: BinTelemetryMsg): void {
+  const code = msg.binCode;
+  if (!code) return;
+
+  const index = this.rows.findIndex(r => r.id === code);
+  if (index === -1) return;
+
+  const old = this.rows[index];
+
+  const fill =
+    msg.fillLevel !== undefined && msg.fillLevel !== null
+      ? this.clampPercent(msg.fillLevel)
+      : old.fill;
+
+  const battery =
+    msg.batteryLevel !== undefined && msg.batteryLevel !== null
+      ? this.clampPercent(msg.batteryLevel)
+      : old.battery;
+
+  const status = this.mapStatus(msg.status || '', fill);
+
+  this.rows = [
+    ...this.rows.slice(0, index),
+    {
+      ...old,
+      fill,
+      battery,
+      status,
+      zone: msg.zoneName || old.zone,
+      lastTelemetry: msg.timestamp ? this.formatDate(msg.timestamp) : old.lastTelemetry,
+    },
+    ...this.rows.slice(index + 1),
+  ];
+
+  this.recomputeStats();
+  this.updateLastRefresh();
+}
 
   reloadBins(): void {
     this.loading = true;

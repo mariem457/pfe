@@ -31,6 +31,7 @@ const truckProblemTypes = [
   "Pneu crevé",
   "Problème GPS",
   "Accident",
+  "Chauffeur non disponible",
   "Autre",
 ];
 
@@ -241,7 +242,7 @@ export default function DeclareBreakdownScreen() {
     ) {
       return "BREAKDOWN";
     }
-
+    if (type === "Chauffeur non disponible") return "DRIVER_UNAVAILABLE";
     if (type === "Problème carburant") return "FUEL_LOW";
     if (type === "Problème GPS") return "GPS_LOST";
     return "OTHER";

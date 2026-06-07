@@ -389,10 +389,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   openDetails(a: AlertItem): void {
-    this.showDetails = true;
-    setTimeout(() => {
-      document.body.style.overflow = 'hidden';
-    }, 0);
+   this.showDetails = true;
+setTimeout(() => {
+  document.body.style.overflow = 'hidden';
+  document.body.classList.add('alert-details-open');
+}, 0);
     this.detailsLoading = true;
     this.detailsError = '';
     this.selectedDetails = null;
@@ -411,12 +412,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   closeDetails(): void {
-    this.showDetails = false;
-    this.selectedDetails = null;
-    this.detailsError = '';
-    this.detailsLoading = false;
-    document.body.style.overflow = '';
-  }
+  this.showDetails = false;
+  this.selectedDetails = null;
+  this.detailsError = '';
+  this.detailsLoading = false;
+  document.body.style.overflow = '';
+  document.body.classList.remove('alert-details-open');
+}
 
   get fillTrendLinePath(): string {
     if (!this.lineChartPoints.length) return '';

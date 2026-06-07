@@ -6,7 +6,14 @@ osrm-local/
 *.osrm
 *.osrm.*
 dist
-__pycache__
+__pycache__/
+
+# Python virtual environments
+backend/src/ml/ml-venv/
+backend/src/routing-engine/venv/
+
+# Uploads
+backend/uploads/
 
 # Logs
 *.log
@@ -24,5 +31,4 @@ Thumbs.db
 
 # Expo / React Native
 .expo/
-.expo-shared/backend/src/ml/ml-venv/ 
-backend/uploads/ 
+.expo-shared/

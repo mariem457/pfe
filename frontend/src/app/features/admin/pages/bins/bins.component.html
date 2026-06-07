@@ -99,15 +99,7 @@
       <span class="it-caret"></span>
     </div>
 
-    <div class="it-select">
-      <select [(ngModel)]="alertFilter" aria-label="Filtrer par alertes">
-        <option value="All">Alertes : toutes</option>
-        <option value="WithAlerts">Avec alertes</option>
-        <option value="WithoutAlerts">Sans alertes</option>
-        <option value="Critical">Critiques uniquement</option>
-      </select>
-      <span class="it-caret"></span>
-    </div>
+   
 
     <div class="it-select">
       <select [(ngModel)]="sortBy" aria-label="Trier les bacs">
@@ -154,7 +146,7 @@
           <th>État</th>
           <th>Statut</th>
           <th>Batterie</th>
-          <th>Alertes</th>
+          
           <th>Dernière télémétrie</th>
           <th>Actions</th>
         </tr>
@@ -222,17 +214,7 @@
             </div>
           </td>
 
-          <td>
-            <button
-              class="it-alertChip"
-              type="button"
-              [ngClass]="alertBadgeClass(r)"
-              [disabled]="r.alertsCount === 0"
-              (click)="openAlertsDrawer(r)">
-              <span class="it-alertChip__dot"></span>
-              <span>{{ alertBadgeLabel(r) }}</span>
-            </button>
-          </td>
+      
 
           <td class="it-muted">{{ r.lastTelemetry }}</td>
 

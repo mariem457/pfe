@@ -20,8 +20,8 @@ import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
-const BASE_URL = "http://10.221.127.114:8081";
-const OSRM_URL = "http://10.221.127.114:5000";
+const BASE_URL = "http://192.168.0.4:8081";
+const OSRM_URL = "http://192.168.0.4:5000";
 
 
 const DEV_MODE_PARIS = true;

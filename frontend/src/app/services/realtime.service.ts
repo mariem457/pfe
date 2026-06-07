@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AlertDto, AlertService } from './alert.service';
 
@@ -16,6 +16,19 @@ export type TruckLocationMsg = {
   speed?: number;
   heading?: number;
   timestamp?: string;
+};
+
+
+export type BinTelemetryMsg = {
+  id?: number;
+  binCode?: string;
+  fillLevel?: number;
+  batteryLevel?: number;
+  status?: string;
+  source?: string;
+  timestamp?: string;
+  zoneId?: number;
+  zoneName?: string;
 };
 
 export type MissionRealtimeEventType =
@@ -56,6 +69,8 @@ export class RealtimeService {
   trucks$ = this.trucksSubject.asObservable();
   private missionEventsSubject = new BehaviorSubject<MissionRealtimeEvent | null>(null);
   missionEvents$ = this.missionEventsSubject.asObservable();
+  private binTelemetrySubject = new Subject<BinTelemetryMsg>();
+  binTelemetry$ = this.binTelemetrySubject.asObservable();
 
   constructor(private alertService: AlertService) { }
 
@@ -108,6 +123,17 @@ export class RealtimeService {
           console.error('Invalid alert resolved WS payload:', e, msg.body);
         }
       });
+
+
+      this.client?.subscribe('/topic/bin-telemetry', (msg: IMessage) => {
+  try {
+    const payload = JSON.parse(msg.body) as BinTelemetryMsg;
+    this.binTelemetrySubject.next(payload);
+    console.log('[BIN TELEMETRY LIVE]', payload);
+  } catch (e) {
+    console.error('Invalid bin telemetry WS payload:', e, msg.body);
+  }
+});
 
       this.client?.subscribe('/topic/missions', (msg: IMessage) => {
         try {

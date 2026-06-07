@@ -258,6 +258,8 @@ public class TruckServiceImpl implements TruckService {
                     .orElseThrow(() -> new ResourceNotFoundException("Assigned driver not found"));
 
             truck.setAssignedDriver(driver);
+        } else {
+            truck.setAssignedDriver(null);
         }
 
         if (request.getZoneId() != null) {

@@ -18,7 +18,7 @@ BROKER = "localhost"   # إذا ما خدمش جرّبي "127.0.0.1"
 PORT = 1883
 
 # كل 5 دقائق
-SEND_INTERVAL_SECONDS = 300
+SEND_INTERVAL_SECONDS =60
 
 MIN_AFTER_COLLECTION = 5
 MAX_AFTER_COLLECTION = 15
@@ -110,6 +110,7 @@ def load_bin_codes_from_db():
 
 
 BIN_CODES = load_bin_codes_from_db()
+BIN_CODES = ["PVP-15-300003"]
 
 print(f"Loaded {len(BIN_CODES)} bins from DB:")
 print(BIN_CODES)

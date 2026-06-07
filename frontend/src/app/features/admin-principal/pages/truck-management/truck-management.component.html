@@ -173,10 +173,15 @@
         </select>
       </label>
 
-      <label>
-        ID chauffeur affecté
-        <input type="number" [(ngModel)]="form.assignedDriverId" />
-      </label>
+     <label>
+  Chauffeur affecté
+  <select [(ngModel)]="form.assignedDriverId">
+    <option [ngValue]="null">Non assigné</option>
+    <option *ngFor="let driver of drivers" [ngValue]="driver.id">
+      {{ getDriverLabel(driver) }}
+    </option>
+  </select>
+</label>
 
       <label class="checkbox-label">
         <input type="checkbox" [(ngModel)]="form.isActive" />
@@ -263,6 +268,9 @@
                 </button>
 
                 <div class="action-menu" *ngIf="openedActionTruckId === truck.id">
+                   <button type="button" (click)="openEditForm(truck)">
+                      Modifier
+                    </button>
                   <button type="button" class="danger" (click)="deleteTruck(truck)">
                     Supprimer
                   </button>

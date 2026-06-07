@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TruckRequest, TruckResponse, TruckService, TruckStatus, FuelType, ZoneResponse, WasteType } from '../../../../services/truck.service';
+import { DriverResponse, DriverService } from '../../../../services/driver.service';
 
 type WasteTypeChoice = WasteType | 'ALL';
 
@@ -16,6 +17,7 @@ type WasteTypeChoice = WasteType | 'ALL';
 export class TruckManagementComponent implements OnInit {
   trucks: TruckResponse[] = [];
   filteredTrucks: TruckResponse[] = [];
+  drivers: DriverResponse[] = [];
   zoneOptions: Array<Partial<ZoneResponse> & { name: string }> = [];
   private readonly paris15ZoneNames = [
     'Saint-Lambert',
@@ -55,11 +57,15 @@ export class TruckManagementComponent implements OnInit {
 
   form: TruckRequest = this.getEmptyForm();
 
-  constructor(private truckService: TruckService) {}
+  constructor(
+  private truckService: TruckService,
+  private driverService: DriverService
+) {}
 
   ngOnInit(): void {
     this.zoneOptions = this.paris15ZoneNames.map((name) => ({ name }));
     this.loadZones();
+    this.loadDrivers();
     this.loadTrucks();
   }
 
@@ -74,7 +80,16 @@ export class TruckManagementComponent implements OnInit {
       }
     });
   }
-
+ loadDrivers(): void {
+  this.driverService.getAvailableDrivers().subscribe({
+    next: (drivers) => {
+      this.drivers = drivers || [];
+    },
+    error: () => {
+      this.drivers = [];
+    }
+  });
+}
   loadTrucks(): void {
     this.loading = true;
     this.errorMessage = '';
@@ -91,7 +106,9 @@ export class TruckManagementComponent implements OnInit {
       }
     });
   }
-
+  getDriverLabel(driver: DriverResponse): string {
+  return driver.fullName || driver.username || driver.email || `Chauffeur #${driver.id}`;
+}
   getEmptyForm(): TruckRequest {
     return {
       truckCode: '',
@@ -114,13 +131,14 @@ export class TruckManagementComponent implements OnInit {
   }
 
   openCreateForm(): void {
-    this.showForm = true;
-    this.editMode = false;
-    this.selectedTruckId = null;
-    this.form = this.getEmptyForm();
-    this.selectedWasteType = 'ALL';
-    this.clearMessages();
-  }
+  this.showForm = true;
+  this.editMode = false;
+  this.selectedTruckId = null;
+  this.form = this.getEmptyForm();
+  this.selectedWasteType = 'ALL';
+  this.loadDrivers();
+  this.clearMessages();
+}
 
   openEditForm(truck: TruckResponse): void {
     this.closeActionMenu();
@@ -148,6 +166,18 @@ export class TruckManagementComponent implements OnInit {
       supportedWasteTypes: truck.supportedWasteTypes || []
     };
     this.selectedWasteType = this.resolveWasteTypeChoice(truck.supportedWasteTypes);
+    if (
+  truck.assignedDriverId &&
+  !this.drivers.some(driver => driver.id === truck.assignedDriverId)
+) {
+  this.drivers = [
+    {
+      id: truck.assignedDriverId,
+      fullName: truck.assignedDriverName || 'Chauffeur actuel'
+    },
+    ...this.drivers
+  ];
+}
 
     this.clearMessages();
   }

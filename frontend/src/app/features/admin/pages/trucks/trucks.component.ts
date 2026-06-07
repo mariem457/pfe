@@ -105,6 +105,7 @@ constructor(
           ].includes(type);
 
         if (!isFleetAlert) return;
+        if (!this.isToday((alert as any).createdAt ?? (alert as any).created_at)) return;
 
         const exists = this.alerts.some(a => a.id === alert.id);
 
@@ -143,14 +144,70 @@ constructor(
     }
   }
 
+
+
+  private isInsideParis15(lat?: number, lng?: number): boolean {
+  if (lat == null || lng == null) return false;
+
+  return lat >= 48.815 &&
+         lat <= 48.865 &&
+         lng >= 2.250 &&
+         lng <= 2.335;
+}
+
+private hasOpenIncident(truckCode: string): boolean {
+  return !!this.incidentMap[truckCode];
+}
+
+private isMissionTruck(t: TruckCard): boolean {
+  return t.inMission &&
+         t.currentMissionId != null &&
+         t.lat != null &&
+         t.lng != null &&
+         this.isInsideParis15(Number(t.lat), Number(t.lng));
+}
+
+
+
+
+getRouteColor(truckCode: string): string {
+  const colors = ['#2563eb', '#059669', '#7c3aed', '#f97316', '#475569', '#dc2626'];
+  let hash = 0;
+
+  for (let i = 0; i < truckCode.length; i++) {
+    hash = truckCode.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return colors[Math.abs(hash) % colors.length];
+}
+
+
+
+
+
+
+
+
+
+
   loadDashboard(): void {
     this.dashboardService.getDashboard().subscribe({
       next: (data: TruckDashboardResponse) => {
         this.trucks = data.trucks.map((t: TruckItem | any) => {
+          console.log('RAW TRUCK FROM DASHBOARD =>', t);
           const lat = t.lat ?? t.latitude ?? t.lastKnownLat ?? t.last_known_lat ?? null;
           const lng = t.lng ?? t.longitude ?? t.lastKnownLng ?? t.last_known_lng ?? null;
           const truckStatus = t.truckStatus ?? t.truck_status ?? 'UNKNOWN';
-          const currentMissionId = t.currentMissionId ?? t.current_mission_id ?? null;
+         const currentMissionId =
+  t.currentMissionId ??
+  t.current_mission_id ??
+  t.missionId ??
+  t.mission_id ??
+  t.activeMissionId ??
+  t.active_mission_id ??
+  t.currentMission?.id ??
+  t.current_mission?.id ??
+  null;
 
           // نعرضو كان camions اللي فعلاً في مهمة
           const inMission =
@@ -176,31 +233,52 @@ constructor(
           };
         });
 
-        this.missionTrucks = this.trucks.filter((t) => t.inMission);
-        this.offMissionTrucks = this.trucks.filter((t) => !t.inMission);
+this.missionTrucks = this.trucks.filter((t) => this.isMissionTruck(t));
 
-        this.mapTrucks = this.trucks
-          .filter((t) =>
-            t.inMission &&
-            t.lat != null &&
-            t.lng != null
-          )
-          .map((t) => ({
-            id: String(t.driverId ?? t.id),
-            truckCode: t.id,
-            lat: Number(t.lat),
-            lng: Number(t.lng),
-            label: t.id,
-            progress: t.progress,
-            fuelLevel: t.fuel,
-            etaMinutes: t.etaMins,
-            status: 'ON_MISSION',
-            currentMissionId: t.currentMissionId ?? null,
-          } as any));
+this.offMissionTrucks = this.trucks.filter((t) => !this.isMissionTruck(t));
+
+this.mapTrucks = this.missionTrucks
+  .filter(t =>
+    t.inMission &&
+    t.currentMissionId != null &&
+    t.lat != null &&
+    t.lng != null
+  )
+  .map((t) => {
+    const incident = this.getIncidentForTruck(t.id);
+
+    return {
+      id: String(t.driverId ?? t.id),
+      truckCode: t.id,
+      lat: Number(t.lat),
+      lng: Number(t.lng),
+
+      label: `${t.id} · Mission #${t.currentMissionId}`,
+
+      progress: t.progress,
+      fuelLevel: t.fuel,
+      etaMinutes: t.etaMins,
+
+      status: incident ? 'INCIDENT' : 'ON_MISSION',
+
+      currentMissionId: t.currentMissionId,
+      missionId: t.currentMissionId,
+      driverName: t.driver,
+
+      incidentType: incident?.incidentType ?? null,
+      incidentLabel: incident ? this.getIncidentTypeLabel(incident.incidentType) : null,
+
+      routeColor: this.getRouteColor(t.id),
+    } as FleetMapInitialTruck;
+  });
+
+  console.log('TRUCKS NORMALIZED =>', this.trucks);
+console.log('MISSION TRUCKS =>', this.missionTrucks);
+console.log('MAP TRUCKS =>', this.mapTrucks);
 
 
         this.updateKpis(data);
-        this.loadMissionRoutesForTrucks();
+        this.truckRoutes = [];
       },
       error: (err: any) => {
         console.error('Dashboard trucks error:', err);
@@ -234,42 +312,143 @@ constructor(
 },
     ];
   }
-
   async loadMissionRoutesForTrucks(): Promise<void> {
-    const trucksWithMission = this.missionTrucks.filter((t) => !!t.currentMissionId);
+  const trucksWithMission = this.missionTrucks.filter((t) => !!t.currentMissionId);
 
-    if (!trucksWithMission.length) {
-      this.truckRoutes = [];
-      return;
+  if (!trucksWithMission.length) {
+    this.truckRoutes = [];
+    return;
+  }
+
+  const normalizeCoords = (value: any): any[] => {
+    if (!value) return [];
+
+    let raw = value;
+
+    if (typeof value === 'string') {
+      try {
+        raw = JSON.parse(value);
+      } catch {
+        return [];
+      }
     }
 
-    try {
-      const routes = await Promise.all(
-        trucksWithMission.map((t) =>
-          firstValueFrom(this.dashboardService.getMissionRoute(Number(t.currentMissionId)))
-        )
-      );
+    if (!Array.isArray(raw)) return [];
 
-      this.truckRoutes = routes
-        .filter((route: MissionRouteResponse | any) => !!route)
-        .map((route: MissionRouteResponse | any, index: number) => {
-          const truck = trucksWithMission[index];
+    return raw
+      .map((p: any) => {
+        if (Array.isArray(p)) {
+          return {
+            lat: Number(p[0]),
+            lng: Number(p[1]),
+          };
+        }
+
+        return {
+          lat: Number(
+            p.lat ??
+            p.latitude ??
+            p.y
+          ),
+          lng: Number(
+            p.lng ??
+            p.longitude ??
+            p.lon ??
+            p.x
+          ),
+        };
+      })
+      .filter((p: any) =>
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lng)
+      );
+  };
+
+  const coordsFromStops = (route: any): any[] => {
+    const stops =
+      route.routeStops ??
+      route.route_stops ??
+      route.stops ??
+      route.routePlanStops ??
+      route.route_plan_stops ??
+      [];
+
+    return normalizeCoords(stops);
+  };
+
+  try {
+    const results = await Promise.all(
+      trucksWithMission.map(async (truck) => {
+        try {
+          const route: any = await firstValueFrom(
+            this.dashboardService.getMissionRoute(Number(truck.currentMissionId))
+          );
+
+          console.log('ROUTE RESPONSE FOR', truck.id, truck.currentMissionId, route);
+
+          let routeCoordinates = normalizeCoords(
+            route.routeCoordinates ??
+            route.route_coordinates ??
+            route.coordinates ??
+            route.geometry ??
+            route.fullRouteCoordinates ??
+            route.full_route_coordinates ??
+            route.routePlan?.routeCoordinates ??
+            route.routePlan?.route_coordinates ??
+            route.routePlan?.coordinates ??
+            route.routePlan?.geometry
+          );
+
+          const collectionRouteCoordinates = normalizeCoords(
+            route.collectionRouteCoordinates ??
+            route.collection_route_coordinates ??
+            route.routePlan?.collectionRouteCoordinates ??
+            route.routePlan?.collection_route_coordinates
+          );
+
+          const transferRouteCoordinates = normalizeCoords(
+            route.transferRouteCoordinates ??
+            route.transfer_route_coordinates ??
+            route.routePlan?.transferRouteCoordinates ??
+            route.routePlan?.transfer_route_coordinates
+          );
+
+          // fallback: ken routeCoordinates fergha, nesta3mlou route stops
+          if (!routeCoordinates.length) {
+            routeCoordinates = coordsFromStops(route);
+          }
+
+          console.log('NORMALIZED ROUTE FOR', truck.id, {
+            missionId: route.missionId ?? route.mission_id ?? truck.currentMissionId,
+            routeCoordinates,
+            collectionRouteCoordinates,
+            transferRouteCoordinates,
+          });
 
           return {
             truckId: String(truck.driverId ?? truck.id),
             truckCode: truck.id,
-            missionId: route.missionId,
-            routeCoordinates: route.routeCoordinates || [],
-            collectionRouteCoordinates: route.collectionRouteCoordinates || [],
-            transferRouteCoordinates: route.transferRouteCoordinates || [],
+            missionId: route.missionId ?? route.mission_id ?? truck.currentMissionId,
+            routeCoordinates,
+            collectionRouteCoordinates,
+            transferRouteCoordinates,
+            routeColor: this.getRouteColor(truck.id),
           };
-        });
-    } catch (err) {
-      console.error('Load truck routes error:', err);
-      this.truckRoutes = [];
-    }
-  }
+        } catch (err) {
+          console.error('Route error for truck', truck.id, truck.currentMissionId, err);
+          return null;
+        }
+      })
+    );
 
+    this.truckRoutes = results.filter((r): r is any => !!r);
+
+    console.log('TRUCK ROUTES SENT TO MAP =>', this.truckRoutes);
+  } catch (err) {
+    console.error('Load truck routes error:', err);
+    this.truckRoutes = [];
+  }
+}
   loadOpenIncidents(): void {
     this.loadingIncidents = true;
 
@@ -526,34 +705,45 @@ constructor(
     if (!value) return '—';
     return new Date(value).toLocaleString('fr-FR');
   }
-  loadTruckAlerts(): void {
-    this.alertService.searchAlerts({
-      resolved: false,
-      entityType: 'INCIDENT'
-    }).subscribe({
-      next: (alerts: AlertDto[]) => {
-        this.alerts = (alerts || []).filter((a: any) => {
-          const type = a.alertType ?? a.alert_type ?? '';
+  private isToday(value?: string | null): boolean {
+  if (!value) return false;
 
-          return [
-            
-            'TRUCK_GPS_LOST',
-            'TRUCK_OVERLOAD',
-            'TRUCK_BREAKDOWN',
-            'TRUCK_TRAFFIC_BLOCK',
-            'TRUCK_DELAY',
-            'DRIVER_UNAVAILABLE'
-          ].includes(type);
-        });
+  const d = new Date(value);
+  const today = new Date();
 
-        console.log('Fleet truck alerts shown:', this.alerts);
-      },
-      error: (err: any) => {
-        console.error('Truck alerts error:', err);
-        this.alerts = [];
-      }
-    });
-  }
+  return d.getFullYear() === today.getFullYear()
+    && d.getMonth() === today.getMonth()
+    && d.getDate() === today.getDate();
+}
+loadTruckAlerts(): void {
+  this.alertService.searchAlerts({
+    resolved: false,
+    entityType: 'INCIDENT'
+  }).subscribe({
+    next: (alerts: AlertDto[]) => {
+      this.alerts = (alerts || []).filter((a: any) => {
+        const type = a.alertType ?? a.alert_type ?? '';
+
+        const isFleetAlert = [
+          'TRUCK_GPS_LOST',
+          'TRUCK_OVERLOAD',
+          'TRUCK_BREAKDOWN',
+          'TRUCK_TRAFFIC_BLOCK',
+          'TRUCK_DELAY',
+          'DRIVER_UNAVAILABLE'
+        ].includes(type);
+
+        return isFleetAlert && this.isToday(a.createdAt ?? a.created_at);
+      });
+
+      console.log('Fleet truck alerts today shown:', this.alerts);
+    },
+    error: (err: any) => {
+      console.error('Truck alerts error:', err);
+      this.alerts = [];
+    }
+  });
+}
 
 
 

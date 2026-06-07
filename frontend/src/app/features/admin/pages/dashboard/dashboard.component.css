@@ -1942,3 +1942,18 @@ body.dark-mode .it-kpiCard {
     max-height: none !important;
   }
 }
+
+
+/* FIX: cacher la carte derrière le modal détails */
+:host-context(body.alert-details-open) .it-panel--map {
+  visibility: hidden !important;
+}
+
+:host-context(body.alert-details-open) .it-modalOverlay {
+  z-index: 9999999 !important;
+}
+
+:host-context(body.alert-details-open) .it-modal {
+  position: relative !important;
+  z-index: 10000000 !important;
+}

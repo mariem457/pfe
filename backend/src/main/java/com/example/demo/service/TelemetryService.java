@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 @Service
 public class TelemetryService {
 
@@ -30,6 +30,7 @@ public class TelemetryService {
     private final PythonPredictionService pythonPredictionService;
     private final MunicipalExceptionAlertService municipalExceptionAlertService;
     private final TelemetryAsyncService telemetryAsyncService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public TelemetryService(
             BinRepository binRepository,
@@ -40,7 +41,8 @@ public class TelemetryService {
             BinPredictionService binPredictionService,
             PythonPredictionService pythonPredictionService,
             MunicipalExceptionAlertService municipalExceptionAlertService,
-            TelemetryAsyncService telemetryAsyncService
+            TelemetryAsyncService telemetryAsyncService,
+            SimpMessagingTemplate messagingTemplate
     ) {
         this.binRepository = binRepository;
         this.telemetryRepository = telemetryRepository;
@@ -51,6 +53,7 @@ public class TelemetryService {
         this.pythonPredictionService = pythonPredictionService;
         this.municipalExceptionAlertService = municipalExceptionAlertService;
         this.telemetryAsyncService = telemetryAsyncService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Transactional
@@ -128,6 +131,9 @@ public class TelemetryService {
             res.zoneId = bin.getZone().getId();
             res.zoneName = bin.getZone().getShapeName();
         }
+        
+        
+        messagingTemplate.convertAndSend("/topic/bin-telemetry", res);
 
         return res;
     }

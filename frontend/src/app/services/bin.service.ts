@@ -15,6 +15,8 @@ export interface BinStatusDto {
   lastTelemetryAt?: string;
   isActive?: boolean;
   wasteType?: string;
+  predictedFillLevelNext?: number | null;
+  hoursToFull?: number | null;
 }
 
 @Injectable({

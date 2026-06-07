@@ -13,7 +13,49 @@
   gap: 18px;
   margin-bottom: 22px;
 }
+.action-menu {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 20;
+  min-width: 150px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #e5eaf1;
+  border-radius: 12px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
 
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.action-menu button {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #0f3b66;
+  white-space: nowrap;
+}
+
+.action-menu button:hover {
+  background: #f1f5f9;
+}
+
+.action-menu button.danger {
+  color: #dc2626;
+}
 .page-header h1 {
   margin: 0 0 6px;
   font-size: 26px;

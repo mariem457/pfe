@@ -156,6 +156,13 @@ export interface FleetMapInitialTruck {
   status?: string;
   speedKmh?: number;
   headingDeg?: number;
+  routeColor?: string;
+
+  currentMissionId?: number | null;
+  missionId?: number | null;
+  driverName?: string | null;
+   incidentType?: string | null;
+  incidentLabel?: string | null;
 }
 export interface FleetMapTruckRoute {
   truckId: string;
@@ -164,6 +171,7 @@ export interface FleetMapTruckRoute {
   routeCoordinates: FleetMapRouteCoordinate[];
   collectionRouteCoordinates?: FleetMapRouteCoordinate[];
   transferRouteCoordinates?: FleetMapRouteCoordinate[];
+  routeColor?: string;
 }
 
 @Component({
@@ -1867,6 +1875,7 @@ this.mapFocusService.clearTarget();}}
           status: existingInitial?.status || 'ON_MISSION',
           speedKmh: Number(payload.speedKmh ?? payload.speed ?? 0),
           headingDeg: Number(payload.headingDeg ?? payload.heading ?? 0),
+          routeColor: existingInitial?.routeColor,
         });
       }
     });
@@ -1916,7 +1925,7 @@ this.mapFocusService.clearTarget();}}
     const progress = truck?.progress ?? 0;
 
     let statusLabel = 'En mission';
-    let color = this.getTruckColor(code);
+    let color = truck?.routeColor || this.getTruckColor(code);
     let badgeBg = '#dbeafe';
     let badgeColor = '#1d4ed8';
 
@@ -1961,7 +1970,7 @@ this.mapFocusService.clearTarget();}}
         <div class="truck-modern-label">
           <strong>${code}</strong>
           <span style="background:${badgeBg}; color:${badgeColor};">${statusLabel}</span>
-          <small>${progress}% · ${Math.round(speedKmh)} km/h</small>
+          <small>Mission #${truck?.currentMissionId ?? truck?.missionId ?? '—'} · ${progress}%</small>
         </div>
       </div>
     `
@@ -1990,21 +1999,74 @@ this.mapFocusService.clearTarget();}}
         zIndexOffset: 5000
       }).addTo(this.map);
 
-      marker.bindPopup(`
-      <div style="min-width:190px">
-        <div style="font-weight:900; margin-bottom:6px;">
-          ${truck?.truckCode || truck?.label || id}
-        </div>
-        <div><b>Statut:</b> ${truck?.status || 'ON_MISSION'}</div>
-        <div><b>Progression:</b> ${truck?.progress ?? 0}%</div>
-        <div><b>Vitesse:</b> ${Math.round(speedKmh)} km/h</div>
-        <div><b>Direction:</b> ${Math.round(headingDeg)}°</div>
-        ${truck?.status === 'INCIDENT' || truck?.status === 'BREAKDOWN'
-          ? '<div style="margin-top:8px;color:#b91c1c;font-weight:800;">Incident actif détecté</div>'
-          : ''
-        }
-      </div>
-    `);
+marker.bindPopup(`
+  <div style="min-width:240px">
+    <div style="font-weight:900; margin-bottom:8px;">
+      ${this.escapeHtml(truck?.truckCode || truck?.label || id)}
+    </div>
+
+    <div><b>Mission:</b> #${truck?.currentMissionId ?? truck?.missionId ?? '—'}</div>
+    <div><b>Chauffeur:</b> ${this.escapeHtml(truck?.driverName || 'Non assigné')}</div>
+    <div><b>Statut:</b> ${this.escapeHtml(truck?.status || 'ON_MISSION')}</div>
+    <div><b>Progression:</b> ${truck?.progress ?? 0}%</div>
+    <div><b>Carburant:</b> ${truck?.fuelLevel ?? '—'}%</div>
+    <div><b>ETA:</b> ${truck?.etaMinutes ?? '—'} min</div>
+
+    ${
+      truck?.status === 'INCIDENT' || truck?.status === 'BREAKDOWN'
+        ? `<div style="
+            margin-top:10px;
+            padding:7px 10px;
+            border-radius:10px;
+            background:#fee2e2;
+            color:#b91c1c;
+            font-weight:900;
+          ">
+            ${this.escapeHtml(truck?.incidentLabel || 'Incident actif')}
+          </div>`
+        : ''
+    }
+
+    ${
+      truck?.currentMissionId || truck?.missionId
+        ? `<button
+            id="open-mission-${id}"
+            type="button"
+            style="
+              margin-top:12px;
+              width:100%;
+              border:none;
+              border-radius:10px;
+              padding:9px 12px;
+              background:#16a34a;
+              color:white;
+              font-weight:900;
+              cursor:pointer;
+            ">
+            Voir mission
+          </button>`
+        : ''
+    }
+  </div>
+`);
+marker.on('popupopen', () => {
+  const missionId = truck?.currentMissionId ?? truck?.missionId;
+  if (!missionId) return;
+
+  setTimeout(() => {
+    const button = document.getElementById(`open-mission-${id}`);
+
+    if (button) {
+      button.onclick = () => {
+        this.ngZone.run(() => {
+          this.router.navigate(['/municipality/missions'], {
+  queryParams: { missionId }
+});
+        });
+      };
+    }
+  }, 0);
+});
 
       marker.on('click', () => {
         this.followedTruckId = id;
@@ -2132,56 +2194,62 @@ this.mapFocusService.clearTarget();}}
 
     trail.setLatLngs(limitedPoints);
   }
+
   private renderTruckRoutes(): void {
-    if (!this.map) return;
+  if (!this.map) return;
 
-    for (const line of this.truckRoutePolylines.values()) {
-      line.removeFrom(this.map);
+  this.clearTruckRoutes();
+
+  const boundsPoints: L.LatLngExpression[] = [];
+
+  (this.truckRoutes || []).forEach((route: any) => {
+    const routeKey = String(route.truckId ?? route.truckCode ?? route.missionId);
+    const code = String(route.truckCode ?? route.truckId ?? 'Camion');
+    const color = route.routeColor || this.getTruckColor(code);
+
+    const coords = (
+      route.collectionRouteCoordinates?.length
+        ? route.collectionRouteCoordinates
+        : route.routeCoordinates || []
+    )
+      .map((p: any) => ({
+        lat: Number(p.lat ?? p.latitude),
+        lng: Number(p.lng ?? p.longitude),
+      }))
+      .filter((p: any) =>
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lng)
+      );
+
+    if (coords.length < 2) {
+      console.warn('Route ignorée: coordinates insuffisantes', code, route);
+      return;
     }
-    this.truckRoutePolylines.clear();
-    this.truckRouteCoords.clear();
 
-    const boundsPoints: L.LatLngExpression[] = [];
+    this.truckRouteCoords.set(routeKey, coords);
+    this.truckRouteCoords.set(code, coords);
 
-    (this.truckRoutes || []).forEach((route) => {
-      const routeKey = String(route.truckId ?? route.truckCode ?? route.missionId);
-      const code = String(route.truckCode ?? routeKey);
+    const latLngs: L.LatLngExpression[] = coords.map((p: any) => [p.lat, p.lng]);
 
-      // نفس function اللي makeTruckIcon تستعملها
-      const color = this.getTruckColor(code);
+    const polyline = L.polyline(latLngs, {
+      color,
+      weight: 6,
+      opacity: 0.95,
+    }).addTo(this.map!);
 
-      const coords = (
-        route.collectionRouteCoordinates?.length
-          ? route.collectionRouteCoordinates
-          : route.routeCoordinates
-          || []).filter((p: any) => p.lat != null && p.lng != null);
-
-      if (coords.length < 2) return;
-
-      this.truckRouteCoords.set(routeKey, coords);
-      this.truckRouteCoords.set(code, coords);
-
-      const latLngs: L.LatLngExpression[] = coords.map((p: any) => [p.lat, p.lng]);
-
-      const polyline = L.polyline(latLngs, {
-        color,
-        weight: 6,
-        opacity: 0.9
-      }).addTo(this.map!);
-
-      polyline.bindPopup(`
+    polyline.bindPopup(`
       <div style="min-width:180px">
         <div style="font-weight:900; margin-bottom:6px;">${code}</div>
-        <div><b>Mission:</b> #${route.missionId}</div>
+        <div><b>Mission:</b> #${route.missionId ?? '—'}</div>
       </div>
     `);
 
-      const middle = latLngs[Math.floor(latLngs.length / 2)] as [number, number];
+    const middle = latLngs[Math.floor(latLngs.length / 2)] as [number, number];
 
-      const label = L.marker(middle, {
-        icon: L.divIcon({
-          className: '',
-          html: `
+    const label = L.marker(middle, {
+      icon: L.divIcon({
+        className: '',
+        html: `
           <div style="
             background:${color};
             color:white;
@@ -2189,32 +2257,31 @@ this.mapFocusService.clearTarget();}}
             border-radius:999px;
             font-size:11px;
             font-weight:900;
-            box-shadow:0 6px 14px rgba(15,23,42,.22);
+            box-shadow:0 6px 14px rgba(15,23,42,0.22);
             white-space:nowrap;
             border:2px solid white;
           ">
-            ${code}
+            ${code} · Mission #${route.missionId ?? '—'}
           </div>
         `,
-          iconSize: [95, 26],
-          iconAnchor: [47, 13]
-        }),
-        zIndexOffset: 4500
-      }).addTo(this.map!);
+        iconSize: [150, 26],
+        iconAnchor: [75, 13],
+      }),
+      zIndexOffset: 4500,
+    }).addTo(this.map!);
 
-      this.truckRoutePolylines.set(routeKey, polyline);
-      this.truckRoutePolylines.set(`${routeKey}-label`, label as any);
+    this.truckRoutePolylines.set(routeKey, polyline);
+    this.truckRoutePolylines.set(`${routeKey}-label`, label as any);
 
-      boundsPoints.push(...latLngs);
+    boundsPoints.push(...latLngs);
+  });
+
+  if (boundsPoints.length && !this.userMovedMap) {
+    this.map.fitBounds(L.latLngBounds(boundsPoints).pad(0.08), {
+      padding: [20, 20],
     });
-
-    if (boundsPoints.length) {
-      this.map.fitBounds(L.latLngBounds(boundsPoints).pad(0.08), {
-        padding: [20, 20]
-      });
-    }
   }
-
+}
   private clearTruckRoutes(): void {
     if (!this.map) return;
 

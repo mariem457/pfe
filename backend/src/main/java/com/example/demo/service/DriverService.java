@@ -135,8 +135,10 @@ public class DriverService {
 
         return missionBinRepository.findByMissionIdOrderByVisitOrderAsc(mission.getId())
                 .stream()
-                .filter(mb -> !mb.isCollected())
-                .filter(mb -> mb.getAssignmentStatus() == MissionBin.AssignmentStatus.PLANNED)
+                .filter(mb ->
+                        mb.getAssignmentStatus() == MissionBin.AssignmentStatus.PLANNED
+                                || mb.getAssignmentStatus() == MissionBin.AssignmentStatus.COLLECTED
+                )
                 .map(mb -> new DriverBinDto(
                         mission.getId(),
                         mb.getId(),

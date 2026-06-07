@@ -42,7 +42,7 @@ import com.example.demo.repository.BinTelemetryRepository;
 public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderService {
 
     private static final double DEFAULT_BIN_MAX_CAPACITY_KG = 50.0;
-    private static final double FEEDBACK_SCORE_THRESHOLD = 6.0;
+    private static final double FEEDBACK_SCORE_THRESHOLD = 999.0;
 
     private static final double UNRESOLVED_POSTPONED_WEIGHT = 2.0;
     private static final double URGENT_HOURS_WEIGHT = 2.5;
@@ -54,9 +54,9 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     private static final double MANDATORY_HOURS_THRESHOLD = 6.0;
 
     private static final double OPPORTUNISTIC_PRIORITY_THRESHOLD = 0.85;
-    private static final double OPPORTUNISTIC_FILL_THRESHOLD = 30.0;
+    private static final double OPPORTUNISTIC_FILL_THRESHOLD = 50.0;
     private static final double OPPORTUNISTIC_HOURS_THRESHOLD = 24.0;
-    private static final double OPPORTUNISTIC_FEEDBACK_THRESHOLD = 3.0;
+    private static final double OPPORTUNISTIC_FEEDBACK_THRESHOLD = 999.0;
     private static final double OPPORTUNISTIC_BUFFER_HOURS = 6.0;
 
     private static final int MORNING_START_HOUR = 14;
@@ -286,7 +286,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             dto.setReportable(false);
             dto.setDecisionCategory("MANDATORY");
             dto.setDecisionReason("MUNICIPAL_EXCEPTION_ALERT");
-            dto.setFeedbackScore(10.0);
+            dto.setFeedbackScore(0.0);
             dto.setPostponementCount(0L);
             dto.setOpportunisticScore(0.0);
 
@@ -338,7 +338,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             applyDecisionClassification(bin);
 
             boolean mandatoryByUrgency = isDecisionReasonUrgency(bin.getDecisionReason());
-            boolean mandatoryByFeedback = "MANDATORY_BY_FEEDBACK_SCORE".equals(bin.getDecisionReason());
+            boolean mandatoryByFeedback = false;
 
             insights.add(
                     toMandatoryInsight(
@@ -468,7 +468,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 bin.setReportable(false);
                 bin.setDecisionCategory("MANDATORY");
                 bin.setDecisionReason("MUNICIPAL_EXCEPTION_ALERT");
-                bin.setFeedbackScore(10.0);
+                bin.setFeedbackScore(0.0);
                 bin.setPostponementCount(0L);
                 bin.setOpportunisticScore(0.0);
 
@@ -835,8 +835,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 priority >= MANDATORY_PRIORITY_THRESHOLD
                         && (fillLevel >= 80.0 || (predictedHours != null && predictedHours <= 24.0));
 
-        boolean mandatoryByFeedback =
-                feedbackScore >= FEEDBACK_SCORE_THRESHOLD;
+                boolean mandatoryByFeedback = false;
         String wasteType = bin.getWasteType() != null
                 ? bin.getWasteType().trim().toUpperCase()
                 : "UNKNOWN";
@@ -866,7 +865,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                             + ", wasteType=" + wasteType
                             + ", fill=" + fillLevel
                             + ", predictedHours=" + predictedHours
-                            + ", feedback=" + feedbackScore
+                            
                             + ", postponement=" + postponementCount
                             + ", sensitiveZone=" + sensitiveZone
                             + ", temperature=" + currentTemperature
@@ -927,7 +926,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                                         && (fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD || (predictedHours != null && predictedHours <= 48.0)))
                                         || fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD
                                         || (predictedHours != null && predictedHours <= OPPORTUNISTIC_HOURS_THRESHOLD)
-                                        || feedbackScore >= OPPORTUNISTIC_FEEDBACK_THRESHOLD
+                                        
                                         || postponementCount >= 1;
 
         if (opportunistic) {
@@ -1007,11 +1006,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
             score += 1.0;
         }
 
-        if (feedbackScore >= 6.0) {
-            score += 2.0;
-        } else if (feedbackScore >= 3.0) {
-            score += 1.0;
-        }
+      
 
         score += Math.min(postponementCount, 3);
 
@@ -1393,31 +1388,8 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
     }
 
     private double computeFeedbackScore(RoutingBinDto bin, List<PostponedBin> activePostponedBins) {
-        double score = 0.0;
-
-        double fillLevel = safeDouble(bin.getFillLevel());
-        double priority = safeDouble(bin.getPredictedPriority());
-        Double predictedHours = bin.getPredictedHoursToFull();
-
-        if (activePostponedBins != null && !activePostponedBins.isEmpty()) {
-            score += activePostponedBins.size() * UNRESOLVED_POSTPONED_WEIGHT;
-        }
-
-        if (predictedHours != null && predictedHours <= MANDATORY_HOURS_THRESHOLD) {
-            score += URGENT_HOURS_WEIGHT;
-        }
-
-        if (fillLevel >= OPPORTUNISTIC_FILL_THRESHOLD) {
-            score += HIGH_FILL_WEIGHT;
-        }
-
-        if (priority >= OPPORTUNISTIC_PRIORITY_THRESHOLD) {
-            score += HIGH_PRIORITY_WEIGHT;
-        }
-
-        return round(score);
+        return 0.0;
     }
-
     private void markMandatory(RoutingBinDto bin, String reasonCode) {
         bin.setMandatory(true);
         bin.setDecisionCategory(BinDecisionCategory.MANDATORY.getCode());
@@ -1483,7 +1455,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                     + "Les indicateurs observés sont : priorité prédite=" + priority
                     + ", remplissage=" + fillLevel + "%, heures avant saturation="
                     + (predictedHours != null ? predictedHours : "indisponibles")
-                    + ", feedback=" + feedback
+
                     + ", reports=" + postponementCount + ".";
         }
 
@@ -1492,7 +1464,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                     + ") résulte d'un compromis entre la priorité prédite (" + priority
                     + "), le niveau de remplissage (" + fillLevel + "%), "
                     + "l'horizon avant saturation (" + (predictedHours != null ? predictedHours : "indisponible") + " h), "
-                    + "le score de feedback (" + feedback + ") et "
+                    
                     + "l'historique de reports (" + postponementCount + ").";
         }
 
@@ -1501,7 +1473,7 @@ public class RoutingPayloadBuilderServiceImpl implements RoutingPayloadBuilderSe
                 + "Les indicateurs observés sont : priorité=" + priority
                 + ", remplissage=" + fillLevel + "%, heures avant saturation="
                 + (predictedHours != null ? predictedHours : "indisponibles")
-                + ", feedback=" + feedback
+                
                 + ", reports=" + postponementCount + ".";
     }
 

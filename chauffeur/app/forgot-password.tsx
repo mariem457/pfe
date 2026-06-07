@@ -69,6 +69,7 @@ export default function ForgotPasswordScreen() {
     try {
       setLoading(true);
 
+      // Demande au backend d'envoyer un code de recuperation a l'adresse du chauffeur.
       const response = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: {
@@ -91,7 +92,7 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // ✅ هنا التعديل المهم
+      // Apres l'envoi du code, le chauffeur passe a l'ecran de verification.
       Alert.alert(
         "Succès",
         alertMessageFr(data?.message, "Code envoyé avec succès."),
@@ -100,7 +101,7 @@ export default function ForgotPasswordScreen() {
             text: "D'accord",
             onPress: () =>
               router.push({
-                pathname: "/verify-code", // 🔥 بدل reset-password
+                pathname: "/verify-code",
                 params: { email: trimmedEmail },
               }),
           },

@@ -4,6 +4,7 @@ const AUTH_KEY = "auth_data";
 const REMEMBER_EMAIL_KEY = "remember_email";
 const REMEMBERED_ACCOUNTS_KEY = "remembered_accounts";
 
+// Structure unique gardee en local apres connexion du chauffeur.
 export type AuthData = {
   token: string;
   userId: number;
@@ -19,10 +20,12 @@ export type RememberedAccount = {
   password: string;
 };
 
+// Sauvegarde les informations d'authentification dans le stockage du telephone.
 export async function saveAuth(auth: AuthData): Promise<void> {
   await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(auth));
 }
 
+// Recupere la session courante; retourne null si les donnees locales sont absentes ou invalides.
 export async function getAuth(): Promise<AuthData | null> {
   try {
     const value = await AsyncStorage.getItem(AUTH_KEY);
@@ -72,6 +75,7 @@ export async function isLoggedIn(): Promise<boolean> {
   return !!token;
 }
 
+// Associe le camion affecte au chauffeur a la session locale deja existante.
 export async function saveTruckId(truckId: number | string): Promise<void> {
   const auth = await getAuth();
 
@@ -117,6 +121,7 @@ export async function getRememberedAccounts(): Promise<RememberedAccount[]> {
   }
 }
 
+// Conserve les derniers comptes utilises pour faciliter la reconnexion du chauffeur.
 export async function saveRememberedAccount(
   email: string,
   password: string

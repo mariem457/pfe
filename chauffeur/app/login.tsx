@@ -153,6 +153,7 @@ export default function LoginScreen() {
         return;
       }
 
+      // La session est stockee localement pour que les autres ecrans recuperent token, role et chauffeur.
       await saveAuth({
         token: data.token,
         userId: data.userId,
@@ -162,6 +163,7 @@ export default function LoginScreen() {
         mustChangePassword: data.mustChangePassword ?? false,
       });
 
+      // Option "se souvenir de moi" pour pre-remplir les prochaines connexions.
       if (remember) {
         await saveRememberedEmail(trimmedEmail);
         await saveRememberedAccount(trimmedEmail, password);
@@ -169,6 +171,7 @@ export default function LoginScreen() {
         await removeRememberedEmail();
       }
 
+      // Certains comptes doivent changer le mot de passe avant d'acceder au dashboard.
       if (data.mustChangePassword) {
         router.replace("/reset-password");
         return;

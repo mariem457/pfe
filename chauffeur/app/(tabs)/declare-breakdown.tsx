@@ -24,6 +24,7 @@ import { alertMessageFr } from "../../lib/alertMessages";
 import { getToken, getUserId } from "../../lib/storage";
 import { declareTruckIncident, getCurrentMissionId } from "../../lib/truckApi";
 
+// Types de problemes proposes quand le chauffeur signale une panne du camion.
 const truckProblemTypes = [
   "Panne camion",
   "Panne moteur",
@@ -35,6 +36,7 @@ const truckProblemTypes = [
   "Autre",
 ];
 
+// Types de problemes proposes quand le signalement concerne une poubelle de la mission.
 const binProblemTypes = [
   "QR code pas clair",
   "QR code invalide alors qu'il est valide",
@@ -45,6 +47,7 @@ const binProblemTypes = [
   "Autre",
 ];
 
+// Transforme l'adresse native Expo en texte lisible pour le formulaire.
 function formatAddress(address: Location.LocationGeocodedAddress): string {
   const parts = [
     address.name,
@@ -58,6 +61,7 @@ function formatAddress(address: Location.LocationGeocodedAddress): string {
   return parts.join(", ");
 }
 
+// Traduit les libelles affiches au chauffeur vers les codes attendus par le backend.
 function mapBinIssueType(type: string) {
   if (type === "QR code pas clair" || type === "QR code invalide alors qu'il est valide") {
     return "QR_CODE";
@@ -78,6 +82,7 @@ function mapBinIssueType(type: string) {
   return "OTHER";
 }
 
+// Extrait le message utile d'une reponse backend, meme si elle arrive en texte brut.
 function responseErrorMessage(text: string, fallback: string) {
   const trimmed = text.trim();
 
@@ -91,6 +96,7 @@ function responseErrorMessage(text: string, fallback: string) {
   }
 }
 
+// Donne un message clair au chauffeur selon le type d'erreur rencontree a l'envoi.
 function submitErrorMessage(error: unknown) {
   const raw = error instanceof Error ? error.message : "";
   const parsed = responseErrorMessage(raw, "");
@@ -162,6 +168,7 @@ export default function DeclareBreakdownScreen() {
 
   const screenCopy = useMemo(
     () =>
+      // Le meme ecran sert aux incidents camion et aux incidents poubelle.
       isBinProblem
         ? {
             title: "Signaler une poubelle",

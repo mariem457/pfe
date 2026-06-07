@@ -15,13 +15,13 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { BASE_URL } from "../lib/api";
 import { getToken, getUserId } from "../lib/storage";
 import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
-const BASE_URL = "http://192.168.0.4:8081";
-const OSRM_URL = "http://192.168.0.4:5000";
+const OSRM_URL = "http://192.168.1.209:5000";
 
 
 const DEV_MODE_PARIS = true;

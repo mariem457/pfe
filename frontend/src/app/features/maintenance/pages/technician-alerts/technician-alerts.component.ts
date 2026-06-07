@@ -63,17 +63,38 @@ export class TechnicianAlertsComponent implements OnInit {
       alert.alert_type ||
       alert.type ||
       ''
-    ).toUpperCase();
+    ).toString().toUpperCase();
 
-    return [
-      'BIN_SENSOR_STUCK',
-      'SENSOR_OFFLINE',
-      'BATTERY_LOW',
-      'BATTERY_CRITICAL',
-      'BATTERY_SOLAR_LOW',
-      'NO_DATA',
-      'CAPTEUR_BLOQUE'
-    ].includes(type);
+    const text = [
+      alert.title,
+      alert.alertTitle,
+      alert.message,
+      alert.description
+    ].filter(Boolean).join(' ').toUpperCase();
+
+    if (
+      type.includes('DELAY') ||
+      type.includes('MISSION_BLOCKED') ||
+      type.includes('MISSION_STUCK') ||
+      text.includes('RETARD') ||
+      text.includes('MISSION BLOQUEE') ||
+      text.includes('MISSION BLOQUÉE')
+    ) {
+      return false;
+    }
+
+    return (
+      type.includes('BATTERY_LOW') ||
+      type.includes('BATTERY_CRITICAL') ||
+      type.includes('BATTERY_SOLAR_LOW') ||
+      type.includes('BIN_SENSOR_STUCK') ||
+      type.includes('CAPTEUR_BLOQUE') ||
+      type.includes('SENSOR_STUCK') ||
+      text.includes('BATTERIE FAIBLE') ||
+      text.includes('BATTERIE CRITIQUE') ||
+      text.includes('CAPTEUR BLOQUE') ||
+      text.includes('CAPTEUR BLOQUÉ')
+    );
   }
 
   get highCount(): number {

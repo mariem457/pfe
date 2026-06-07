@@ -121,7 +121,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   treatQrCodeProblem(alert: AlertDto, event: MouseEvent): void {
     event.stopPropagation();
-    if (!alert?.id || this.treatingAlertIds.has(alert.id)) return;
+    if (!alert?.id || this.treatingAlertIds.has(alert.id) || !this.canTreatQrCodeProblem(alert)) return;
 
     this.treatingAlertIds.add(alert.id);
     this.alertService.treatQrCodeProblem(alert.id).subscribe({
@@ -189,7 +189,22 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private isQrCodeProblemAlert(alert: AlertDto): boolean {
     const type = (alert.alertType || '').trim().toUpperCase();
+    const text = [
+      alert.title,
+      alert.message,
+      alert.recommendation,
+      alert.actionType
+    ].filter(Boolean).join(' ').toLowerCase();
 
+    return (
+      type.includes('QR_CODE') ||
+      text.includes('qr code') ||
+      text.includes('qrcode')
+    );
+  }
+
+  canTreatQrCodeProblem(alert: AlertDto): boolean {
+    const type = (alert.alertType || '').trim().toUpperCase();
     return type === 'TRUCK_QR_CODE_PROBLEM' || type === 'DRIVER_QR_CODE_PROBLEM';
   }
 }

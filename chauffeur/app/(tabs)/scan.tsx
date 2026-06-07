@@ -39,6 +39,7 @@ export default function ScanScreen() {
     setLastCode(null);
   }
 
+  // Accepte plusieurs formats de QR code: JSON, URL ou simple code texte.
   function extractBinCode(raw: string) {
     const trimmed = raw.trim();
 
@@ -77,6 +78,7 @@ export default function ScanScreen() {
     setLastCode(scannedCode);
 
     try {
+      // Verifie que le QR scanne correspond bien a la poubelle attendue dans la mission.
       if (expectedBinCode && scannedCode !== expectedBinCode.trim()) {
         Alert.alert(
           "QR code invalide",
@@ -115,6 +117,7 @@ export default function ScanScreen() {
         throw new Error("Utilisateur non connecté");
       }
 
+      // Confirme la collecte cote backend pour mettre a jour l'etat de la mission.
       const res = await fetch(`${BASE_URL}/api/drivers/bin-scan`, {
         method: "POST",
         headers: {
@@ -152,6 +155,7 @@ export default function ScanScreen() {
           {
             text: isLastMissionBin ? "OK" : "Continuer route",
             onPress: () => {
+              // Retourne a la carte pour reprendre le trajet au prochain point.
               if (missionBinId) {
                 router.replace({
                   pathname: "/route-map",

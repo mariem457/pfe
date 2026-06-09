@@ -87,17 +87,17 @@
         <div class="legend-row">
           <div class="legend-label">
             <b class="dot rose-dot"></b>
-            <span>Critique</span>
+            <span>Critique / panne</span>
           </div>
-          <strong>{{ batteriesCritiques }}</strong>
+          <strong>{{ batteriesCritiques + batteriesEnPanne }}</strong>
         </div>
 
         <div class="legend-row">
           <div class="legend-label">
             <b class="dot slate-dot"></b>
-            <span>Sans données / panne</span>
+            <span>Sans données</span>
           </div>
-          <strong>{{ batteriesSansDonnees + batteriesEnPanne }}</strong>
+          <strong>{{ batteriesSansDonnees }}</strong>
         </div>
       </div>
     </div>
@@ -115,14 +115,6 @@
             <span>Actifs</span>
           </div>
           <strong>{{ sensorsActifs }}</strong>
-        </div>
-
-        <div class="legend-row">
-          <div class="legend-label">
-            <b class="dot amber-dot"></b>
-            <span>Inactifs</span>
-          </div>
-          <strong>{{ sensorsInactifs }}</strong>
         </div>
 
         <div class="legend-row">

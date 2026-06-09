@@ -15,6 +15,7 @@ type TruckLocationPayload = {
 const OFFLINE_TRUCK_LOCATIONS_KEY = "offline_truck_locations";
 const MAX_OFFLINE_TRUCK_LOCATIONS = 500;
 
+// Encadre les appels reseau pour eviter que l'application reste bloquee si le backend ne repond pas.
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -46,6 +47,7 @@ export async function sendTruckLocation() {
 
   if (status !== "granted") return;
 
+  // Position reelle du telephone utilisee pour suivre le camion en temps quasi reel.
   const location = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.High,
   });
@@ -61,6 +63,7 @@ export async function sendTruckLocation() {
   });
 }
 
+// Envoie une position deja calculee, par exemple depuis la simulation de trajet sur la carte.
 export async function sendTruckLocationPoint(params: {
   lat: number;
   lng: number;
@@ -82,6 +85,7 @@ export async function sendTruckLocationPoint(params: {
   });
 }
 
+// Envoie une position; si le reseau est indisponible, elle est gardee localement pour synchronisation.
 async function sendTruckLocationPayload(payload: TruckLocationPayload) {
   const token = await getToken();
 
@@ -126,6 +130,7 @@ async function flushQueuedTruckLocations(
 ) {
   const remaining = [...queuedLocations];
 
+  // Synchronise les positions dans l'ordre afin de conserver l'historique du trajet.
   while (remaining.length > 0) {
     try {
       await postTruckLocation(token, remaining[0]);
@@ -143,6 +148,7 @@ async function flushQueuedTruckLocations(
 
 async function enqueueTruckLocation(payload: TruckLocationPayload) {
   const queuedLocations = await getQueuedTruckLocations();
+  // Limite la file locale pour ne pas saturer le stockage du telephone.
   await saveQueuedTruckLocations(
     [...queuedLocations, payload].slice(-MAX_OFFLINE_TRUCK_LOCATIONS)
   );
@@ -178,6 +184,7 @@ function isTruckLocationPayload(value: any): value is TruckLocationPayload {
   );
 }
 
+// Recupere la mission active du chauffeur a partir de la liste de ses poubelles.
 export async function getCurrentMissionId(): Promise<number | null> {
   const token = await getToken();
   const userId = await getUserId();
@@ -221,6 +228,7 @@ export async function declareTruckIncident(params: {
     throw new Error("Session invalide ou camion non trouvé");
   }
 
+  // Le signalement camion est rattache au chauffeur, au camion et si possible a la mission courante.
   const response = await fetchWithTimeout(
     `${BASE_URL}/api/truck-incidents`,
     {
@@ -252,6 +260,7 @@ export async function declareTruckIncident(params: {
   return response.json();
 }
 
+// Liste les incidents ouverts ou historiques du camion actuellement affecte au chauffeur.
 export async function getMyTruckIncidents() {
   const token = await getToken();
   const truckId = await getTruckId();

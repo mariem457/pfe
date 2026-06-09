@@ -11,6 +11,8 @@ public class DriverProfileResponse {
     private Long assignedTruckId;
     private String shiftSchedule;
     private Integer binsCollected;
+    private Integer binsCollectedThisWeek;
+    private Integer binsCollectedThisMonth;
     private Integer efficiency;
     private Integer kmDriven;
     private Integer routesDone;
@@ -28,6 +30,8 @@ public class DriverProfileResponse {
             Long assignedTruckId,
             String shiftSchedule,
             Integer binsCollected,
+            Integer binsCollectedThisWeek,
+            Integer binsCollectedThisMonth,
             Integer efficiency,
             Integer kmDriven,
             Integer routesDone
@@ -41,6 +45,8 @@ public class DriverProfileResponse {
         this.assignedTruckId = assignedTruckId;
         this.shiftSchedule = shiftSchedule;
         this.binsCollected = binsCollected;
+        this.binsCollectedThisWeek = binsCollectedThisWeek;
+        this.binsCollectedThisMonth = binsCollectedThisMonth;
         this.efficiency = efficiency;
         this.kmDriven = kmDriven;
         this.routesDone = routesDone;
@@ -72,6 +78,12 @@ public class DriverProfileResponse {
 
     public Integer getBinsCollected() { return binsCollected; }
     public void setBinsCollected(Integer binsCollected) { this.binsCollected = binsCollected; }
+
+    public Integer getBinsCollectedThisWeek() { return binsCollectedThisWeek; }
+    public void setBinsCollectedThisWeek(Integer binsCollectedThisWeek) { this.binsCollectedThisWeek = binsCollectedThisWeek; }
+
+    public Integer getBinsCollectedThisMonth() { return binsCollectedThisMonth; }
+    public void setBinsCollectedThisMonth(Integer binsCollectedThisMonth) { this.binsCollectedThisMonth = binsCollectedThisMonth; }
 
     public Integer getEfficiency() { return efficiency; }
     public void setEfficiency(Integer efficiency) { this.efficiency = efficiency; }

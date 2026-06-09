@@ -110,6 +110,7 @@ export default function SignupScreen() {
     const passwordRegex =
       /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-\\/[\];'`~+=]).{8,}$/;
 
+    // Applique les memes contraintes de mot de passe que le backend avant d'envoyer la demande.
     if (!passwordRegex.test(password)) {
       Alert.alert(
         "Erreur",
@@ -126,6 +127,7 @@ export default function SignupScreen() {
     try {
       setLoading(true);
 
+      // Cree un compte chauffeur; la verification email se fait dans l'ecran suivant.
       const response = await fetch(`${BASE_URL}/api/auth/register-driver`, {
         method: "POST",
         headers: {

@@ -15,13 +15,18 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { BASE_URL } from "../lib/api";
 import { getToken, getUserId } from "../lib/storage";
 import { formatWasteTypeFr } from "../lib/wasteType";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
-const BASE_URL = "http://192.168.0.4:8081";
+
+
 const OSRM_URL = "http://192.168.0.4:5000";
+
+
+
 
 
 const DEV_MODE_PARIS = true;
@@ -75,6 +80,7 @@ const PARIS_DRIVER_LOCATION: Point = {
   longitude: 2.3003,
 };
 
+// Evite qu'un appel carte/API bloque l'ecran de navigation trop longtemps.
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -90,6 +96,7 @@ async function fetchWithTimeout(
   }
 }
 
+// Convertit les types de manoeuvres OSRM vers les icones affichees dans la banniere.
 function parseManeuver(type?: string, modifier?: string): ManeuverType {
   if (type === "arrive") return "arrive";
   if (type === "depart") return "depart";
@@ -101,6 +108,7 @@ function parseManeuver(type?: string, modifier?: string): ManeuverType {
   return "straight";
 }
 
+// Transforme la reponse OSRM en instructions simples pour le chauffeur.
 function buildNavSteps(osrmRoute: any): NavStep[] {
   const steps: NavStep[] = [];
   if (!osrmRoute?.legs) return steps;
@@ -336,6 +344,7 @@ export default function RouteMap() {
   }, [isRoutePaused, awaitingContinue, missionCompleted]);
 
   useEffect(() => {
+    // Continue a remonter la position reelle du telephone pendant la navigation.
     sendTruckLocation().catch(console.log);
 
     const interval = setInterval(() => {
@@ -376,6 +385,7 @@ export default function RouteMap() {
 
   async function sendPointToBackend(point: Point, speedKmh = 30, headingDeg = 0) {
     try {
+      // Utilise pendant la simulation pour envoyer une position calculee au backend.
       await sendTruckLocationPoint({
         lat: point.latitude,
         lng: point.longitude,
@@ -409,6 +419,7 @@ export default function RouteMap() {
         return [];
       }
 
+      // Recupere l'ordre de collecte affecte au chauffeur connecte.
       const res = await fetchWithTimeout(
         `${BASE_URL}/api/drivers/${userId}/my-bins`,
         {
@@ -480,6 +491,7 @@ export default function RouteMap() {
       const token = await getToken();
       if (!token) return { coords: [], syncedBins: routeBins };
 
+      // Essaie d'abord d'utiliser l'itineraire calcule et sauvegarde cote backend.
       const res = await fetchWithTimeout(
         `${BASE_URL}/api/missions/${missionId}/route`,
         {
@@ -606,6 +618,7 @@ export default function RouteMap() {
         .decode(route.geometry)
         .map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
 
+      // OSRM renvoie une polyline compacte; elle est decodee en points affichables sur la carte.
       const steps = buildNavSteps(route);
 
       setRouteCoords(decoded);
@@ -745,6 +758,7 @@ export default function RouteMap() {
   }
 
 function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
+  // Met la route en pause quand le camion arrive pres d'une poubelle a collecter.
   setTargetBin(bin);
   setIsRoutePaused(true);
   isPausedRef.current = true;
@@ -804,6 +818,7 @@ function stopRouteAtBin(bin: DriverBin, point: Point, headingDeg: number) {
 
 
 async function continueRoute() {
+  // Reprend la navigation apres scan valide ou signalement de probleme.
   setAwaitingContinue(false);
   setIsRoutePaused(false);
   setTargetBin(null);

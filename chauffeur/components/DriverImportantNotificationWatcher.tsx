@@ -11,6 +11,7 @@ const LAST_IMPORTANT_NOTIFICATION_ID_KEY = "wise_last_important_notification_id"
 const LAST_ROUTE_INDEX_KEY = "wise_last_route_index";
 const LAST_DRIVER_POINT_KEY = "wise_last_driver_point";
 
+// Composant invisible qui surveille les notifications importantes meme hors ecran notifications.
 export function DriverImportantNotificationWatcher() {
   const lastIdRef = useRef<number | null>(null);
 
@@ -18,6 +19,7 @@ export function DriverImportantNotificationWatcher() {
     let mounted = true;
 
     async function handleNewNotification(notification: DriverNotification) {
+      // Une mission annulee invalide la progression locale pour repartir du dashboard proprement.
       if (notification.type === "MISSION_CANCELLED") {
         await AsyncStorage.multiRemove([LAST_ROUTE_INDEX_KEY, LAST_DRIVER_POINT_KEY]);
 
@@ -40,6 +42,7 @@ export function DriverImportantNotificationWatcher() {
     }
 
     async function loadLastId() {
+      // Memorise la derniere notification traitee pour ne pas relancer la meme alerte.
       const saved = await AsyncStorage.getItem(LAST_IMPORTANT_NOTIFICATION_ID_KEY);
       const parsed = saved ? Number(saved) : null;
       if (!Number.isNaN(parsed)) {
@@ -63,6 +66,7 @@ export function DriverImportantNotificationWatcher() {
         if (!response.ok) return;
 
         const data: DriverNotification[] = await response.json();
+        // Les notifications GPS perdues sont ignorees ici car elles suivent un flux separe.
         const list = (Array.isArray(data) ? data : []).filter(
           (item) => !isGpsLostNotification(item)
         );

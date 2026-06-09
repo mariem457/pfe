@@ -87,8 +87,13 @@ export class EtatCapteursComponent implements OnInit {
 
   getStatus(s: any): string {
     const raw = (s.status || '').toString().toUpperCase();
+    const battery = this.getBatteryLevel(s);
 
     if (raw.includes('ERROR') || raw.includes('OFFLINE') || raw.includes('HORS_SERVICE')) {
+      return 'EN PANNE';
+    }
+
+    if (battery !== null && battery <= 5) {
       return 'EN PANNE';
     }
 
@@ -104,6 +109,17 @@ export class EtatCapteursComponent implements OnInit {
     }
 
     return 'ACTIF';
+  }
+
+  private getBatteryLevel(s: any): number | null {
+    const value = s?.batteryLevel ?? s?.battery_level ?? null;
+
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const numberValue = Number(value);
+    return isNaN(numberValue) ? null : numberValue;
   }
 
   getClass(s: any): string {

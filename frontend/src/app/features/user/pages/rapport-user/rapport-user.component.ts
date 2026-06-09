@@ -233,9 +233,23 @@ export class RapportUserComponent implements AfterViewInit, OnDestroy {
       error: (err) => {
         console.error('Create report failed', err);
         this.submitting = false;
-        alert("Erreur lors de l'envoi.");
+        const message = this.getSubmitErrorMessage(err);
+        alert(message);
       }
     });
+  }
+
+  private getSubmitErrorMessage(err: any): string {
+    if (err?.status === 0) {
+      return "Erreur lors de l'envoi : backend inaccessible sur http://localhost:8081.";
+    }
+
+    const backendMessage = err?.error?.message || err?.message;
+    if (backendMessage) {
+      return `Erreur lors de l'envoi (${err?.status || 'HTTP'}): ${backendMessage}`;
+    }
+
+    return "Erreur lors de l'envoi.";
   }
 
   private resetForm(): void {

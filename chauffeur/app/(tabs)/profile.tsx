@@ -28,6 +28,8 @@ type DriverProfile = {
   assignedTruck?: string;
   shiftSchedule?: string;
   binsCollected?: number;
+  binsCollectedThisWeek?: number;
+  binsCollectedThisMonth?: number;
   efficiency?: number;
   kmDriven?: number;
   routesDone?: number;
@@ -339,7 +341,7 @@ export default function ProfileScreen() {
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, styles.statGreen]}>
               <Text style={[styles.statNumber, { color: "#0E8E63" }]}>
-                {profile?.binsCollected ?? 0}
+                {profile?.binsCollectedThisMonth ?? profile?.binsCollected ?? 0}
               </Text>
               <Text style={styles.statText}>Bacs Collectés</Text>
             </View>

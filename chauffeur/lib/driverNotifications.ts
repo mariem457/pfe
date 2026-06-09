@@ -22,6 +22,7 @@ export type DriverNotification = {
   respondedAt?: string | null;
 };
 
+// Les alertes GPS perdu sont traitees ailleurs pour eviter les doublons dans l'interface chauffeur.
 export function isGpsLostNotification(notification: DriverNotification) {
   const raw = `${notification.type} ${notification.title} ${notification.message}`.toUpperCase();
   return raw.includes("GPS_LOST") || raw.includes("GPS-LOST");
@@ -43,6 +44,7 @@ function formatIncidentCode(value: string) {
     .replace(/-/g, " ");
 }
 
+// Centralise les textes affiches pour rendre les notifications backend lisibles en francais.
 export function getDriverNotificationText(notification: DriverNotification) {
   const truck = formatTruckCode(notification.truckCode);
 
@@ -97,6 +99,7 @@ export function getDriverNotificationText(notification: DriverNotification) {
   }
 }
 
+// Seules les notifications critiques doivent declencher une notification native sur le telephone.
 export function isPhoneNotificationImportant(notification: DriverNotification) {
   return (
     notification.type === "INCIDENT_CONTACT" ||

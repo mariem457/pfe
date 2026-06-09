@@ -74,6 +74,7 @@ export default function Dashboard() {
 
   const [driverName, setDriverName] = useState("Chauffeur");
   const [truckId, setTruckId] = useState("Non assigné");
+  const [weeklyCollectedBins, setWeeklyCollectedBins] = useState(0);
   const [bins, setBins] = useState<DriverBin[]>([]);
   const [loadingBins, setLoadingBins] = useState(true);
   const [routeStats, setRouteStats] = useState<RouteStats>({
@@ -86,6 +87,7 @@ export default function Dashboard() {
   const lastNotificationIdRef = useRef<number | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Charge le nom du chauffeur et le camion assigne pour l'en-tete du tableau de bord.
   const loadDashboardHeader = useCallback(async () => {
     try {
       const token = await getToken();
@@ -97,6 +99,7 @@ export default function Dashboard() {
       if (!token || !userId) {
         setDriverName("Chauffeur");
         setTruckId("Non assigné");
+        setWeeklyCollectedBins(0);
         return;
       }
 
@@ -123,6 +126,11 @@ export default function Dashboard() {
 
       setDriverName(data.fullName || "Chauffeur");
       setTruckId(data.assignedTruck || "Non assigné");
+      setWeeklyCollectedBins(
+        typeof data.binsCollectedThisWeek === "number"
+          ? data.binsCollectedThisWeek
+          : 0
+      );
 
       if (data.assignedTruckId) {
         await saveTruckId(data.assignedTruckId);
@@ -134,9 +142,11 @@ export default function Dashboard() {
       console.log("Erreur header:", error);
       setDriverName("Chauffeur");
       setTruckId("Non assigné");
+      setWeeklyCollectedBins(0);
     }
   }, []);
 
+  // Recupere les poubelles de la mission et les statistiques d'itineraire associees.
   const fetchMyBins = useCallback(async () => {
     try {
       setLoadingBins(true);
@@ -167,6 +177,7 @@ export default function Dashboard() {
       const list: DriverBin[] = Array.isArray(data) ? data : [];
       setBins(list);
 
+      // La mission est deduite de la premiere poubelle qui possede un missionId.
       const missionId = list.find((bin) => !!bin.missionId)?.missionId;
 
       if (!missionId) {
@@ -321,6 +332,7 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
+    // Envoie regulierement la position du camion tant que le dashboard est ouvert.
     sendTruckLocation().catch(console.log);
 
     const interval = setInterval(() => {
@@ -347,6 +359,7 @@ export default function Dashboard() {
 
   useFocusEffect(
     useCallback(() => {
+      // Rafraichit les donnees quand le chauffeur revient sur l'onglet dashboard.
       fetchMyBins();
       loadDriverNotifications(false);
 
@@ -442,6 +455,7 @@ export default function Dashboard() {
 
       await fetchMyBins();
 
+      // Lance la carte de navigation apres avoir rafraichi l'etat de la mission.
       router.push("/route-map");
     } catch (error: any) {
       console.log("START MISSION ERROR:", error);
@@ -828,7 +842,7 @@ export default function Dashboard() {
           <Text style={[styles.statTitle, { color: colors.subtext }]}>
             Cette semaine
           </Text>
-          <Text style={styles.statValue}>{collectedBins}</Text>
+          <Text style={styles.statValue}>{weeklyCollectedBins}</Text>
           <Text style={[styles.statSub, { color: colors.subtext }]}>
             Bacs collectés
           </Text>

@@ -16,9 +16,11 @@ public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionServ
 	private static final int URGENT_POSTPONED_THRESHOLD = 5;
 	private static final int LAST_RUN_DROPPED_THRESHOLD = 10;
 
+
 	private static final double HIGH_FEEDBACK_SCORE_THRESHOLD = 999.0;
 	private static final double AVERAGE_FEEDBACK_SCORE_THRESHOLD = 999.0;
 	private static final long HIGH_FEEDBACK_BINS_THRESHOLD = 999;
+
 
 	private static final int CURRENT_RUN_MANDATORY_THRESHOLD = 5;
 	private static final int CURRENT_RUN_OPPORTUNISTIC_THRESHOLD = 8;

@@ -22,6 +22,7 @@ public class MqttSubscriberService {
             System.out.println("gasValue = " + dto.getGasValue());
             System.out.println("fireDetected = " + dto.isFireDetected());
             System.out.println("status = " + dto.getStatus());
+            System.out.println("weightKg = " + dto.getWeightKg());
 
             BinSensorData entity = new BinSensorData();
             entity.setBinId(dto.getBinId());
@@ -29,6 +30,7 @@ public class MqttSubscriberService {
             entity.setGasValue(dto.getGasValue());
             entity.setFireDetected(dto.isFireDetected());
             entity.setStatus(dto.getStatus());
+            entity.setWeightKg(dto.getWeightKg());
 
             BinSensorData saved = repository.save(entity);
             repository.flush();
@@ -39,5 +41,6 @@ public class MqttSubscriberService {
             System.out.println(">>> ERROR IN handleDto");
             e.printStackTrace();
         }
+    
     }
 }

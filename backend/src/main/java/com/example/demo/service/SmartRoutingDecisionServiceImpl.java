@@ -13,129 +13,101 @@ import java.util.Optional;
 @Service
 public class SmartRoutingDecisionServiceImpl implements SmartRoutingDecisionService {
 
-    private static final int URGENT_POSTPONED_THRESHOLD = 5;
-    private static final int LAST_RUN_DROPPED_THRESHOLD = 10;
+	private static final int URGENT_POSTPONED_THRESHOLD = 5;
+	private static final int LAST_RUN_DROPPED_THRESHOLD = 10;
 
-    private static final double HIGH_FEEDBACK_SCORE_THRESHOLD = 999.0;
-    private static final double AVERAGE_FEEDBACK_SCORE_THRESHOLD = 999.0;
-    private static final long HIGH_FEEDBACK_BINS_THRESHOLD = 999;
+	private static final double HIGH_FEEDBACK_SCORE_THRESHOLD = 999.0;
+	private static final double AVERAGE_FEEDBACK_SCORE_THRESHOLD = 999.0;
+	private static final long HIGH_FEEDBACK_BINS_THRESHOLD = 999;
 
-    private static final int CURRENT_RUN_MANDATORY_THRESHOLD = 5;
-    private static final int CURRENT_RUN_OPPORTUNISTIC_THRESHOLD = 8;
+	private static final int CURRENT_RUN_MANDATORY_THRESHOLD = 5;
+	private static final int CURRENT_RUN_OPPORTUNISTIC_THRESHOLD = 8;
 
-   
-    private final PostponedBinRepository postponedBinRepository;
-    private final RoutingExecutionLogRepository routingExecutionLogRepository;
-    private final RoutingFeedbackService routingFeedbackService;
-    private final RoutingPayloadBuilderService routingPayloadBuilderService;
+	private final PostponedBinRepository postponedBinRepository;
+	private final RoutingExecutionLogRepository routingExecutionLogRepository;
+	private final RoutingFeedbackService routingFeedbackService;
+	private final RoutingPayloadBuilderService routingPayloadBuilderService;
 
-    public SmartRoutingDecisionServiceImpl(
-            
-            PostponedBinRepository postponedBinRepository,
-            RoutingExecutionLogRepository routingExecutionLogRepository,
-            RoutingFeedbackService routingFeedbackService,
-            RoutingPayloadBuilderService routingPayloadBuilderService
-    ) {
-       
-        this.postponedBinRepository = postponedBinRepository;
-        this.routingExecutionLogRepository = routingExecutionLogRepository;
-        this.routingFeedbackService = routingFeedbackService;
-        this.routingPayloadBuilderService = routingPayloadBuilderService;
-    }
+	public SmartRoutingDecisionServiceImpl(
 
-    @Override
-    public RoutingDecision makeDecision(List<Truck> trucks) {
-        if (trucks == null || trucks.isEmpty()) {
-            return RoutingDecision.skip(
-                    "Aucune décision de routage n'a été prise car aucun camion actif n'est disponible."
-            );
-        }
+			PostponedBinRepository postponedBinRepository, RoutingExecutionLogRepository routingExecutionLogRepository,
+			RoutingFeedbackService routingFeedbackService, RoutingPayloadBuilderService routingPayloadBuilderService) {
 
-      
+		this.postponedBinRepository = postponedBinRepository;
+		this.routingExecutionLogRepository = routingExecutionLogRepository;
+		this.routingFeedbackService = routingFeedbackService;
+		this.routingPayloadBuilderService = routingPayloadBuilderService;
+	}
 
-        Optional<RoutingExecutionLog> lastExecutionOpt =
-                routingExecutionLogRepository.findTop1ByOrderByCreatedAtDesc();
+	@Override
+	public RoutingDecision makeDecision(List<Truck> trucks) {
+		if (trucks == null || trucks.isEmpty()) {
+			return RoutingDecision
+					.skip("Aucune décision de routage n'a été prise car aucun camion actif n'est disponible.");
+		}
 
-        if (lastExecutionOpt.isPresent()) {
-            RoutingExecutionLog lastExecution = lastExecutionOpt.get();
+		Optional<RoutingExecutionLog> lastExecutionOpt = routingExecutionLogRepository.findTop1ByOrderByCreatedAtDesc();
 
-            if (lastExecution.getDroppedBinsCount() != null
-                    && lastExecution.getDroppedBinsCount() > LAST_RUN_DROPPED_THRESHOLD) {
-                return RoutingDecision.mandatoryOnly(
-                        "Le dernier cycle a abandonné un nombre élevé de bacs ("
-                                + lastExecution.getDroppedBinsCount()
-                                + "). Le système passe donc en mode MANDATORY_ONLY pour sécuriser la collecte critique."
-                );
-            }
-        }
+		if (lastExecutionOpt.isPresent()) {
+			RoutingExecutionLog lastExecution = lastExecutionOpt.get();
 
-        List<PostponedBin> unresolvedPostponedBins =
-                postponedBinRepository.findByResolvedFalseOrderByCreatedAtDesc();
+			if (lastExecution.getDroppedBinsCount() != null
+					&& lastExecution.getDroppedBinsCount() > LAST_RUN_DROPPED_THRESHOLD) {
+				return RoutingDecision.mandatoryOnly("Le dernier cycle a abandonné un nombre élevé de bacs ("
+						+ lastExecution.getDroppedBinsCount()
+						+ "). Le système passe donc en mode MANDATORY_ONLY pour sécuriser la collecte critique.");
+			}
+		}
 
-        long urgentPostponedCount = unresolvedPostponedBins.stream()
-                .filter(pb -> pb.getPredictedHoursToFull() != null && pb.getPredictedHoursToFull() <= 6.0)
-                .count();
+		List<PostponedBin> unresolvedPostponedBins = postponedBinRepository.findByResolvedFalseOrderByCreatedAtDesc();
 
-        if (urgentPostponedCount > URGENT_POSTPONED_THRESHOLD) {
-            return RoutingDecision.mandatoryOnly(
-                    "Un nombre important de bacs reportés devient urgent ("
-                            + urgentPostponedCount
-                            + "). Le système privilégie donc uniquement les bacs obligatoires."
-                );
-        }
+		long urgentPostponedCount = unresolvedPostponedBins.stream()
+				.filter(pb -> pb.getPredictedHoursToFull() != null && pb.getPredictedHoursToFull() <= 6.0).count();
 
-        double averageFeedbackScore = routingFeedbackService.getAverageFeedbackScore();
-        long highFeedbackBinsCount =
-                routingFeedbackService.countHighFeedbackScoreBins(HIGH_FEEDBACK_SCORE_THRESHOLD);
+		if (urgentPostponedCount > URGENT_POSTPONED_THRESHOLD) {
+			return RoutingDecision.mandatoryOnly("Un nombre important de bacs reportés devient urgent ("
+					+ urgentPostponedCount + "). Le système privilégie donc uniquement les bacs obligatoires.");
+		}
 
-        System.out.println("Feedback trend => averageScore=" + averageFeedbackScore
-                + ", highFeedbackBinsCount=" + highFeedbackBinsCount);
+		double averageFeedbackScore = routingFeedbackService.getAverageFeedbackScore();
+		long highFeedbackBinsCount = routingFeedbackService.countHighFeedbackScoreBins(HIGH_FEEDBACK_SCORE_THRESHOLD);
 
-        if (averageFeedbackScore >= AVERAGE_FEEDBACK_SCORE_THRESHOLD
-                || highFeedbackBinsCount >= HIGH_FEEDBACK_BINS_THRESHOLD) {
-            return RoutingDecision.mandatoryOnly(
-                    "La tendance des retours terrain indique une pression opérationnelle " +
-                    "(score moyen=" + averageFeedbackScore
-                            + ", bacs fortement signalés=" + highFeedbackBinsCount
-                            + "). Le système active une stratégie focalisée sur les bacs obligatoires."
-            );
-        }
+		System.out.println("Feedback trend => averageScore=" + averageFeedbackScore + ", highFeedbackBinsCount="
+				+ highFeedbackBinsCount);
 
-        var insights = routingPayloadBuilderService.getMandatoryBinInsights();
+		if (averageFeedbackScore >= AVERAGE_FEEDBACK_SCORE_THRESHOLD
+				|| highFeedbackBinsCount >= HIGH_FEEDBACK_BINS_THRESHOLD) {
+			return RoutingDecision.mandatoryOnly("La tendance des retours terrain indique une pression opérationnelle "
+					+ "(score moyen=" + averageFeedbackScore + ", bacs fortement signalés=" + highFeedbackBinsCount
+					+ "). Le système active une stratégie focalisée sur les bacs obligatoires.");
+		}
 
-        long mandatoryNowCount = insights.stream()
-                .filter(dto -> "MANDATORY".equals(dto.getDecisionCategory()))
-                .count();
+		var insights = routingPayloadBuilderService.getMandatoryBinInsights();
 
-        long opportunisticNowCount = insights.stream()
-                .filter(dto -> "OPPORTUNISTIC".equals(dto.getDecisionCategory()))
-                .count();
+		long mandatoryNowCount = insights.stream().filter(dto -> "MANDATORY".equals(dto.getDecisionCategory())).count();
 
-        System.out.println("Run-aware classification => mandatoryNow=" + mandatoryNowCount
-                + ", opportunisticNow=" + opportunisticNowCount);
+		long opportunisticNowCount = insights.stream().filter(dto -> "OPPORTUNISTIC".equals(dto.getDecisionCategory()))
+				.count();
 
-        if (mandatoryNowCount >= CURRENT_RUN_MANDATORY_THRESHOLD) {
-            return RoutingDecision.fullOptimization(
-                    "Le cycle courant contient un volume élevé de bacs obligatoires ("
-                            + mandatoryNowCount
-                            + "), mais le système autorise aussi les bacs opportunistes. "
-                            + "Le moteur applique une optimisation en deux passes : "
-                            + "PASS 1 sur les bacs obligatoires, puis PASS 2 avec les bacs opportunistes, "
-                            + "et conserve la solution qui ne dégrade pas la couverture des bacs critiques."
-            );
-        }
+		System.out.println("Run-aware classification => mandatoryNow=" + mandatoryNowCount + ", opportunisticNow="
+				+ opportunisticNowCount);
 
-        if (mandatoryNowCount > 0 || opportunisticNowCount >= CURRENT_RUN_OPPORTUNISTIC_THRESHOLD) {
-            return RoutingDecision.fullOptimization(
-                    "Le cycle courant contient des bacs obligatoires ou un volume opportuniste significatif " +
-                    "(mandatory=" + mandatoryNowCount
-                            + ", opportunistic=" + opportunisticNowCount
-                            + "). Une optimisation complète est donc justifiée."
-            );
-        }
+		if (mandatoryNowCount >= CURRENT_RUN_MANDATORY_THRESHOLD) {
+			return RoutingDecision.fullOptimization("Le cycle courant contient un volume élevé de bacs obligatoires ("
+					+ mandatoryNowCount + "), mais le système autorise aussi les bacs opportunistes. "
+					+ "Le moteur applique une optimisation en deux passes : "
+					+ "PASS 1 sur les bacs obligatoires, puis PASS 2 avec les bacs opportunistes, "
+					+ "et conserve la solution qui ne dégrade pas la couverture des bacs critiques.");
+		}
 
-        return RoutingDecision.fullOptimization(
-                "Les conditions opérationnelles sont normales. Le système autorise une optimisation complète standard."
-        );
-    }
+		if (mandatoryNowCount > 0 || opportunisticNowCount >= CURRENT_RUN_OPPORTUNISTIC_THRESHOLD) {
+			return RoutingDecision.fullOptimization(
+					"Le cycle courant contient des bacs obligatoires ou un volume opportuniste significatif "
+							+ "(mandatory=" + mandatoryNowCount + ", opportunistic=" + opportunisticNowCount
+							+ "). Une optimisation complète est donc justifiée.");
+		}
+
+		return RoutingDecision.fullOptimization(
+				"Les conditions opérationnelles sont normales. Le système autorise une optimisation complète standard.");
+	}
 }

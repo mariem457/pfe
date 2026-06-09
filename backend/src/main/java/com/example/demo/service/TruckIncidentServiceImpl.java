@@ -98,7 +98,7 @@ public class TruckIncidentServiceImpl implements TruckIncidentService {
 
         smartAlertService.createTruckIncidentAlert(saved);
 
-        if (Boolean.TRUE.equals(saved.getAutoDetected())) {
+        if (Boolean.TRUE.equals(saved.getAutoDetected()) || isReplanningIncident(saved.getIncidentType())) {
             triggerAutomaticReplanIfNeeded(saved);
         }
 

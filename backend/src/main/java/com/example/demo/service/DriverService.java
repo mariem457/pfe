@@ -20,7 +20,11 @@ import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,6 +38,7 @@ public class DriverService {
     private final MissionRepository missionRepository;
     private final MissionBinRepository missionBinRepository;
     private final TruckRepository truckRepository;
+    private static final ZoneId PARIS_ZONE = ZoneId.of("Europe/Paris");
 
     public DriverService(
             UserRepository userRepo,
@@ -126,6 +131,13 @@ public class DriverService {
         Mission mission = missions.stream()
                 .filter(m -> "CREATED".equalsIgnoreCase(m.getStatus())
                         || "IN_PROGRESS".equalsIgnoreCase(m.getStatus()))
+                .filter(m -> m.getTruck() == null
+                        || (m.getTruck().getStatus() != Truck.TruckStatus.BREAKDOWN
+                        && m.getTruck().getStatus() != Truck.TruckStatus.UNAVAILABLE))
+                .filter(m -> m.getMissionStatusDetail() == null
+                        || m.getMissionStatusDetail() == Mission.MissionStatusDetail.CREATED
+                        || m.getMissionStatusDetail() == Mission.MissionStatusDetail.PLANNED
+                        || m.getMissionStatusDetail() == Mission.MissionStatusDetail.IN_PROGRESS)
                 .findFirst()
                 .orElse(null);
 
@@ -165,6 +177,19 @@ public class DriverService {
 
         LocalDate today = LocalDate.now();
         LocalDate firstDayOfMonth = today.withDayOfMonth(1);
+        ZonedDateTime nowParis = ZonedDateTime.now(PARIS_ZONE);
+        ZonedDateTime startOfWeek = nowParis
+                .with(DayOfWeek.MONDAY)
+                .toLocalDate()
+                .atStartOfDay(PARIS_ZONE);
+        ZonedDateTime startOfMonth = nowParis
+                .withDayOfMonth(1)
+                .toLocalDate()
+                .atStartOfDay(PARIS_ZONE);
+        Instant weekStartInstant = startOfWeek.toInstant();
+        Instant monthStartInstant = startOfMonth.toInstant();
+        Instant nextMonthStartInstant = startOfMonth.plusMonths(1).toInstant();
+        Instant nowInstant = nowParis.toInstant();
 
         List<Mission> monthMissions = missionRepository.findByDriverId(driver.getId())
                 .stream()
@@ -177,10 +202,17 @@ public class DriverService {
                 .mapToInt(m -> (int) missionBinRepository.countByMissionId(m.getId()))
                 .sum();
 
-        int binsCollected = (int) monthMissions.stream()
-                .flatMap(m -> missionBinRepository.findByMissionIdOrderByVisitOrderAsc(m.getId()).stream())
-                .filter(MissionBin::isCollected)
-                .count();
+        int binsCollectedThisWeek = (int) missionBinRepository.countCollectedBinsByDriverBetween(
+                driver.getId(),
+                weekStartInstant,
+                nowInstant
+        );
+
+        int binsCollectedThisMonth = (int) missionBinRepository.countCollectedBinsByDriverBetween(
+                driver.getId(),
+                monthStartInstant,
+                nextMonthStartInstant
+        );
 
         int routesDone = (int) monthMissions.stream()
                 .filter(m -> {
@@ -190,7 +222,7 @@ public class DriverService {
                 .count();
 
         int efficiency = totalBins > 0
-                ? (int) Math.round((binsCollected * 100.0) / totalBins)
+                ? (int) Math.round((binsCollectedThisMonth * 100.0) / totalBins)
                 : 0;
 
         int kmDriven = 0;
@@ -207,7 +239,9 @@ public class DriverService {
                 vehicleCode,
                 assignedTruckId,
                 "Monday - Friday, 8:00 AM - 4:00 PM",
-                binsCollected,
+                binsCollectedThisMonth,
+                binsCollectedThisWeek,
+                binsCollectedThisMonth,
                 efficiency,
                 kmDriven,
                 routesDone

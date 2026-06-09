@@ -288,7 +288,11 @@ public class AuthBusinessService {
         if ("DRIVER".equalsIgnoreCase(user.getRole())) {
             Driver driver = driverRepository.findByUser_Id(user.getId()).orElse(null);
             if (driver != null && driver.getPhone() != null && !driver.getPhone().isBlank()) {
-                smsService.sendDriverResetCode(driver.getPhone(), code);
+                try {
+                    smsService.sendDriverResetCode(driver.getPhone(), code);
+                } catch (RuntimeException ex) {
+                    System.err.println("Reset password SMS not sent for user " + user.getId() + ": " + ex.getMessage());
+                }
             }
         }
     }

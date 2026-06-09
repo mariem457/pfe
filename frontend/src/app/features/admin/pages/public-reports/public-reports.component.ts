@@ -227,9 +227,26 @@ export class PublicReportsComponent implements OnInit {
       error: (err) => {
         console.error(err);
         this.actingId = null;
-        alert('Erreur lors de la validation.');
+        alert(this.getActionErrorMessage(err, 'validation'));
       }
     });
+  }
+
+  private getActionErrorMessage(err: any, action: string): string {
+    if (err?.status === 0) {
+      return `Erreur lors de la ${action} : backend inaccessible sur http://localhost:8081.`;
+    }
+
+    if (err?.status === 401 || err?.status === 403) {
+      return `Erreur lors de la ${action} : accès refusé. Reconnectez-vous avec un compte municipalité ou admin.`;
+    }
+
+    const backendMessage = err?.error?.message || err?.message;
+    if (backendMessage) {
+      return `Erreur lors de la ${action} (${err?.status || 'HTTP'}): ${backendMessage}`;
+    }
+
+    return `Erreur lors de la ${action}.`;
   }
 
   reject(r: ReportItem) {

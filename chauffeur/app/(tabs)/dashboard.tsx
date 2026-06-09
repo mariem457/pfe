@@ -74,6 +74,7 @@ export default function Dashboard() {
 
   const [driverName, setDriverName] = useState("Chauffeur");
   const [truckId, setTruckId] = useState("Non assigné");
+  const [weeklyCollectedBins, setWeeklyCollectedBins] = useState(0);
   const [bins, setBins] = useState<DriverBin[]>([]);
   const [loadingBins, setLoadingBins] = useState(true);
   const [routeStats, setRouteStats] = useState<RouteStats>({
@@ -98,6 +99,7 @@ export default function Dashboard() {
       if (!token || !userId) {
         setDriverName("Chauffeur");
         setTruckId("Non assigné");
+        setWeeklyCollectedBins(0);
         return;
       }
 
@@ -124,6 +126,11 @@ export default function Dashboard() {
 
       setDriverName(data.fullName || "Chauffeur");
       setTruckId(data.assignedTruck || "Non assigné");
+      setWeeklyCollectedBins(
+        typeof data.binsCollectedThisWeek === "number"
+          ? data.binsCollectedThisWeek
+          : 0
+      );
 
       if (data.assignedTruckId) {
         await saveTruckId(data.assignedTruckId);
@@ -135,6 +142,7 @@ export default function Dashboard() {
       console.log("Erreur header:", error);
       setDriverName("Chauffeur");
       setTruckId("Non assigné");
+      setWeeklyCollectedBins(0);
     }
   }, []);
 
@@ -834,7 +842,7 @@ export default function Dashboard() {
           <Text style={[styles.statTitle, { color: colors.subtext }]}>
             Cette semaine
           </Text>
-          <Text style={styles.statValue}>{collectedBins}</Text>
+          <Text style={styles.statValue}>{weeklyCollectedBins}</Text>
           <Text style={[styles.statSub, { color: colors.subtext }]}>
             Bacs collectés
           </Text>

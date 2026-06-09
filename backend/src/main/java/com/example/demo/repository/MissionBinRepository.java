@@ -106,5 +106,21 @@ public interface MissionBinRepository extends JpaRepository<MissionBin, Long> {
     	        @Param("startInstant") java.time.Instant startInstant,
     	        @Param("endInstant") java.time.Instant endInstant
     	);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM mission_bins mb
+            JOIN missions m ON m.id = mb.mission_id
+            WHERE m.driver_id = :driverId
+              AND mb.collected = true
+              AND mb.collected_at IS NOT NULL
+              AND mb.collected_at >= :startInstant
+              AND mb.collected_at < :endInstant
+            """, nativeQuery = true)
+    long countCollectedBinsByDriverBetween(
+            @Param("driverId") Long driverId,
+            @Param("startInstant") java.time.Instant startInstant,
+            @Param("endInstant") java.time.Instant endInstant
+    );
     
 }

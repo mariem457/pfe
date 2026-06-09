@@ -123,7 +123,8 @@ export default function DeclareBreakdownScreen() {
     isLastBin?: string;
   }>();
 
-  const isBinProblem = context === "bin" || !!missionBinId;
+  const isTruckProblem = context === "truck";
+  const isBinProblem = !isTruckProblem && (context === "bin" || !!missionBinId);
   const isLastMissionBin = isLastBin === "1";
   const problemTypes = isBinProblem ? binProblemTypes : truckProblemTypes;
   const accentColor = isBinProblem ? "#F97316" : "#EF4444";

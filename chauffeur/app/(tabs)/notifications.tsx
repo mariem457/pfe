@@ -32,6 +32,7 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<DriverNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -76,6 +77,10 @@ export default function NotificationsScreen() {
     return !item.read;
   }
 
+  const unreadNotifications = notifications.filter(
+    (item) => !item.read && !isGpsLostNotification(item)
+  );
+
   async function loadNotifications() {
     try {
       setLoading(true);
@@ -110,17 +115,28 @@ export default function NotificationsScreen() {
   async function onRefresh() {
     try {
       setRefreshing(true);
-      const markable = notifications.filter(
-        (item) => !item.read && !isGpsLostNotification(item)
-      );
-
-      await Promise.all(
-        markable.map((item) => markDriverNotificationAsRead(item.id))
-      );
-
       await loadNotifications();
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function markAllAsRead() {
+    if (markingAllRead || unreadNotifications.length === 0) return;
+
+    try {
+      setMarkingAllRead(true);
+      await Promise.all(
+        unreadNotifications.map((item) => markDriverNotificationAsRead(item.id))
+      );
+      await loadNotifications();
+    } catch (error: any) {
+      Alert.alert(
+        "Erreur",
+        alertMessageFr(error?.message, "Impossible de marquer les notifications comme lues.")
+      );
+    } finally {
+      setMarkingAllRead(false);
     }
   }
 
@@ -232,8 +248,24 @@ export default function NotificationsScreen() {
 
         <Text style={[styles.headerTitle, { color: colors.text }]}>Alertes</Text>
 
-        <TouchableOpacity activeOpacity={0.8} onPress={onRefresh}>
-          <Text style={[styles.refreshText, { color: colors.green }]}>Actualiser</Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={markAllAsRead}
+          disabled={markingAllRead || unreadNotifications.length === 0}
+        >
+          <Text
+            style={[
+              styles.refreshText,
+              {
+                color:
+                  markingAllRead || unreadNotifications.length === 0
+                    ? colors.softText
+                    : colors.green,
+              },
+            ]}
+          >
+            {markingAllRead ? "..." : "Tout lu"}
+          </Text>
         </TouchableOpacity>
       </View>
 
